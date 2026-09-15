@@ -1,68 +1,352 @@
-import { useMemo, useState } from "react";
-import { useLocation, useRoute } from "wouter";
-import { toast } from "sonner";
 import {
-  ArrowRight, ArrowUpRight, BarChart3, Bell, Box, Check, ChevronDown, ChevronRight,
-  CircleAlert, CircleHelp, CreditCard, Download, ExternalLink, Globe2, LayoutDashboard,
-  Layers3, LifeBuoy, Menu, MoreHorizontal, Package, Palette, Plus, Search, Settings2,
-  ShoppingBag, SlidersHorizontal, Store, Tag, Trash2, Truck, Upload, Users, WalletCards,
-  X, Zap,
+  BarChart3,
+  Box,
+  Globe2,
+  LayoutDashboard,
+  Menu,
+  Palette,
+  Settings2,
+  ShoppingCart,
+  Users,
+  X,
 } from "lucide-react";
-import { productSeed, Product } from "../data";
+
+import { useEffect, useState } from "react";
+
+import { useLocation } from "wouter";
+
+import DashboardHeader from "@/components/dashboard/layout/DashboardHeader";
+import DashboardSidebar from "@/components/dashboard/layout/DashboardSidebar";
+
+import OverviewPage from "@/components/dashboard/overview/OverviewPage";
+import ProductsPage from "@/components/dashboard/products/ProductsPage";
+import CategoriesPage from "@/components/dashboard/categories/CategoriesPage";
+import OrdersPage from "@/components/dashboard/orders/OrdersPage";
+import CustomersPage from "@/components/dashboard/customers/CustomersPage";
+import PaymentsPage from "@/components/dashboard/payments/PaymentsPage";
+import ShippingPage from "@/components/dashboard/shipping/ShippingPage";
+import MarketingPage from "@/components/dashboard/Marketing/MarketingPage";
+import SettingsPage from "@/components/dashboard/Settings/SettingsPage";
+
+import { trpc } from "@/lib/trpc";
+
+
+export type DashboardSection =
+  | "home"
+  | "products"
+  | "categories"
+  | "orders"
+  | "customers"
+  | "themes"
+  | "payments"
+  | "shipping"
+  | "marketing"
+  | "settings";
 
 const mainNav = [
-  { id: "home", label: "Início", icon: LayoutDashboard, path: "/app" },
-  { id: "products", label: "Produtos", icon: Box, path: "/app/products" },
-  { id: "design", label: "Design", icon: Palette, path: "/app/design" },
-  { id: "domain", label: "Domínio", icon: Globe2, path: "/app/domain" },
-  { id: "settings", label: "Configurações", icon: Settings2, path: "/app/settings" },
+  {
+    id: "home" as DashboardSection,
+    label: "Início",
+    icon: LayoutDashboard,
+    path: "/app",
+  },
+  {
+    id: "products" as DashboardSection,
+    label: "Produtos",
+    icon: Box,
+    path: "/app/products",
+  },
+  {
+    id: "categories" as DashboardSection,
+    label: "Categorias",
+    icon: Menu,
+    path: "/app/categories",
+  },
+  {
+    id: "orders" as DashboardSection,
+    label: "Encomendas",
+    icon: ShoppingCart,
+    path: "/app/orders",
+  },
+  {
+    id: "customers" as DashboardSection,
+    label: "Clientes",
+    icon: Users,
+    path: "/app/customers",
+  },
+  {
+    id: "themes" as DashboardSection,
+    label: "Design e temas",
+    icon: Palette,
+    path: "/store/themes",
+  },
+  {
+    id: "payments" as DashboardSection,
+    label: "Pagamentos",
+    icon: BarChart3,
+    path: "/app/payments",
+  },
+  {
+    id: "shipping" as DashboardSection,
+    label: "Entrega",
+    icon: Globe2,
+    path: "/app/shipping",
+  },
+  {
+    id: "marketing" as DashboardSection,
+    label: "Marketing",
+    icon: BarChart3,
+    path: "/app/marketing",
+  },
+  {
+    id: "settings" as DashboardSection,
+    label: "Configurações",
+    icon: Settings2,
+    path: "/app/settings",
+  },
 ];
 
-function Brand() { return <a href="/" className="flex items-center gap-2 font-display text-[18px] font-bold tracking-[-.06em]"><span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#141714] text-[11px] text-[#c8ff4a]">H</span>HOMSTEG<span className="text-[#97be3d]">.</span></a>; }
-function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "green" | "orange" | "red" }) { const tones = { neutral: "bg-[#edf2eb] text-[#687669]", green: "bg-[#e9f6cf] text-[#628c2d]", orange: "bg-[#fff0d7] text-[#a76f22]", red: "bg-[#ffe5e2] text-[#b6574d]" }; return <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${tones[tone]}`}>{children}</span>; }
-function PageTitle({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: React.ReactNode }) { return <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="mb-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#8c998d]">{eyebrow}</div><h1 className="font-display text-3xl font-semibold tracking-[-.06em] sm:text-4xl">{title}</h1>{description && <p className="mt-2 max-w-[540px] text-[13px] leading-5 text-[#7d897e]">{description}</p>}</div>{action}</div>; }
-function MiniButton({ children, onClick, variant = "light", className = "" }: { children: React.ReactNode; onClick?: () => void; variant?: "light" | "dark" | "lime"; className?: string }) { const style = { light: "border border-[#dce5d9] bg-white text-[#364137] hover:border-[#afbfab]", dark: "bg-[#141714] text-white hover:bg-[#2d352d]", lime: "bg-[#c8ff4a] text-[#15200d] hover:bg-[#b6e936]" }; return <button onClick={onClick} className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[11px] font-semibold ${style[variant]} ${className}`}>{children}</button>; }
+function getSectionFromPath(
+  path: string,
+): DashboardSection {
+  const section = path.split("/")[2];
 
-export default function Dashboard() {
-  const [, params] = useRoute("/app/:section");
-  const [, navigate] = useLocation();
-  const [mobileNav, setMobileNav] = useState(false);
-  const section = params?.section || "home";
-  const [products, setProducts] = useState<Product[]>(productSeed);
-  const [showNewProduct, setShowNewProduct] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
-  const active = mainNav.find((item) => item.id === section) || mainNav[0];
-  const go = (path: string) => { setMobileNav(false); navigate(path); };
+  switch (section) {
+    case "products":
+      return "products";
 
-  return <div className="min-h-screen bg-[#f5f8f3] text-[#141714]"><aside className={`fixed inset-y-0 left-0 z-50 flex w-[238px] flex-col border-r border-[#e1e9df] bg-white px-4 py-5 transition-transform duration-200 lg:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}><div className="mb-9 flex items-center justify-between px-2"><Brand /><button onClick={() => setMobileNav(false)} className="lg:hidden" aria-label="Fechar menu"><X size={17} /></button></div><div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[.17em] text-[#a1aba1]">Workspace</div><nav className="space-y-1">{mainNav.map((item) => { const Icon = item.icon; const isActive = active.id === item.id; return <button key={item.id} onClick={() => go(item.path)} className={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] font-semibold transition-colors ${isActive ? "bg-[#eaf6cf] text-[#4e6c2a]" : "text-[#7e8b80] hover:bg-[#f3f6f2] hover:text-[#263128]"}`}><Icon size={15} strokeWidth={isActive ? 2.5 : 1.8} />{item.label}{item.id === "products" && <span className="ml-auto rounded-full bg-[#f0f3ef] px-1.5 py-0.5 text-[9px] text-[#89958a]">4</span>}</button>; })}</nav><div className="mt-9 px-2 text-[9px] font-bold uppercase tracking-[.17em] text-[#a1aba1]">Atalhos</div><div className="mt-2 space-y-1"><button onClick={() => toast.info("A área de encomendas está dentro de Início.")} className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] font-medium text-[#7e8b80] hover:bg-[#f3f6f2]"><ShoppingBag size={15} />Encomendas<span className="ml-auto rounded-full bg-[#fff0d7] px-1.5 py-0.5 text-[9px] font-bold text-[#a76f22]">6</span></button><button onClick={() => toast.info("A área de clientes está dentro de Início.")} className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] font-medium text-[#7e8b80] hover:bg-[#f3f6f2]"><Users size={15} />Clientes</button><button onClick={() => toast.info("Analytics avançado disponível no plano Business.")} className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] font-medium text-[#7e8b80] hover:bg-[#f3f6f2]"><BarChart3 size={15} />Analytics</button></div><div className="mt-auto"><div className="mb-5 rounded-[12px] border border-[#dfead7] bg-[#f1f8e4] p-3"><div className="mb-1 flex items-center justify-between"><span className="text-[9px] font-bold text-[#5c7732]">PLANO BUSINESS</span><Zap size={12} className="text-[#81a92d]" /></div><div className="mb-3 text-[10px] leading-4 text-[#7b8b6b]">Tudo pronto para a próxima fase da Atelier Nova.</div><MiniButton variant="lime" className="w-full !py-2" onClick={() => toast.success("Planos disponíveis", { description: "O seu plano atual é Business." })}>Gerir plano</MiniButton></div><div className="flex items-center gap-3 border-t border-[#edf1eb] px-2 pt-4"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#e5e9f2] text-[10px] font-bold text-[#506080]">AS</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold">Amélia Sitoe</div><div className="text-[10px] text-[#8b978c]">Owner · Atelier Nova</div></div><MoreHorizontal size={15} className="text-[#9aa69b]" /></div></div></aside>{mobileNav && <button className="fixed inset-0 z-40 bg-[#152014]/20 lg:hidden" onClick={() => setMobileNav(false)} aria-label="Fechar menu" />}
+    case "categories":
+      return "categories";
 
-    <div className="lg:pl-[238px]"><header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-[#e1e9df] bg-[#f5f8f3]/90 px-5 backdrop-blur-xl sm:px-8"><div className="flex items-center gap-3"><button onClick={() => setMobileNav(true)} className="grid h-9 w-9 place-items-center rounded-full border border-[#dce5d9] bg-white lg:hidden" aria-label="Abrir menu"><Menu size={17} /></button><div className="hidden items-center gap-2 text-[11px] text-[#8b978c] sm:flex"><span>Atelier Nova</span><ChevronRight size={12} /><span className="font-semibold text-[#4c594d]">{active.label}</span></div><div className="sm:hidden font-display text-[15px] font-semibold tracking-[-.04em]">{active.label}</div></div><div className="flex items-center gap-2"><button onClick={() => toast.info("Sem novas notificações", { description: "Está tudo em dia." })} className="relative grid h-9 w-9 place-items-center rounded-full border border-[#dce5d9] bg-white text-[#657265]" aria-label="Notificações"><Bell size={15} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#b4e643]" /></button><MiniButton variant="light" className="hidden !py-2 sm:inline-flex" onClick={() => window.open("/store/atelier-nova", "_blank")}>Ver loja <ExternalLink size={12} /></MiniButton></div></header>
-      <main className="mx-auto max-w-[1250px] px-5 py-8 sm:px-8 lg:px-10">{section === "home" && <HomePanel onNavigate={go} />}{section === "products" && <ProductsPanel products={products} setProducts={setProducts} search={productSearch} setSearch={setProductSearch} onNew={() => setShowNewProduct(true)} />}{section === "design" && <DesignPanel onSave={() => toast.success("Design guardado", { description: "As alterações da Atelier Nova estão publicadas." })} />}{section === "domain" && <DomainPanel />}{section === "settings" && <SettingsPanel />}</main></div>
-    {showNewProduct && <NewProductModal onClose={() => setShowNewProduct(false)} onCreate={(product) => { setProducts((prev) => [product, ...prev]); setShowNewProduct(false); toast.success("Produto criado", { description: `${product.name} foi adicionado ao catálogo.` }); }} />}</div>;
+    case "orders":
+      return "orders";
+
+    case "customers":
+      return "customers";
+
+    case "themes":
+      return "themes";
+
+    case "payments":
+      return "payments";
+
+    case "shipping":
+      return "shipping";
+
+    case "marketing":
+      return "marketing";
+
+    case "settings":
+      return "settings";
+
+    default:
+      return "home";
+  }
 }
 
-function HomePanel({ onNavigate }: { onNavigate: (path: string) => void }) { return <><PageTitle eyebrow="Terça-feira, 08 Setembro 2026" title="Bom dia, Amélia." description="Aqui está o que está a acontecer na sua loja hoje." action={<div className="flex gap-2"><MiniButton variant="light" onClick={() => onNavigate("/store/atelier-nova")}>Ver loja <ArrowUpRight size={13} /></MiniButton><MiniButton variant="dark" onClick={() => onNavigate("/app/products")}>Adicionar produto <Plus size={13} /></MiniButton></div>} /><div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Receita total" value="48.920 MZN" change="+18,4%" detail="vs. mês anterior" icon={WalletCards} /><StatCard label="Encomendas" value="186" change="+12,8%" detail="últimos 30 dias" icon={ShoppingBag} /><StatCard label="Clientes" value="1.284" change="+8,2%" detail="base activa" icon={Users} /><StatCard label="Conversão" value="3,84%" change="+0,6%" detail="vs. período anterior" icon={BarChart3} /></div><div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]"><SalesChart /><TopProducts /></div><div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_.85fr]"><RecentOrders /><Onboarding /></div></>; }
-function StatCard({ label, value, change, detail, icon: Icon }: { label: string; value: string; change: string; detail: string; icon: React.ElementType }) { return <div className="rounded-[14px] border border-[#e1e9df] bg-white p-4 shadow-[0_4px_18px_rgba(40,62,37,.025)]"><div className="flex items-start justify-between"><div className="text-[11px] text-[#899589]">{label}</div><div className="grid h-8 w-8 place-items-center rounded-[9px] bg-[#f0f7e4] text-[#78a432]"><Icon size={15} /></div></div><div className="mt-4 font-display text-[24px] font-semibold tracking-[-.06em]">{value}</div><div className="mt-1 text-[10px] text-[#7da83a]"><span className="font-bold">{change}</span><span className="ml-1 text-[#9aa69b]">{detail}</span></div></div>; }
-function PanelCard({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <div className={`rounded-[14px] border border-[#e1e9df] bg-white ${className}`}>{children}</div>; }
-function CardHead({ title, action }: { title: string; action?: string }) { return <div className="flex items-center justify-between border-b border-[#edf1eb] px-5 py-4"><h2 className="text-[12px] font-bold">{title}</h2>{action && <button className="text-[10px] font-semibold text-[#78a432] hover:text-[#4e7020]">{action} <ArrowRight size={11} className="ml-1 inline" /></button>}</div>; }
-function SalesChart() { return <PanelCard><CardHead title="Vendas por período" action="Ver analytics" /><div className="p-5"><div className="mb-4 flex items-center justify-between"><div><span className="font-display text-[25px] font-semibold tracking-[-.06em]">48.920 MZN</span><span className="ml-2 rounded-full bg-[#eaf6cf] px-2 py-1 text-[9px] font-bold text-[#6b962f]">+18,4%</span></div><select className="rounded-full border border-[#dfe7dc] bg-white px-3 py-2 text-[10px] text-[#738073] outline-none"><option>Últimos 30 dias</option><option>Últimos 7 dias</option><option>Este ano</option></select></div><div className="relative h-[210px]"><div className="absolute inset-x-0 top-1/4 border-t border-dashed border-[#e7ece5]" /><div className="absolute inset-x-0 top-2/4 border-t border-dashed border-[#e7ece5]" /><div className="absolute inset-x-0 top-3/4 border-t border-dashed border-[#e7ece5]" /><div className="absolute bottom-0 left-0 top-0 flex flex-col justify-between text-[9px] text-[#a0aba0]"><span>12k</span><span>8k</span><span>4k</span><span>0</span></div><svg className="absolute inset-0 h-[calc(100%-20px)] w-full pl-7" viewBox="0 0 700 180" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#c8ff4a" stopOpacity=".42" /><stop offset="1" stopColor="#c8ff4a" stopOpacity="0" /></linearGradient></defs><path d="M0 154 C38 149 50 120 76 130 S121 165 150 115 S194 129 224 98 S268 104 294 82 S335 111 365 72 S414 94 446 56 S486 69 516 39 S552 66 576 26 S625 42 700 7 L700 180 L0 180Z" fill="url(#fill)" /><path d="M0 154 C38 149 50 120 76 130 S121 165 150 115 S194 129 224 98 S268 104 294 82 S335 111 365 72 S414 94 446 56 S486 69 516 39 S552 66 576 26 S625 42 700 7" fill="none" stroke="#8ab638" strokeWidth="3" /></svg><div className="absolute bottom-0 left-8 right-0 flex justify-between text-[9px] text-[#a0aba0]"><span>01 Set</span><span>08 Set</span><span>15 Set</span><span>22 Set</span><span>30 Set</span></div></div></div></PanelCard>; }
-function TopProducts() { return <PanelCard><CardHead title="Produtos mais vendidos" action="Ver produtos" /><div className="space-y-4 p-5"><TopProduct name="Cloud Knit" category="Fashion" sales="24 vendas" revenue="76.800 MZN" color="bg-[#d9c9ba]" /><TopProduct name="Everyday Tote" category="Accessories" sales="18 vendas" revenue="44.100 MZN" color="bg-[#cbdbe8]" /><TopProduct name="Sculptural Candle" category="Home" sales="15 vendas" revenue="28.350 MZN" color="bg-[#e7e4c6]" /><TopProduct name="Desk Light 02" category="Lighting" sales="12 vendas" revenue="58.680 MZN" color="bg-[#d8d8ce]" /></div></PanelCard>; }
-function TopProduct({ name, category, sales, revenue, color }: { name: string; category: string; sales: string; revenue: string; color: string }) { return <div className="flex items-center gap-3"><div className={`h-11 w-11 rounded-[9px] ${color}`} /><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold">{name}</div><div className="mt-1 text-[10px] text-[#8d998e]">{category} · {sales}</div></div><div className="text-right text-[10px] font-semibold text-[#475447]">{revenue}</div></div>; }
-function RecentOrders() { const orders = [["#HST-0924", "Amélia Sitoe", "3.240 MZN", "Pago", "green"], ["#HST-0923", "Marta Nhantumbo", "1.890 MZN", "Em processamento", "orange"], ["#HST-0922", "João Tembe", "4.890 MZN", "Pago", "green"], ["#HST-0921", "Lúcia Mussa", "2.450 MZN", "Enviado", "neutral"]] as const; return <PanelCard><CardHead title="Encomendas recentes" action="Ver todas" /><div className="overflow-x-auto"><div className="min-w-[560px] divide-y divide-[#edf1eb]"><div className="grid grid-cols-[1fr_1.2fr_1fr_.8fr] gap-3 px-5 py-3 text-[9px] font-bold uppercase tracking-[.12em] text-[#a0aba0]"><span>ID</span><span>Cliente</span><span>Total</span><span>Estado</span></div>{orders.map((order) => <div key={order[0]} className="grid grid-cols-[1fr_1.2fr_1fr_.8fr] items-center gap-3 px-5 py-3 text-[10px]"><span className="font-semibold text-[#526052]">{order[0]}</span><span className="text-[#7a877b]">{order[1]}</span><span className="font-semibold">{order[2]}</span><Pill tone={order[4]}>{order[3]}</Pill></div>)}</div></div></PanelCard>; }
-function Onboarding() { return <PanelCard className="p-5"><div className="flex items-start justify-between"><div><div className="mb-1 text-[10px] font-bold uppercase tracking-[.16em] text-[#8d998e]">Próximo passo</div><h2 className="font-display text-[18px] font-semibold tracking-[-.04em]">A sua loja está quase pronta.</h2></div><div className="grid h-10 w-10 place-items-center rounded-full border-[5px] border-[#dff0be] text-[10px] font-bold text-[#6f9b32]">88%</div></div><div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e8efe5]"><div className="h-full w-[88%] rounded-full bg-[#a3d443]" /></div><div className="mt-4 space-y-3"><CheckRow done label="Informações da loja" /><CheckRow done label="Primeiros produtos" /><CheckRow done label="Template e cores" /><CheckRow label="Configurar domínio personalizado" /><CheckRow label="Publicar a loja" /></div><MiniButton variant="light" className="mt-5 w-full" onClick={() => toast.info("A abrir o próximo passo", { description: "Vamos configurar o seu domínio." })}>Continuar configuração <ArrowRight size={12} /></MiniButton></PanelCard>; }
-function CheckRow({ done, label }: { done?: boolean; label: string }) { return <div className="flex items-center gap-2 text-[11px] text-[#667467]"><span className={`grid h-4 w-4 place-items-center rounded-full border ${done ? "border-[#a8d847] bg-[#c8ff4a] text-[#496825]" : "border-[#d4dfd2] text-transparent"}`}><Check size={10} /></span>{label}{!done && <span className="ml-auto text-[9px] text-[#a0aba0]">Continuar</span>}</div>; }
+function DashboardContent({
+  section,
+}: {
+  section: DashboardSection;
+}) {
+  switch (section) {
+    case "products":
+      return <ProductsPage />;
 
-function ProductsPanel({ products, setProducts, search, setSearch, onNew }: { products: Product[]; setProducts: React.Dispatch<React.SetStateAction<Product[]>>; search: string; setSearch: (value: string) => void; onNew: () => void }) { const filtered = products.filter((p) => `${p.name} ${p.category} ${p.id}`.toLowerCase().includes(search.toLowerCase())); const remove = (id: string) => { setProducts((prev) => prev.filter((p) => p.id !== id)); toast.success("Produto arquivado", { description: "O produto já não aparece na sua loja." }); }; return <><PageTitle eyebrow="Catálogo" title="Produtos" description="Gerencie produtos, variantes, stock e visibilidade da sua loja." action={<MiniButton variant="dark" onClick={onNew}><Plus size={14} />Criar produto</MiniButton>} /><div className="mb-5 flex flex-wrap gap-2"><Pill tone="green">Todos · {products.length}</Pill><button className="rounded-full border border-[#dce5d9] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#748174]">Activos · 3</button><button className="rounded-full border border-[#dce5d9] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#748174]">Stock baixo · 1</button><button className="rounded-full border border-[#dce5d9] bg-white px-3 py-1.5 text-[10px] font-semibold text-[#748174]">Sem stock · 1</button></div><PanelCard><div className="flex flex-col justify-between gap-3 border-b border-[#edf1eb] p-4 sm:flex-row"><div className="relative max-w-[320px] flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0aba0]" size={14} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar produtos..." className="h-9 w-full rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-9 pr-4 text-[11px] outline-none placeholder:text-[#a0aba0] focus:border-[#9fbe73]" /></div><div className="flex gap-2"><MiniButton variant="light" onClick={() => toast.success("Exportação preparada", { description: "O CSV do catálogo será descarregado." })}><Download size={13} />Exportar</MiniButton><MiniButton variant="light" onClick={() => toast.info("Importar catálogo", { description: "Escolha um ficheiro CSV válido." })}><Upload size={13} />Importar</MiniButton><MiniButton variant="light" onClick={() => toast.info("Filtros de produtos", { description: "Pode filtrar por categoria, estado ou stock." })}><SlidersHorizontal size={13} /></MiniButton></div></div><div className="overflow-x-auto"><div className="min-w-[700px]"><div className="grid grid-cols-[2fr_1fr_1fr_.8fr_.7fr_40px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]"><span>Produto</span><span>Categoria</span><span>Preço</span><span>Stock</span><span>Estado</span><span /></div>{filtered.length ? filtered.map((product) => <div key={product.id} className="grid grid-cols-[2fr_1fr_1fr_.8fr_.7fr_40px] items-center gap-4 border-b border-[#edf1eb] px-5 py-3.5 text-[11px] last:border-0"><div className="flex items-center gap-3"><div className="h-10 w-10 overflow-hidden rounded-[8px] bg-[#eef2ed]"><img src={product.image} alt="" className="h-full w-full object-cover" /></div><div><div className="font-semibold">{product.name}</div><div className="mt-1 text-[9px] text-[#9aa69b]">{product.id}</div></div></div><span className="text-[#7c897d]">{product.category}</span><span className="font-semibold">{product.price}</span><span className={`${product.stock === 0 ? "text-[#bb5e54]" : product.stock < 10 ? "text-[#b77b27]" : "text-[#748174]"}`}>{product.stock} un.</span><Pill tone={product.status === "Ativo" ? "green" : product.status === "Stock baixo" ? "orange" : "red"}>{product.status}</Pill><button onClick={() => remove(product.id)} className="grid h-7 w-7 place-items-center rounded-full text-[#a0aba0] hover:bg-[#fff0ef] hover:text-[#b9574d]" aria-label={`Arquivar ${product.name}`}><Trash2 size={13} /></button></div>) : <div className="p-14 text-center"><Package className="mx-auto mb-3 text-[#c3cdc2]" size={28} /><div className="text-[13px] font-semibold">Nenhum produto encontrado.</div><p className="mt-1 text-[11px] text-[#8d998e]">Tente outro termo de pesquisa.</p></div>}</div></div></PanelCard><div className="mt-4 grid gap-3 sm:grid-cols-3"><QuickAction icon={Tag} title="Categorias" text="Organize o catálogo" onClick={() => toast.info("Categorias", { description: "Pode criar e editar categorias nesta área." })} /><QuickAction icon={Layers3} title="Coleções" text="Crie selecções manuais" onClick={() => toast.info("Coleções", { description: "As coleções automáticas também estão disponíveis." })} /><QuickAction icon={Truck} title="Inventário" text="Controle o seu stock" onClick={() => toast.info("Inventário", { description: "Histórico de movimentos pronto para configurar." })} /></div></>; }
-function QuickAction({ icon: Icon, title, text, onClick }: { icon: React.ElementType; title: string; text: string; onClick: () => void }) { return <button onClick={onClick} className="flex items-center gap-3 rounded-[12px] border border-[#e1e9df] bg-white p-4 text-left hover:border-[#b5c8ae]"><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-[#eff7e2] text-[#78a432]"><Icon size={15} /></span><span><span className="block text-[11px] font-bold">{title}</span><span className="mt-1 block text-[10px] text-[#8b978c]">{text}</span></span><ChevronRight size={14} className="ml-auto text-[#a0aba0]" /></button>; }
+    case "categories":
+      return <CategoriesPage />;
 
-function NewProductModal({ onClose, onCreate }: { onClose: () => void; onCreate: (product: Product) => void }) { const [name, setName] = useState(""); const [price, setPrice] = useState(""); const [stock, setStock] = useState("10"); const submit = (e: React.FormEvent) => { e.preventDefault(); if (!name.trim() || !price.trim()) { toast.error("Preencha os campos obrigatórios", { description: "Nome e preço são necessários para criar o produto." }); return; } onCreate({ id: `PRD-${1043 + Math.floor(Math.random() * 50)}`, name, category: "General", price: `${price} MZN`, stock: Number(stock) || 0, status: Number(stock) > 0 ? "Ativo" : "Sem stock", image: "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=240&q=80" }); }; return <div className="fixed inset-0 z-[60] grid place-items-center bg-[#152014]/35 p-4 backdrop-blur-sm"><div className="w-full max-w-[480px] rounded-[18px] border border-[#e1e9df] bg-white p-6 shadow-[0_24px_80px_rgba(27,43,25,.2)]"><div className="mb-6 flex items-start justify-between"><div><div className="mb-1 text-[10px] font-bold uppercase tracking-[.16em] text-[#8d998e]">Catálogo</div><h2 className="font-display text-2xl font-semibold tracking-[-.05em]">Adicionar produto</h2></div><button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-[#f2f5f0] text-[#768276]" aria-label="Fechar"><X size={15} /></button></div><form onSubmit={submit} className="space-y-4"><Field label="Nome do produto *"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Camisa Sombra" className="field" autoFocus /></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Preço (MZN) *"><input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="2.490" className="field" inputMode="decimal" /></Field><Field label="Stock inicial"><input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="10" className="field" inputMode="numeric" /></Field></div><Field label="Categoria"><select className="field"><option>General</option><option>Fashion</option><option>Home</option><option>Beauty</option><option>Technology</option></select></Field><div className="rounded-[10px] bg-[#f1f8e5] p-3 text-[10px] leading-4 text-[#6d814f]">Pode adicionar variantes, imagens, SEO e descontos depois de guardar.</div><div className="flex justify-end gap-2 pt-2"><MiniButton variant="light" onClick={onClose}>Cancelar</MiniButton><MiniButton variant="dark" className="!px-5" >Guardar produto <Check size={13} /></MiniButton></div></form></div></div>; }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[10px] font-semibold text-[#586559]">{label}</span>{children}</label>; }
+    case "orders":
+      return <OrdersPage />;
 
-function DesignPanel({ onSave }: { onSave: () => void }) { const [device, setDevice] = useState("Desktop"); const [accent, setAccent] = useState("#c8ff4a"); return <><PageTitle eyebrow="Editor visual" title="Design" description="Personalize cada detalhe da sua loja sem escrever código." action={<MiniButton variant="lime" onClick={onSave}><Check size={13} />Guardar alterações</MiniButton>} /><div className="grid gap-5 xl:grid-cols-[330px_1fr]"><PanelCard className="p-5"><div className="mb-5 flex items-center justify-between"><span className="text-[12px] font-bold">Configuração</span><span className="text-[10px] text-[#8d998e]">Guardado há 2 min</span></div><div className="space-y-5"><div><div className="mb-3 text-[10px] font-bold uppercase tracking-[.15em] text-[#94a093]">Template</div><div className="flex items-center gap-3 rounded-[11px] border border-[#b6d47b] bg-[#f2f8e6] p-3"><div className="h-10 w-12 rounded-[6px] bg-[url('https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=200&q=80')] bg-cover" /><div className="flex-1"><div className="text-[11px] font-bold">Monument</div><div className="text-[9px] text-[#809073]">Luxury · Editorial</div></div><Check size={14} className="text-[#7ca634]" /></div></div><div><div className="mb-3 text-[10px] font-bold uppercase tracking-[.15em] text-[#94a093]">Cores</div><div className="mb-3 flex gap-2"><button onClick={() => setAccent("#c8ff4a")} className={`h-8 w-8 rounded-full border-2 bg-[#c8ff4a] ${accent === "#c8ff4a" ? "border-[#141714]" : "border-transparent"}`} aria-label="Verde lima" /><button onClick={() => setAccent("#c5d8ff")} className={`h-8 w-8 rounded-full border-2 bg-[#c5d8ff] ${accent === "#c5d8ff" ? "border-[#141714]" : "border-transparent"}`} aria-label="Azul" /><button onClick={() => setAccent("#ffc6c1")} className={`h-8 w-8 rounded-full border-2 bg-[#ffc6c1] ${accent === "#ffc6c1" ? "border-[#141714]" : "border-transparent"}`} aria-label="Rosa" /><button onClick={() => setAccent("#f2d8a5")} className={`h-8 w-8 rounded-full border-2 bg-[#f2d8a5] ${accent === "#f2d8a5" ? "border-[#141714]" : "border-transparent"}`} aria-label="Dourado" /></div><div className="flex items-center gap-2 rounded-[9px] border border-[#dfe7dc] px-3 py-2 text-[10px] text-[#6e7c70]"><span className="h-4 w-4 rounded-full" style={{ backgroundColor: accent }} />Accent color <span className="ml-auto font-mono text-[9px]">{accent}</span></div></div><div><div className="mb-3 text-[10px] font-bold uppercase tracking-[.15em] text-[#94a093]">Tipografia</div><select className="field"><option>Space Grotesk + DM Sans</option><option>Inter + Inter</option><option>Playfair + DM Sans</option></select></div><div className="divide-y divide-[#edf1eb] rounded-[10px] border border-[#e1e9df]"><ToggleRow label="Header fixo" checked /><ToggleRow label="Mostrar pesquisa" checked /><ToggleRow label="Botão WhatsApp" checked /></div><button onClick={() => toast.info("Secções da loja", { description: "Hero, produtos, coleções e footer podem ser reordenados." })} className="flex w-full items-center justify-between rounded-[10px] border border-dashed border-[#cbd9c7] px-3 py-3 text-[11px] font-semibold text-[#6d806b]"><span className="flex items-center gap-2"><Plus size={14} />Adicionar secção</span><ChevronRight size={14} /></button></div></PanelCard><PanelCard className="min-h-[650px] overflow-hidden bg-[#edf1eb]"><div className="flex items-center justify-between border-b border-[#dce5da] bg-white px-4 py-3"><div className="flex items-center gap-1 rounded-full bg-[#f2f5f1] p-1"><DeviceButton active={device === "Desktop"} onClick={() => setDevice("Desktop")} label="Desktop" icon="▱" /><DeviceButton active={device === "Tablet"} onClick={() => setDevice("Tablet")} label="Tablet" icon="▯" /><DeviceButton active={device === "Mobile"} onClick={() => setDevice("Mobile")} label="Mobile" icon="▯" /></div><div className="flex items-center gap-2 text-[10px] text-[#849084]"><span className="h-1.5 w-1.5 rounded-full bg-[#9bd33c]" />A pré-visualizar</div></div><div className="grid place-items-center p-8"><div className={`overflow-hidden rounded-[12px] border border-[#cbd7c9] bg-white shadow-[0_20px_45px_rgba(51,71,49,.13)] transition-all ${device === "Desktop" ? "w-full max-w-[740px]" : device === "Tablet" ? "w-[540px] max-w-full" : "w-[330px] max-w-full"}`}><div className="flex items-center justify-between border-b border-[#edf1eb] px-5 py-3"><span className="font-display text-[13px] font-bold tracking-[-.05em]">ATELIER NOVA</span><div className="hidden gap-4 text-[9px] text-[#6f7c70] sm:flex"><span>New in</span><span>Collections</span><span>About</span></div><ShoppingBag size={13} /></div><div className="relative m-3 flex min-h-[280px] items-end overflow-hidden rounded-[8px] bg-[url('https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1000&q=85')] bg-cover bg-center p-5"><div className="absolute inset-0 bg-black/20" /><div className="relative text-white"><div className="mb-2 text-[9px] font-bold uppercase tracking-[.2em] text-white/75">SS26 · New collection</div><div className="font-display text-3xl font-semibold leading-[.95] tracking-[-.06em]">The shape<br />of now.</div><button className="mt-4 rounded-full px-4 py-2 text-[9px] font-bold" style={{ backgroundColor: accent }}>Shop collection <ArrowRight className="ml-1 inline" size={10} /></button></div></div><div className="px-4 pb-4"><div className="mb-3 flex items-center justify-between"><span className="font-display text-[14px] font-semibold">Featured edit</span><span className="text-[9px] text-[#809080]">View all</span></div><div className="grid grid-cols-3 gap-2"><div><div className="aspect-square rounded-[6px] bg-[#ded2c6]" /><div className="mt-1 text-[9px] font-semibold">Cloud Knit</div></div><div><div className="aspect-square rounded-[6px] bg-[#c8d8e7]" /><div className="mt-1 text-[9px] font-semibold">Everyday Tote</div></div><div><div className="aspect-square rounded-[6px] bg-[#e4e2c9]" /><div className="mt-1 text-[9px] font-semibold">Candle 01</div></div></div></div></div></div></PanelCard></div></>; }
-function ToggleRow({ label, checked }: { label: string; checked?: boolean }) { const [on, setOn] = useState(!!checked); return <div className="flex items-center justify-between px-3 py-3"><span className="text-[11px] text-[#667367]">{label}</span><button onClick={() => setOn(!on)} className={`h-5 w-9 rounded-full p-0.5 transition-colors ${on ? "bg-[#a6d344]" : "bg-[#dbe4d8]"}`}><span className={`block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${on ? "translate-x-4" : "translate-x-0"}`} /></button></div>; }
-function DeviceButton({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: string }) { return <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${active ? "bg-white text-[#354136] shadow-sm" : "text-[#899589]"}`}><span className="mr-1.5">{icon}</span>{label}</button>; }
+    case "customers":
+      return <CustomersPage />;
 
-function DomainPanel() { return <><PageTitle eyebrow="Presença digital" title="Domínio" description="Dê à Atelier Nova um endereço fácil de encontrar e partilhar." action={<MiniButton variant="dark" onClick={() => toast.info("Adicionar domínio", { description: "Escolha entre um subdomínio HOMSTEG ou o seu domínio." })}><Plus size={14} />Adicionar domínio</MiniButton>} /><div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><PanelCard><CardHead title="Endereços da sua loja" /><div className="divide-y divide-[#edf1eb]"><DomainRow domain="ateliernova.homsteg.com" type="Subdomínio HOMSTEG" status="Activo" primary /><DomainRow domain="ateliernova.co.mz" type="Domínio personalizado" status="Não configurado" /></div></PanelCard><PanelCard className="p-5"><div className="mb-4 flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#eff7e1] text-[#78a432]"><Globe2 size={17} /></div><h2 className="font-display text-[18px] font-semibold tracking-[-.04em]">Mais confiança, mais cliques.</h2><p className="mt-2 text-[11px] leading-5 text-[#7d897e]">Um domínio próprio ajuda os clientes a reconhecerem a sua marca e melhora a sua presença nas pesquisas.</p><button onClick={() => toast.info("Instruções DNS", { description: "Adicione um registo CNAME apontado para domains.homsteg.com." })} className="mt-5 flex items-center gap-1 text-[11px] font-semibold text-[#6e9c30]">Ver instruções DNS <ArrowRight size={12} /></button></PanelCard></div><PanelCard className="mt-5 p-5"><div className="flex gap-3"><CircleAlert size={16} className="mt-0.5 text-[#c48732]" /><div><div className="text-[12px] font-bold">Sobre domínios personalizados</div><p className="mt-1 max-w-[620px] text-[11px] leading-5 text-[#7d897e]">Quando adicionar um domínio, vamos validar a ligação DNS antes de o marcar como conectado. O seu domínio HOMSTEG continua activo durante todo o processo.</p></div></div></PanelCard></>; }
-function DomainRow({ domain, type, status, primary }: { domain: string; type: string; status: string; primary?: boolean }) { return <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center"><div className="grid h-10 w-10 place-items-center rounded-[10px] bg-[#f1f5ef] text-[#778578]"><Globe2 size={17} /></div><div className="flex-1"><div className="flex items-center gap-2"><span className="font-display text-[15px] font-semibold tracking-[-.03em]">{domain}</span>{primary && <Pill tone="green">Principal</Pill>}</div><div className="mt-1 text-[10px] text-[#909c90]">{type}</div></div><div className="flex items-center gap-4"><Pill tone={status === "Activo" ? "green" : "orange"}>{status}</Pill><button className="text-[#9aa69b]" onClick={() => toast.info("Opções do domínio", { description: "Pode editar ou remover este endereço." })}><MoreHorizontal size={16} /></button></div></div>; }
+    case "payments":
+      return <PaymentsPage />;
 
-function SettingsPanel() { const [saved, setSaved] = useState(false); return <><PageTitle eyebrow="Workspace" title="Configurações" description="Defina como a sua loja funciona, comunica e cresce." action={<MiniButton variant="dark" onClick={() => { setSaved(true); toast.success("Configurações guardadas"); }}><Check size={13} />Guardar alterações</MiniButton>} /><div className="grid gap-5 lg:grid-cols-[210px_1fr]"><div className="flex gap-1 overflow-x-auto lg:block lg:space-y-1">{["Loja", "Perfil", "Contacto", "WhatsApp", "Idioma e moeda", "Checkout", "Entrega", "Pagamentos", "SEO", "Notificações", "Políticas", "Meu plano", "Segurança"].map((item, i) => <button key={item} className={`whitespace-nowrap rounded-[8px] px-3 py-2 text-left text-[11px] font-semibold lg:flex lg:w-full ${i === 0 ? "bg-[#eaf6cf] text-[#4e6c2a]" : "text-[#7d897e] hover:bg-white"}`}>{item}</button>)}</div><div className="space-y-4"><PanelCard className="p-5"><div className="mb-5"><h2 className="text-[13px] font-bold">Informações da loja</h2><p className="mt-1 text-[11px] text-[#8b978c]">Estas informações aparecem no checkout e nas comunicações.</p></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Nome da loja"><input className="field" defaultValue="Atelier Nova" /></Field><Field label="Email de contacto"><input className="field" defaultValue="hello@ateliernova.co.mz" /></Field><Field label="Telefone / WhatsApp"><input className="field" defaultValue="+258 84 320 1920" /></Field><Field label="Moeda"><select className="field"><option>MZN — Metical moçambicano</option><option>USD — Dólar americano</option></select></Field><Field label="Descrição" ><textarea className="field min-h-[90px] resize-none sm:col-span-2" defaultValue="Peças com forma, função e uma história para contar." /></Field></div></PanelCard><PanelCard className="p-5"><div className="mb-5"><h2 className="text-[13px] font-bold">Estado da loja</h2><p className="mt-1 text-[11px] text-[#8b978c]">Controle a visibilidade da sua loja online.</p></div><div className="flex items-center justify-between rounded-[10px] bg-[#f1f8e5] p-4"><div className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#c8ff4a] text-[#557a26]"><Store size={14} /></span><div><div className="text-[11px] font-bold">Loja publicada</div><div className="mt-1 text-[10px] text-[#7d8d6f]">Os clientes podem visitar e comprar.</div></div></div><Pill tone="green">Activa</Pill></div></PanelCard>{saved && <div className="flex items-center gap-2 rounded-[10px] bg-[#eaf6cf] px-4 py-3 text-[11px] font-semibold text-[#58772b]"><Check size={14} /> Todas as alterações estão guardadas.</div>}</div></div></>; }
+    case "shipping":
+      return <ShippingPage />;
+
+    case "marketing":
+      return <MarketingPage />;
+
+    case "settings":
+      return <SettingsPage />;
+
+    case "home":
+    default:
+      return <OverviewPage />;
+  }
+}
+
+export default function Dashboard() {
+  const [location] = useLocation();
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] =
+    useState(false);
+
+  const storesQuery = trpc.stores.mine.useQuery();
+
+  const requestedStoreId = new URLSearchParams(
+    window.location.search,
+  ).get("storeId");
+  const savedStoreId = sessionStorage.getItem(
+    "homsteg_active_store_id",
+  );
+  const stores = (storesQuery.data ?? []).map((entry) =>
+    "store" in entry ? entry.store : entry,
+  );
+  const selectedStore =
+    stores.find(
+      (store) => store.id === requestedStoreId || store.id === savedStoreId,
+    ) ?? stores[0];
+
+  useEffect(() => {
+    if (selectedStore) {
+      sessionStorage.setItem(
+        "homsteg_active_store_id",
+        selectedStore.id,
+      );
+    }
+  }, [selectedStore]);
+
+  const storeSlug = selectedStore?.slug;
+
+  const section =
+    getSectionFromPath(location);
+
+  const currentNav =
+    mainNav.find(
+      (item) => item.id === section,
+    ) ?? mainNav[0];
+
+  /*
+   * Para clientes normais, o backend retorna:
+   *
+   * { store: { ... } }
+   *
+   * Para administradores, retorna:
+   *
+   * { ...store }
+   *
+   * Aqui normalizamos os dois formatos.
+   */
+  return (
+    <div className="min-h-screen bg-[#f7f8f5] text-[#111713]">
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block">
+        <DashboardSidebar
+          navigation={mainNav}
+          activeSection={section}
+        />
+      </div>
+
+      {/* Mobile sidebar */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            className="absolute inset-0 bg-black/30"
+            onClick={() =>
+              setMobileSidebarOpen(false)
+            }
+          />
+
+          <aside className="relative z-10 h-full w-[280px] bg-white shadow-2xl">
+            <div className="flex h-16 items-center justify-between border-b px-5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111713] text-lg font-black text-white">
+                  H
+                </div>
+
+                <span className="text-lg font-black tracking-tight">
+                  HOMSTEG
+                </span>
+
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+              </div>
+
+              <button
+                type="button"
+                aria-label="Fechar menu"
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                onClick={() =>
+                  setMobileSidebarOpen(false)
+                }
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <nav className="space-y-1">
+                {mainNav.map((item) => {
+                  const Icon = item.icon;
+
+                  const active =
+                    item.id === section;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        window.history.pushState(
+                          {},
+                          "",
+                          item.path,
+                        );
+
+                        window.dispatchEvent(
+                          new PopStateEvent(
+                            "popstate",
+                          ),
+                        );
+
+                        setMobileSidebarOpen(
+                          false,
+                        );
+                      }}
+                      className={[
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                        active
+                          ? "bg-lime-100 text-[#111713]"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-[#111713]",
+                      ].join(" ")}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+
+                      <span>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Main area */}
+      <div className="lg:pl-[238px]">
+        <DashboardHeader
+          section={section}
+          title={currentNav.label}
+          storeSlug={storeSlug}
+          onOpenMobileMenu={() =>
+            setMobileSidebarOpen(true)
+          }
+        />
+
+        <main className="min-h-[calc(100vh-68px)] p-4 sm:p-6 lg:p-8">
+          <DashboardContent
+            section={section}
+          />
+        </main>
+      </div>
+    </div>
+  );
+}

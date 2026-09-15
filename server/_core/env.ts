@@ -1,3 +1,8 @@
+console.log(
+  "[ENV] JWT_SECRET length:",
+  process.env.JWT_SECRET?.length ?? 0
+);
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",

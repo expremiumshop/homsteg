@@ -1,15 +1,413 @@
-import { useState } from "react";
-import { toast } from "sonner";
-import { Activity, ArrowUpRight, BarChart3, Bell, Building2, Check, ChevronRight, CircleAlert, CreditCard, Database, FileText, Globe2, LayoutDashboard, LifeBuoy, ListFilter, Menu, MoreHorizontal, Search, Settings2, ShieldCheck, Store, Users, WalletCards, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ArrowUpRight,
+  LogOut,
+  Menu,
+  Search,
+  Store,
+  Users,
+  X,
+} from "lucide-react";
+import { useClerk } from "@clerk/react";
 
-const adminNav = [{ label: "Dashboard", icon: LayoutDashboard }, { label: "Lojas", icon: Store }, { label: "Utilizadores", icon: Users }, { label: "Planos", icon: FileText }, { label: "Assinaturas", icon: CreditCard }, { label: "Pagamentos", icon: WalletCards }, { label: "Receitas", icon: BarChart3 }, { label: "Templates", icon: LayoutDashboard }, { label: "Suporte", icon: LifeBuoy }, { label: "Logs", icon: Activity }, { label: "Configurações", icon: Settings2 }];
-const stores = [["Atelier Nova", "Amélia Sitoe", "Business", "48.920 MZN", "Activa", "AS"], ["Sora Beauty", "Marta Nhantumbo", "Starter", "12.480 MZN", "Activa", "MN"], ["Volt Lab", "João Tembe", "Pro", "89.640 MZN", "Activa", "JT"], ["Pico Play", "Lúcia Mussa", "Free", "0 MZN", "Trial", "LM"], ["Forma Home", "Nádia Omar", "Business", "36.200 MZN", "Activa", "NO"]] as const;
+import { trpc } from "@/lib/trpc";
+import UsersPanel from "@/components/admin/users/UsersPanel";
 
-export default function Admin() { const [active, setActive] = useState("Dashboard"); const [search, setSearch] = useState(""); const [mobile, setMobile] = useState(false); const currentStores = stores.filter((store) => `${store[0]} ${store[1]} ${store[2]}`.toLowerCase().includes(search.toLowerCase())); return <div className="min-h-screen bg-[#f4f7f2] text-[#141714]"><aside className={`fixed inset-y-0 left-0 z-50 w-[235px] border-r border-[#dfe7dc] bg-[#162016] px-4 py-5 text-white transition-transform ${mobile ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}><div className="mb-9 flex items-center justify-between px-2"><a href="/" className="font-display text-[18px] font-bold tracking-[-.07em]">HOMSTEG<span className="text-[#c8ff4a]">.</span></a><button onClick={() => setMobile(false)} className="lg:hidden"><X size={17} /></button></div><div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[.18em] text-white/35">Platform admin</div><nav className="space-y-1">{adminNav.map((item) => { const Icon = item.icon; return <button key={item.label} onClick={() => { setActive(item.label); setMobile(false); }} className={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[11px] font-semibold ${active === item.label ? "bg-[#c8ff4a] text-[#203016]" : "text-white/55 hover:bg-white/10 hover:text-white"}`}><Icon size={14} />{item.label}{item.label === "Suporte" && <span className="ml-auto rounded-full bg-[#efb55a] px-1.5 py-0.5 text-[9px] text-[#2b2416]">4</span>}</button>; })}</nav><div className="mt-auto hidden border-t border-white/10 pt-5 lg:block"><div className="flex items-center gap-3 px-2"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#c8ff4a] text-[10px] font-bold text-[#233018]">AD</div><div><div className="text-[11px] font-bold">Admin HOMSTEG</div><div className="text-[9px] text-white/40">Super admin</div></div></div></div></aside>{mobile && <button onClick={() => setMobile(false)} className="fixed inset-0 z-40 bg-black/25 lg:hidden" aria-label="Fechar menu" />}<div className="lg:pl-[235px]"><header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-[#dfe7dc] bg-[#f4f7f2]/90 px-5 backdrop-blur-xl sm:px-8"><div className="flex items-center gap-3"><button onClick={() => setMobile(true)} className="grid h-9 w-9 place-items-center rounded-full border border-[#d7e1d4] bg-white lg:hidden"><Menu size={17} /></button><div><div className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8c998c]">Central platform</div><div className="font-display text-[15px] font-semibold tracking-[-.04em]">{active}</div></div></div><div className="flex items-center gap-3"><button onClick={() => toast.info("Tudo sincronizado", { description: "Última sincronização há 12 segundos." })} className="relative text-[#7d897e]"><Bell size={16} /><span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-[#b4e643]" /></button><div className="hidden h-8 w-px bg-[#dfe7dc] sm:block" /><span className="hidden text-[11px] font-semibold text-[#556155] sm:block">Ana Dala</span><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e4ebde] text-[10px] font-bold text-[#5a7152]">AD</span></div></header><main className="mx-auto max-w-[1320px] px-5 py-8 sm:px-8 lg:px-10"><PageHeading active={active} /><div className="mb-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><AdminMetric label="Total de lojas" value="2.486" change="+8,2%" icon={Store} /><AdminMetric label="MRR" value="1,84M MZN" change="+14,6%" icon={BarChart3} /><AdminMetric label="Assinaturas activas" value="1.932" change="+6,8%" icon={CreditCard} /><AdminMetric label="Volume de vendas" value="28,4M MZN" change="+21,4%" icon={WalletCards} /></div><div className="grid gap-4 xl:grid-cols-[1.4fr_.8fr]"><RevenueChart /><HealthCard /></div><div className="mt-4"><Panel><div className="flex flex-col justify-between gap-3 border-b border-[#edf1eb] px-5 py-4 sm:flex-row sm:items-center"><div><h2 className="text-[12px] font-bold">Lojas recentes</h2><p className="mt-1 text-[10px] text-[#8e998e]">As últimas lojas criadas na plataforma.</p></div><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0aba0]" size={13} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="h-8 w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none" /></div><button onClick={() => toast.info("Filtros", { description: "Filtrar por plano, estado ou data." })} className="grid h-8 w-8 place-items-center rounded-full border border-[#dfe7dc] bg-white text-[#7b897c]"><ListFilter size={13} /></button></div></div><div className="overflow-x-auto"><div className="min-w-[750px]"><div className="grid grid-cols-[1.4fr_1.2fr_.8fr_1fr_.7fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]"><span>Loja</span><span>Merchant</span><span>Plano</span><span>Receita</span><span>Estado</span><span /></div>{currentStores.map((store) => <div key={store[0]} className="grid grid-cols-[1.4fr_1.2fr_.8fr_1fr_.7fr_34px] items-center gap-4 border-b border-[#edf1eb] px-5 py-3.5 text-[10px] last:border-0"><div className="flex items-center gap-3"><div className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#e9f2e5] text-[9px] font-bold text-[#58754c]">{store[5]}</div><div><div className="font-semibold">{store[0]}</div><div className="mt-1 text-[9px] text-[#98a398]">criada hoje, 14:28</div></div></div><span className="text-[#748074]">{store[1]}</span><span className="font-semibold text-[#657464]">{store[2]}</span><span className="font-semibold">{store[3]}</span><span><Status text={store[4]} /></span><button onClick={() => toast.info(`Abrir ${store[0]}`, { description: "A visualizar detalhes da loja." })} className="grid h-7 w-7 place-items-center rounded-full text-[#9aa69b] hover:bg-[#eff5ec] hover:text-[#58754c]"><MoreHorizontal size={14} /></button></div>)}</div></div></Panel></div></main></div></div>; }
-function PageHeading({ active }: { active: string }) { return <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><div className="mb-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#8c998d]">08 Setembro 2026 · Maputo</div><h1 className="font-display text-3xl font-semibold tracking-[-.06em]">{active === "Dashboard" ? "Visão geral da plataforma" : active}</h1><p className="mt-2 text-[13px] text-[#7d897e]">Acompanhe a saúde do ecossistema HOMSTEG em tempo real.</p></div><div className="flex gap-2"><button onClick={() => toast.success("Relatório exportado", { description: "O resumo da plataforma foi preparado." })} className="inline-flex items-center gap-2 rounded-full border border-[#d9e3d6] bg-white px-4 py-2.5 text-[11px] font-semibold text-[#556255]"><FileText size={13} />Exportar relatório</button></div></div>; }
-function AdminMetric({ label, value, change, icon: Icon }: { label: string; value: string; change: string; icon: React.ElementType }) { return <div className="rounded-[14px] border border-[#e1e9df] bg-white p-4"><div className="flex items-start justify-between"><span className="text-[11px] text-[#899589]">{label}</span><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-[#eff7e3] text-[#78a432]"><Icon size={15} /></span></div><div className="mt-4 font-display text-[23px] font-semibold tracking-[-.06em]">{value}</div><div className="mt-1 text-[10px] font-bold text-[#78a432]">{change}<span className="ml-1 font-normal text-[#9ba69b]">este mês</span></div></div>; }
-function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <div className={`rounded-[14px] border border-[#e1e9df] bg-white ${className}`}>{children}</div>; }
-function RevenueChart() { return <Panel><div className="flex items-center justify-between border-b border-[#edf1eb] px-5 py-4"><h2 className="text-[12px] font-bold">Receita recorrente mensal</h2><select className="rounded-full border border-[#e0e7dd] bg-white px-3 py-1.5 text-[10px] text-[#7d897e]"><option>Últimos 6 meses</option></select></div><div className="p-5"><div className="flex items-baseline gap-2"><span className="font-display text-[25px] font-semibold tracking-[-.06em]">1.842.640 MZN</span><span className="text-[10px] font-bold text-[#78a432]">+14,6%</span></div><div className="relative mt-6 h-[175px]"><div className="absolute inset-x-0 top-1/4 border-t border-dashed border-[#e7ece5]" /><div className="absolute inset-x-0 top-2/4 border-t border-dashed border-[#e7ece5]" /><div className="absolute inset-x-0 top-3/4 border-t border-dashed border-[#e7ece5]" /><svg className="h-full w-full" viewBox="0 0 700 160" preserveAspectRatio="none"><defs><linearGradient id="adminFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#b7e83f" stopOpacity=".35" /><stop offset="1" stopColor="#b7e83f" stopOpacity="0" /></linearGradient></defs><path d="M0 135 C40 136 65 110 100 119 S159 125 194 92 S252 108 292 82 S344 90 382 63 S424 71 470 52 S525 55 559 30 S626 36 700 12 L700 160 L0 160Z" fill="url(#adminFill)" /><path d="M0 135 C40 136 65 110 100 119 S159 125 194 92 S252 108 292 82 S344 90 382 63 S424 71 470 52 S525 55 559 30 S626 36 700 12" fill="none" stroke="#8ab83a" strokeWidth="3" /></svg><div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-[#a0aba0]"><span>Abr</span><span>Mai</span><span>Jun</span><span>Jul</span><span>Ago</span><span>Set</span></div></div></div></Panel>; }
-function HealthCard() { return <Panel className="p-5"><div className="mb-5 flex items-start justify-between"><div><div className="mb-1 text-[10px] font-bold uppercase tracking-[.16em] text-[#8d998e]">Sistema</div><h2 className="font-display text-[19px] font-semibold tracking-[-.04em]">Tudo em ordem.</h2></div><span className="grid h-9 w-9 place-items-center rounded-full bg-[#eaf6cf] text-[#6e9c32]"><ShieldCheck size={17} /></span></div><div className="space-y-4"><HealthRow label="API & base de dados" value="99,98%" /><HealthRow label="Checkout & pagamentos" value="99,95%" /><HealthRow label="Armazenamento" value="87% usado" warning /><HealthRow label="Tickets por responder" value="4" warning /></div><div className="mt-6 rounded-[10px] bg-[#f1f7ed] p-3 text-[10px] leading-4 text-[#728472]">Última verificação há 30 segundos. Sem incidentes activos.</div></Panel>; }
-function HealthRow({ label, value, warning }: { label: string; value: string; warning?: boolean }) { return <div className="flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${warning ? "bg-[#efbb64]" : "bg-[#a4d547]"}`} /><span className="flex-1 text-[11px] text-[#6d796e]">{label}</span><span className={`text-[10px] font-bold ${warning ? "text-[#b17c31]" : "text-[#6d9a32]"}`}>{value}</span></div>; }
-function Status({ text }: { text: string }) { return <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-bold ${text === "Activa" ? "bg-[#eaf6cf] text-[#648e31]" : "bg-[#fff0d7] text-[#aa7429]"}`}>{text}</span>; }
+const adminNav = [
+  { label: "Utilizadores", icon: Users },
+  { label: "Lojas", icon: Store },
+];
+
+export default function Admin() {
+  const { signOut } = useClerk();
+
+  const [active, setActive] = useState("Utilizadores");
+  const [search, setSearch] = useState("");
+  const [mobile, setMobile] = useState(false);
+
+  const usersQuery = trpc.admin.users.list.useQuery();
+
+  const users = usersQuery.data ?? [];
+
+  const stores = users.flatMap(({ user, stores: userStores }) =>
+    userStores.map(({ store }) => ({
+      store,
+      user,
+    })),
+  );
+
+  const currentStores = stores.filter(({ store, user }) =>
+    `${store.name} ${store.slug} ${store.status} ${
+      user.name ?? ""
+    } ${user.email ?? ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+
+  useEffect(() => {
+    if (!usersQuery.isError) {
+      return;
+    }
+
+    const code = usersQuery.error?.data?.code;
+
+    if (code === "UNAUTHORIZED" || code === "FORBIDDEN") {
+      window.location.replace("/admin/login");
+    }
+  }, [usersQuery.isError, usersQuery.error]);
+
+  async function handleLogout() {
+    await signOut();
+    window.location.replace("/admin/login");
+  }
+
+  if (usersQuery.isLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#f4f7f2]">
+        <div className="text-[11px] font-semibold text-[#748074]">
+          A carregar administração...
+        </div>
+      </div>
+    );
+  }
+
+  if (usersQuery.isError) {
+    const code = usersQuery.error?.data?.code;
+
+    if (code === "UNAUTHORIZED" || code === "FORBIDDEN") {
+      return (
+        <div className="grid min-h-screen place-items-center bg-[#f4f7f2] px-6">
+          <div className="text-center">
+            <div className="font-display text-[20px] font-semibold tracking-[-.05em]">
+              Acesso restrito
+            </div>
+
+            <p className="mt-2 text-[11px] text-[#7d897e]">
+              A redirecionar para o login do administrador...
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#f4f7f2] px-6">
+        <div className="max-w-[420px] text-center">
+          <div className="font-display text-[20px] font-semibold tracking-[-.05em]">
+            Não foi possível carregar a administração
+          </div>
+
+          <p className="mt-2 text-[11px] text-[#7d897e]">
+            {usersQuery.error?.message ??
+              "Ocorreu um erro ao carregar os dados."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f7f2] text-[#141714]">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[235px] flex-col border-r border-[#dfe7dc] bg-[#162016] px-4 py-5 text-white transition-transform ${
+          mobile
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        <div className="mb-9 flex items-center justify-between px-2">
+          <a
+            href="/"
+            className="font-display text-[18px] font-bold tracking-[-.07em]"
+          >
+            HOMSTEG
+            <span className="text-[#c8ff4a]">.</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={() => setMobile(false)}
+            className="lg:hidden"
+            aria-label="Fechar menu"
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[.18em] text-white/35">
+          Platform admin
+        </div>
+
+        <nav className="space-y-1">
+          {adminNav.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  setActive(item.label);
+                  setMobile(false);
+                  setSearch("");
+                }}
+                className={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[11px] font-semibold ${
+                  active === item.label
+                    ? "bg-[#c8ff4a] text-[#203016]"
+                    : "text-white/55 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Icon size={14} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto border-t border-white/10 pt-5">
+          <div className="mb-4 flex items-center gap-3 px-2">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#c8ff4a] text-[10px] font-bold text-[#233018]">
+              AD
+            </div>
+
+            <div className="min-w-0">
+              <div className="truncate text-[11px] font-bold">
+                Admin HOMSTEG
+              </div>
+
+              <div className="text-[9px] text-white/40">
+                Super admin
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[11px] font-semibold text-white/55 transition hover:bg-white/10 hover:text-white"
+          >
+            <LogOut size={14} />
+            Terminar sessão
+          </button>
+        </div>
+      </aside>
+
+      {mobile && (
+        <button
+          type="button"
+          onClick={() => setMobile(false)}
+          className="fixed inset-0 z-40 bg-black/25 lg:hidden"
+          aria-label="Fechar menu"
+        />
+      )}
+
+      <div className="lg:pl-[235px]">
+        <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-[#dfe7dc] bg-[#f4f7f2]/90 px-5 backdrop-blur-xl sm:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobile(true)}
+              className="grid h-9 w-9 place-items-center rounded-full border border-[#d7e1d4] bg-white lg:hidden"
+              aria-label="Abrir menu"
+            >
+              <Menu size={17} />
+            </button>
+
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8c998c]">
+                Central platform
+              </div>
+
+              <div className="font-display text-[15px] font-semibold tracking-[-.04em]">
+                {active}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-[1320px] px-5 py-8 sm:px-8 lg:px-10">
+          <div className="mb-7">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#8c998d]">
+              Central de administração
+            </div>
+
+            <h1 className="font-display text-3xl font-semibold tracking-[-.06em]">
+              {active}
+            </h1>
+
+            <p className="mt-2 text-[13px] text-[#7d897e]">
+              {active === "Utilizadores"
+                ? "Contas e lojas reais associadas."
+                : "Lojas ativas criadas pelos utilizadores."}
+            </p>
+          </div>
+
+          <div className="mb-7 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[14px] border border-[#e1e9df] bg-white p-4">
+              <div className="text-[11px] text-[#899589]">
+                Utilizadores
+              </div>
+
+              <div className="mt-4 font-display text-[23px] font-semibold tracking-[-.06em]">
+                {users.length}
+              </div>
+            </div>
+
+            <div className="rounded-[14px] border border-[#e1e9df] bg-white p-4">
+              <div className="text-[11px] text-[#899589]">
+                Lojas
+              </div>
+
+              <div className="mt-4 font-display text-[23px] font-semibold tracking-[-.06em]">
+                {stores.length}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="rounded-[14px] border border-[#e1e9df] bg-white">
+              <div className="flex flex-col justify-between gap-3 border-b border-[#edf1eb] px-5 py-4 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="text-[12px] font-bold">
+                    {active === "Utilizadores"
+                      ? "Utilizadores e lojas"
+                      : "Lojas ativas"}
+                  </h2>
+
+                  <p className="mt-1 text-[10px] text-[#8e998e]">
+                    {active === "Utilizadores"
+                      ? "Contas reais registadas na plataforma."
+                      : "Lojas disponíveis na plataforma."}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative">
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0aba0]"
+                      size={13}
+                    />
+
+                    <input
+                      value={search}
+                      onChange={(event) =>
+                        setSearch(event.target.value)
+                      }
+                      placeholder="Pesquisar..."
+                      className="h-8 w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[750px]">
+                  {active === "Utilizadores" && (
+                    <>
+                      <div className="grid grid-cols-[1.4fr_1.2fr_1fr_.8fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
+                        <span>Utilizador</span>
+                        <span>E-mail</span>
+                        <span>Loja / plano</span>
+                        <span>Estado</span>
+                        <span />
+                      </div>
+
+                      <UsersPanel search={search} />
+                    </>
+                  )}
+
+                  {active === "Lojas" && (
+                    <>
+                      <div className="grid grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
+                        <span>Loja</span>
+                        <span>Utilizador</span>
+                        <span>Endereço</span>
+                        <span>Estado</span>
+                        <span />
+                      </div>
+
+                      {currentStores.length === 0 && (
+                        <div className="px-5 py-4 text-[10px] text-[#748074]">
+                          Nenhuma loja encontrada.
+                        </div>
+                      )}
+
+                      {currentStores.map(({ store, user }) => (
+                        <div
+                          key={store.id}
+                          className="grid grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] items-center gap-4 border-b border-[#edf1eb] px-5 py-3.5 text-[10px] last:border-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#e9f2e5] text-[9px] font-bold text-[#58754c]">
+                              {store.name
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+
+                            <div>
+                              <div className="font-semibold">
+                                {store.name}
+                              </div>
+
+                              <div className="mt-1 text-[9px] text-[#98a398]">
+                                loja ativa
+                              </div>
+                            </div>
+                          </div>
+
+                          <span className="text-[#748074]">
+                            {user.name ??
+                              user.email ??
+                              "Sem nome"}
+                          </span>
+
+                          <span className="font-semibold text-[#657464]">
+                            /store/{store.slug}
+                          </span>
+
+                          <span>
+                            <Status text={store.status} />
+                          </span>
+
+                          <a
+                            href={`/store/${store.slug}`}
+                            className="grid h-7 w-7 place-items-center rounded-full text-[#9aa69b] hover:bg-[#eff5ec] hover:text-[#58754c]"
+                            title="Abrir loja"
+                          >
+                            <ArrowUpRight size={14} />
+                          </a>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function Status({ text }: { text: string }) {
+  const normalized = text.toLowerCase();
+
+  const isPositive =
+    normalized === "active" ||
+    normalized === "activa" ||
+    normalized === "approved" ||
+    normalized === "aprovada";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-1 text-[9px] font-bold ${
+        isPositive
+          ? "bg-[#eaf6cf] text-[#648e31]"
+          : "bg-[#fff0d7] text-[#aa7429]"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}

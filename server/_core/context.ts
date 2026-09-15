@@ -1,6 +1,15 @@
-import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
+import type {
+  CreateExpressContextOptions,
+} from "@trpc/server/adapters/express";
+
+import { getAuth } from "@clerk/express";
+
+import type { User } from "../../drizzle_old/schema";
+
+import {
+  getOrCreateClerkUser,
+  getUserByOpenId,
+} from "../db";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -9,14 +18,43 @@ export type TrpcContext = {
 };
 
 export async function createContext(
-  opts: CreateExpressContextOptions
+  opts: CreateExpressContextOptions,
 ): Promise<TrpcContext> {
   let user: User | null = null;
 
   try {
-    user = await sdk.authenticateRequest(opts.req);
+    const { userId } = getAuth(
+      opts.req,
+    );
+
+    if (userId) {
+      /*
+       * Garante que o utilizador Clerk
+       * esteja sincronizado com o Neon.
+       */
+      await getOrCreateClerkUser(
+        userId,
+      );
+
+      /*
+       * Lê novamente o registo atual
+       * diretamente do Neon.
+       *
+       * O ?? null é importante porque
+       * getUserByOpenId pode devolver
+       * undefined.
+       */
+      user =
+        (await getUserByOpenId(
+          userId,
+        )) ?? null;
+    }
   } catch (error) {
-    // Authentication is optional for public procedures.
+    console.error(
+      "[Auth] Failed to authenticate Clerk user:",
+      error,
+    );
+
     user = null;
   }
 
