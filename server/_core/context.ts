@@ -2,14 +2,12 @@ import type {
   CreateExpressContextOptions,
 } from "@trpc/server/adapters/express";
 
-import { getAuth } from "@clerk/express";
+import { fromNodeHeaders } from "better-auth/node";
 
-import type { User } from "../../drizzle_old/schema";
+import type { User } from "../../drizzle/schema";
 
-import {
-  getOrCreateClerkUser,
-  getUserByOpenId,
-} from "../db";
+import { auth } from "../auth";
+import { getUserByOpenId } from "../db";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -23,35 +21,17 @@ export async function createContext(
   let user: User | null = null;
 
   try {
-    const { userId } = getAuth(
-      opts.req,
-    );
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(opts.req.headers),
+    });
 
-    if (userId) {
-      /*
-       * Garante que o utilizador Clerk
-       * esteja sincronizado com o Neon.
-       */
-      await getOrCreateClerkUser(
-        userId,
-      );
-
-      /*
-       * Lê novamente o registo atual
-       * diretamente do Neon.
-       *
-       * O ?? null é importante porque
-       * getUserByOpenId pode devolver
-       * undefined.
-       */
+    if (session?.user?.id) {
       user =
-        (await getUserByOpenId(
-          userId,
-        )) ?? null;
+        (await getUserByOpenId(session.user.id)) ?? null;
     }
   } catch (error) {
     console.error(
-      "[Auth] Failed to authenticate Clerk user:",
+      "[Auth] Failed to authenticate Better Auth user:",
       error,
     );
 

@@ -1,13 +1,7 @@
 import { randomUUID } from "crypto";
 
-import { clerkClient } from "@clerk/express";
-
-import bcrypt from "bcryptjs";
-
 import { and, desc, eq, ne } from "drizzle-orm";
-
 import { drizzle } from "drizzle-orm/node-postgres";
-
 import { Pool } from "pg";
 
 import {
@@ -20,12 +14,10 @@ import {
   stores,
   storeMembers,
   users,
-} from "../drizzle_old/schema";
-
-import { ENV } from "./_core/env";
+} from "../drizzle/schema";
+import { createStoreDownloadUrl } from "./r2";
 
 let pool: Pool | null = null;
-
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
@@ -38,7 +30,6 @@ export async function getDb() {
       _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
-
       pool = null;
       _db = null;
     }
@@ -51,7 +42,19 @@ export async function getDb() {
    USERS
    ============================================================ */
 
-export async function upsertUser(user: InsertUser): Promise<void> {
+/**
+ * Cria ou atualiza o utilizador de negócio do HOMSTEG.
+ *
+ * O openId recebe o ID do utilizador do Better Auth.
+ *
+ * IMPORTANTE:
+ * - users.id continua a ser o ID interno numérico do HOMSTEG.
+ * - users.openId guarda o ID externo do Better Auth.
+ * - Não alteramos users.id.
+ */
+export async function upsertUser(
+  user: InsertUser,
+): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
   }
@@ -59,8 +62,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   const db = await getDb();
 
   if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-
+    console.warn(
+      "[Database] Cannot upsert user: database not available",
+    );
     return;
   }
 
@@ -73,48 +77,33 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     lastSignedIn: values.lastSignedIn,
   };
 
-  (["name", "email", "loginMethod"] as const).forEach(field => {
+  (["name", "email", "loginMethod"] as const).forEach((field) => {
     if (user[field] !== undefined) {
       values[field] = user[field] ?? null;
       updateSet[field] = values[field];
     }
   });
 
-  if (user.role !== undefined || user.openId === ENV.ownerOpenId) {
-    values.role = user.role ?? "admin";
+  if (user.role !== undefined) {
+    values.role = user.role;
     updateSet.role = values.role;
   }
 
-  await db.insert(users).values(values).onConflictDoUpdate({
-    target: users.openId,
-    set: updateSet,
-  });
+  await db
+    .insert(users)
+    .values(values)
+    .onConflictDoUpdate({
+      target: users.openId,
+      set: updateSet,
+    });
 }
 
 /**
- * Synchronizes the minimal profile supplied by a verified Clerk webhook.
- * This avoids waiting for the user to make an authenticated app request
- * before the account is visible in the Neon-backed Admin area.
+ * Procura um utilizador de negócio pelo ID do Better Auth.
  */
-export async function syncClerkUser({
-  clerkUserId,
-  email,
-  name,
-}: {
-  clerkUserId: string;
-  email: string | null;
-  name: string | null;
-}): Promise<void> {
-  await upsertUser({
-    openId: clerkUserId,
-    email,
-    name,
-    loginMethod: "clerk",
-    lastSignedIn: new Date(),
-  });
-}
-
-export async function getUserByOpenId(openId: string) {
+export async function getUserByOpenId(
+  openId: string,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -133,10 +122,11 @@ export async function getUserByOpenId(openId: string) {
 /**
  * Procura um utilizador pelo e-mail.
  *
- * O e-mail é normalizado para minúsculas para evitar
- * contas duplicadas por diferença de maiúsculas/minúsculas.
+ * O e-mail é normalizado para minúsculas.
  */
-export async function getUserByEmail(email: string) {
+export async function getUserByEmail(
+  email: string,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -155,171 +145,35 @@ export async function getUserByEmail(email: string) {
 }
 
 /**
- * Procura ou cria o utilizador local do Neon
- * correspondente ao utilizador autenticado pelo Clerk.
- */
-export async function getOrCreateClerkUser(clerkUserId: string) {
-  const db = await getDb();
-
-  if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
-  }
-
-  // The Clerk user id is the source of identity. OWNER_OPEN_ID must contain
-  // that exact `user_...` id, never an e-mail address or the Neon numeric id.
-  const isConfiguredOwner =
-    ENV.ownerOpenId.length > 0 && clerkUserId === ENV.ownerOpenId;
-
-  // 1. Tenta encontrar diretamente pelo ID do Clerk.
-  const existingByClerkId = await getUserByOpenId(clerkUserId);
-
-  if (existingByClerkId) {
-    // Accounts created before Clerk was introduced already exist in Neon. On
-    // every sign-in, reconcile the configured owner role so an existing row
-    // cannot remain incorrectly marked as a regular user.
-    if (isConfiguredOwner && existingByClerkId.role !== "admin") {
-      const result = await db
-        .update(users)
-        .set({
-          role: "admin",
-          lastSignedIn: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, existingByClerkId.id))
-        .returning();
-
-      return result[0] ?? existingByClerkId;
-    }
-
-    await updateUserLastSignedIn(existingByClerkId.id);
-
-    return existingByClerkId;
-  }
-
-  // 2. Obtém os dados atuais do utilizador no Clerk.
-  const clerkUser = await clerkClient.users.getUser(clerkUserId);
-
-  const email =
-    clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase().trim() ?? null;
-
-  const name =
-    [clerkUser.firstName, clerkUser.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || null;
-
-  // 3. Se já existir no Neon pelo mesmo e-mail,
-  // associa essa conta ao Clerk.
-  if (email) {
-    const existingByEmail = await getUserByEmail(email);
-
-    if (existingByEmail) {
-      const result = await db
-        .update(users)
-        .set({
-          openId: clerkUserId,
-          name,
-          email,
-          loginMethod: "clerk",
-          // Preserve an existing manual admin role. Only the configured owner
-          // is elevated automatically.
-          role: isConfiguredOwner ? "admin" : existingByEmail.role,
-          lastSignedIn: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, existingByEmail.id))
-        .returning();
-
-      return result[0];
-    }
-  }
-
-  // 4. Primeiro login de um novo utilizador.
-  const result = await db
-    .insert(users)
-    .values({
-      openId: clerkUserId,
-      name,
-      email,
-      loginMethod: "clerk",
-      role: isConfiguredOwner ? "admin" : "user",
-      lastSignedIn: new Date(),
-    })
-    .returning();
-
-  return result[0];
-}
-
-/**
- * Cria uma conta utilizando e-mail e palavra-passe.
+ * Sincroniza o utilizador autenticado pelo Better Auth
+ * com a tabela de negócio users do HOMSTEG.
  *
- * LEGACY:
- * Esta função será removida depois que a autenticação
- * Clerk estiver totalmente confirmada.
+ * Esta função será chamada pelo hook do Better Auth.
  */
-export async function createCredentialsUser(email: string, password: string) {
-  const db = await getDb();
-
-  if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
-
-  const existingUser = await getUserByEmail(normalizedEmail);
-
-  if (existingUser) {
-    throw new Error("EMAIL_ALREADY_EXISTS");
-  }
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const openId = `credentials_${randomUUID()}`;
-
-  const result = await db
-    .insert(users)
-    .values({
-      openId,
-      email: normalizedEmail,
-      passwordHash,
-      loginMethod: "email",
-      role: "user",
-      lastSignedIn: new Date(),
-    })
-    .returning();
-
-  return result[0];
+export async function syncBetterAuthUser({
+  userId,
+  email,
+  name,
+}: {
+  userId: string;
+  email: string;
+  name: string;
+}) {
+  await upsertUser({
+    openId: userId,
+    email: email.toLowerCase().trim(),
+    name: name.trim() || null,
+    loginMethod: "better-auth",
+    lastSignedIn: new Date(),
+  });
 }
 
 /**
- * Verifica e-mail + palavra-passe.
- *
- * LEGACY:
- * Esta função será removida depois que a autenticação
- * Clerk estiver totalmente confirmada.
+ * Atualiza a data do último login do utilizador de negócio.
  */
-export async function verifyUserPassword(email: string, password: string) {
-  const user = await getUserByEmail(email);
-
-  if (!user || !user.passwordHash) {
-    return undefined;
-  }
-
-  const validPassword = await bcrypt.compare(password, user.passwordHash);
-
-  if (!validPassword) {
-    return undefined;
-  }
-
-  await updateUserLastSignedIn(user.id);
-
-  return user;
-}
-
-/**
- * Atualiza a data do último login.
- */
-async function updateUserLastSignedIn(userId: number) {
+export async function updateUserLastSignedIn(
+  userId: number,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -330,6 +184,7 @@ async function updateUserLastSignedIn(userId: number) {
     .update(users)
     .set({
       lastSignedIn: new Date(),
+      updatedAt: new Date(),
     })
     .where(eq(users.id, userId));
 }
@@ -338,7 +193,10 @@ async function updateUserLastSignedIn(userId: number) {
    STORES
    ============================================================ */
 
-export async function getStoresForUser(userId: number, isAdmin = false) {
+export async function getStoresForUser(
+  userId: number,
+  isAdmin = false,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -346,7 +204,10 @@ export async function getStoresForUser(userId: number, isAdmin = false) {
   }
 
   if (isAdmin) {
-    return db.select().from(stores).orderBy(desc(stores.createdAt));
+    return db
+      .select()
+      .from(stores)
+      .orderBy(desc(stores.createdAt));
   }
 
   return db
@@ -354,14 +215,19 @@ export async function getStoresForUser(userId: number, isAdmin = false) {
       store: stores,
     })
     .from(stores)
-    .innerJoin(storeMembers, eq(storeMembers.storeId, stores.id))
-    .where(eq(storeMembers.userId, userId))
+    .innerJoin(
+      storeMembers,
+      eq(storeMembers.storeId, stores.id),
+    )
+    .where(
+      eq(storeMembers.userId, userId),
+    )
     .orderBy(desc(stores.createdAt));
 }
 
 /**
- * Creates an active store and its owner membership atomically. Retries by the
- * same owner are safe; another user cannot claim an existing slug.
+ * Cria uma loja ativa e a relação owner
+ * dentro da mesma transação.
  */
 export async function createStoreForUser({
   userId,
@@ -378,7 +244,7 @@ export async function createStoreForUser({
     throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  return db.transaction(async tx => {
+  return db.transaction(async (tx) => {
     const existingStore = await tx
       .select()
       .from(stores)
@@ -387,12 +253,20 @@ export async function createStoreForUser({
 
     if (existingStore[0]) {
       const membership = await tx
-        .select({ id: storeMembers.id })
+        .select({
+          id: storeMembers.id,
+        })
         .from(storeMembers)
         .where(
           and(
-            eq(storeMembers.storeId, existingStore[0].id),
-            eq(storeMembers.userId, userId),
+            eq(
+              storeMembers.storeId,
+              existingStore[0].id,
+            ),
+            eq(
+              storeMembers.userId,
+              userId,
+            ),
           ),
         )
         .limit(1);
@@ -401,10 +275,13 @@ export async function createStoreForUser({
         return existingStore[0];
       }
 
-      throw new Error("STORE_SLUG_ALREADY_EXISTS");
+      throw new Error(
+        "STORE_SLUG_ALREADY_EXISTS",
+      );
     }
 
     const id = randomUUID();
+
     const created = await tx
       .insert(stores)
       .values({
@@ -419,21 +296,22 @@ export async function createStoreForUser({
       })
       .returning();
 
-    await tx.insert(storeMembers).values({
-      storeId: id,
-      userId,
-      role: "owner",
-    });
+    await tx
+      .insert(storeMembers)
+      .values({
+        storeId: id,
+        userId,
+        role: "owner",
+      });
 
     return created[0];
   });
 }
 
-/**
- * Dados administrativos normalizados por utilizador. A lista preserva todas
- * as lojas do mesmo utilizador, pois uma conta pode ser proprietária ou
- * membro de várias lojas.
- */
+/* ============================================================
+   ADMIN
+   ============================================================ */
+
 export async function getAdminUsers() {
   const db = await getDb();
 
@@ -441,12 +319,23 @@ export async function getAdminUsers() {
     return [];
   }
 
-  const [allUsers, applications, memberships] = await Promise.all([
-    db.select().from(users).orderBy(desc(users.createdAt)),
+  const [
+    allUsers,
+    applications,
+    memberships,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt)),
+
     db
       .select()
       .from(storeApplications)
-      .orderBy(desc(storeApplications.createdAt)),
+      .orderBy(
+        desc(storeApplications.createdAt),
+      ),
+
     db
       .select({
         membership: storeMembers,
@@ -454,44 +343,85 @@ export async function getAdminUsers() {
         plan: plans,
       })
       .from(storeMembers)
-      .innerJoin(stores, eq(storeMembers.storeId, stores.id))
-      .leftJoin(plans, eq(stores.planKey, plans.key)),
+      .innerJoin(
+        stores,
+        eq(
+          storeMembers.storeId,
+          stores.id,
+        ),
+      )
+      .leftJoin(
+        plans,
+        eq(
+          stores.planKey,
+          plans.key,
+        ),
+      ),
   ]);
 
-  const latestApplicationByUser = new Map<
-    number,
-    (typeof applications)[number]
-  >();
+  const latestApplicationByUser =
+    new Map<
+      number,
+      (typeof applications)[number]
+    >();
+
   for (const application of applications) {
-    if (!latestApplicationByUser.has(application.userId)) {
-      latestApplicationByUser.set(application.userId, application);
+    if (
+      !latestApplicationByUser.has(
+        application.userId,
+      )
+    ) {
+      latestApplicationByUser.set(
+        application.userId,
+        application,
+      );
     }
   }
 
-  const storesByUser = new Map<number, typeof memberships>();
+  const storesByUser =
+    new Map<
+      number,
+      typeof memberships
+    >();
+
   for (const membership of memberships) {
-    const userStores = storesByUser.get(membership.membership.userId) ?? [];
+    const userStores =
+      storesByUser.get(
+        membership.membership.userId,
+      ) ?? [];
+
     userStores.push(membership);
-    storesByUser.set(membership.membership.userId, userStores);
+
+    storesByUser.set(
+      membership.membership.userId,
+      userStores,
+    );
   }
 
-  return allUsers.map(user => ({
+  return allUsers.map((user) => ({
     user,
-    latestApplication: latestApplicationByUser.get(user.id) ?? null,
-    stores: (storesByUser.get(user.id) ?? []).map(
-      ({ membership, store, plan }) => ({
+
+    latestApplication:
+      latestApplicationByUser.get(
+        user.id,
+      ) ?? null,
+
+    stores: (
+      storesByUser.get(user.id) ?? []
+    ).map(
+      ({
+        membership,
+        store,
+        plan,
+      }) => ({
         store,
         role: membership.role,
         plan,
-      })
+      }),
     ),
   }));
 }
 
-/**
- * Planos configurados e respetiva utilização por lojas. A associação é
- * sempre feita por stores.planKey -> plans.key.
- */
 export async function getAdminPlans() {
   const db = await getDb();
 
@@ -499,29 +429,50 @@ export async function getAdminPlans() {
     return [];
   }
 
-  const [allPlans, allStores] = await Promise.all([
-    db.select().from(plans).orderBy(plans.priceMzn),
-    db.select({ planKey: stores.planKey }).from(stores),
+  const [
+    allPlans,
+    allStores,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(plans)
+      .orderBy(plans.priceMzn),
+
+    db
+      .select({
+        planKey: stores.planKey,
+      })
+      .from(stores),
   ]);
 
-  const usageByPlanKey = new Map<string, number>();
+  const usageByPlanKey =
+    new Map<string, number>();
+
   for (const store of allStores) {
     usageByPlanKey.set(
       store.planKey,
-      (usageByPlanKey.get(store.planKey) ?? 0) + 1
+      (
+        usageByPlanKey.get(
+          store.planKey,
+        ) ?? 0
+      ) + 1,
     );
   }
 
-  return allPlans.map(plan => ({
+  return allPlans.map((plan) => ({
     plan,
-    storeCount: usageByPlanKey.get(plan.key) ?? 0,
+
+    storeCount:
+      usageByPlanKey.get(
+        plan.key,
+      ) ?? 0,
   }));
 }
 
 export async function userHasStoreAccess(
   userId: number,
   storeId: string,
-  isAdmin = false
+  isAdmin = false,
 ) {
   if (isAdmin) {
     return true;
@@ -539,51 +490,72 @@ export async function userHasStoreAccess(
     })
     .from(storeMembers)
     .where(
-      and(eq(storeMembers.userId, userId), eq(storeMembers.storeId, storeId))
+      and(
+        eq(
+          storeMembers.userId,
+          userId,
+        ),
+        eq(
+          storeMembers.storeId,
+          storeId,
+        ),
+      ),
     )
     .limit(1);
 
   return result.length > 0;
 }
 
-/**
- * Procura uma loja pública pelo slug.
- *
- * IMPORTANTE:
- * Esta função NÃO depende do utilizador autenticado.
- *
- * É utilizada pelo storefront público:
- *
- * /store/minha-loja
- *       ↓
- * stores.slug = "minha-loja"
- */
-export async function getPublicStoreBySlug(slug: string) {
+/* ============================================================
+   PUBLIC STORE
+   ============================================================ */
+
+export async function getPublicStoreBySlug(
+  slug: string,
+) {
   const db = await getDb();
 
   if (!db) {
     return undefined;
   }
 
-  const normalizedSlug = slug.trim().toLowerCase();
+  const normalizedSlug =
+    slug.trim().toLowerCase();
 
   const result = await db
     .select()
     .from(stores)
-    .where(and(eq(stores.slug, normalizedSlug), eq(stores.status, "active")))
+    .where(
+      and(
+        eq(
+          stores.slug,
+          normalizedSlug,
+        ),
+        eq(
+          stores.status,
+          "active",
+        ),
+      ),
+    )
     .limit(1);
 
   return result[0];
 }
 
-/**
- * Atualiza o tema escolhido para uma loja.
- */
-export async function updateStoreTheme(storeId: string, themeKey: string) {
+/* ============================================================
+   STORE THEMES
+   ============================================================ */
+
+export async function updateStoreTheme(
+  storeId: string,
+  themeKey: string,
+) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   const result = await db
@@ -592,7 +564,12 @@ export async function updateStoreTheme(storeId: string, themeKey: string) {
       themeKey,
       updatedAt: new Date(),
     })
-    .where(eq(stores.id, storeId))
+    .where(
+      eq(
+        stores.id,
+        storeId,
+      ),
+    )
     .returning();
 
   return result[0];
@@ -602,63 +579,242 @@ export async function updateStoreTheme(storeId: string, themeKey: string) {
    PRODUCTS
    ============================================================ */
 
-export async function listProducts(storeId: string) {
+type StoredProductOption = {
+  name: string;
+  values: string[];
+};
+
+async function hydrateProductAssets(
+  product: typeof products.$inferSelect,
+) {
+  const imageUrls = (
+    await Promise.all(
+      product.imageKeys.map(async (key) => {
+        try {
+          return await createStoreDownloadUrl(key);
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((url): url is string => Boolean(url));
+
+  if (product.imageUrl) {
+    imageUrls.push(product.imageUrl);
+  }
+
+  const images = Array.from(new Set(imageUrls));
+  const options = Array.isArray(product.options)
+    ? product.options.filter(
+        (option): option is StoredProductOption =>
+          typeof option?.name === "string" &&
+          Array.isArray(option.values),
+      )
+    : [];
+
+  return {
+    ...product,
+    imageUrl: images[0] ?? null,
+    images,
+    options,
+  };
+}
+
+export async function listProducts(
+  storeId: string,
+) {
   const db = await getDb();
 
   if (!db) {
     return [];
   }
 
-  return db
+  const result = await db
     .select()
     .from(products)
-    .where(eq(products.storeId, storeId))
-    .orderBy(desc(products.createdAt));
+    .where(
+      eq(
+        products.storeId,
+        storeId,
+      ),
+    )
+    .orderBy(
+      desc(products.createdAt),
+    );
+
+  return Promise.all(result.map(hydrateProductAssets));
 }
 
 /**
- * Lista produtos públicos de uma loja.
+ * Dados reais usados pelo dashboard da loja.
  *
- * A loja já foi localizada pelo slug antes desta função
- * ser chamada.
+ * Não cria números fictícios:
+ * - total de produtos
+ * - produtos ativos
+ * - rascunhos
+ * - arquivados
+ * - produtos sem stock
+ * - produtos recentes
  *
- * O filtro por storeId garante isolamento entre lojas.
- *
- * Mantemos draft visível porque o storefront atual do Nova
- * já trata draft como produto não arquivado. Apenas produtos
- * archived ficam fora da vitrine.
+ * Os dados são sempre calculados a partir da loja
+ * e dos produtos existentes no Neon.
  */
-export async function listPublicProducts(storeId: string) {
+export async function getStoreDashboardSummary(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    return undefined;
+  }
+
+  const storeResult = await db
+    .select()
+    .from(stores)
+    .where(
+      eq(
+        stores.id,
+        storeId,
+      ),
+    )
+    .limit(1);
+
+  const store = storeResult[0];
+
+  if (!store) {
+    return undefined;
+  }
+
+  const storeProducts = await db
+    .select()
+    .from(products)
+    .where(
+      eq(
+        products.storeId,
+        storeId,
+      ),
+    )
+    .orderBy(
+      desc(products.createdAt),
+    );
+
+  const totalProducts =
+    storeProducts.length;
+
+  const activeProducts =
+    storeProducts.filter(
+      (product) =>
+        product.status === "active",
+    ).length;
+
+  const draftProducts =
+    storeProducts.filter(
+      (product) =>
+        product.status === "draft",
+    ).length;
+
+  const archivedProducts =
+    storeProducts.filter(
+      (product) =>
+        product.status === "archived",
+    ).length;
+
+  const outOfStockProducts =
+    storeProducts.filter(
+      (product) =>
+        product.stock <= 0,
+    ).length;
+
+  const recentProducts =
+    storeProducts.slice(0, 5);
+
+  return {
+    store: {
+      id: store.id,
+      name: store.name,
+      slug: store.slug,
+      category: store.category,
+      planKey: store.planKey,
+      status: store.status,
+      currency: store.currency,
+      themeKey: store.themeKey,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt,
+    },
+
+    products: {
+      total: totalProducts,
+      active: activeProducts,
+      draft: draftProducts,
+      archived: archivedProducts,
+      outOfStock: outOfStockProducts,
+      recent: recentProducts,
+    },
+
+    updatedAt: new Date(),
+  };
+}
+
+export async function listPublicProducts(
+  storeId: string,
+) {
   const db = await getDb();
 
   if (!db) {
     return [];
   }
 
-  return db
+  const result = await db
     .select()
     .from(products)
-    .where(and(eq(products.storeId, storeId), ne(products.status, "archived")))
-    .orderBy(desc(products.createdAt));
+    .where(
+      and(
+        eq(
+          products.storeId,
+          storeId,
+        ),
+        ne(
+          products.status,
+          "archived",
+        ),
+      ),
+    )
+    .orderBy(
+      desc(products.createdAt),
+    );
+
+  return Promise.all(result.map(hydrateProductAssets));
 }
 
-export async function insertProduct(product: InsertProduct) {
+export async function insertProduct(
+  product: InsertProduct,
+) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
-  const result = await db.insert(products).values(product).returning();
+  const result = await db
+    .insert(products)
+    .values(product)
+    .returning();
 
   return result[0];
 }
 
-export async function archiveProduct(storeId: string, productId: number) {
+export async function archiveProduct(
+  storeId: string,
+  productId: number,
+) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   return db
@@ -667,7 +823,18 @@ export async function archiveProduct(storeId: string, productId: number) {
       status: "archived",
       updatedAt: new Date(),
     })
-    .where(and(eq(products.id, productId), eq(products.storeId, storeId)));
+    .where(
+      and(
+        eq(
+          products.id,
+          productId,
+        ),
+        eq(
+          products.storeId,
+          storeId,
+        ),
+      ),
+    );
 }
 
 /* ============================================================
@@ -675,12 +842,14 @@ export async function archiveProduct(storeId: string, productId: number) {
    ============================================================ */
 
 export async function createStoreApplication(
-  application: InsertStoreApplication
+  application: InsertStoreApplication,
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   const result = await db
@@ -694,7 +863,9 @@ export async function createStoreApplication(
   return result[0];
 }
 
-export async function getStoreApplicationByUserId(userId: number) {
+export async function getStoreApplicationByUserId(
+  userId: number,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -704,8 +875,17 @@ export async function getStoreApplicationByUserId(userId: number) {
   const result = await db
     .select()
     .from(storeApplications)
-    .where(eq(storeApplications.userId, userId))
-    .orderBy(desc(storeApplications.createdAt))
+    .where(
+      eq(
+        storeApplications.userId,
+        userId,
+      ),
+    )
+    .orderBy(
+      desc(
+        storeApplications.createdAt,
+      ),
+    )
     .limit(1);
 
   return result[0];
@@ -721,10 +901,16 @@ export async function getStoreApplications() {
   return db
     .select()
     .from(storeApplications)
-    .orderBy(desc(storeApplications.createdAt));
+    .orderBy(
+      desc(
+        storeApplications.createdAt,
+      ),
+    );
 }
 
-export async function getStoreApplicationById(id: number) {
+export async function getStoreApplicationById(
+  id: number,
+) {
   const db = await getDb();
 
   if (!db) {
@@ -734,7 +920,12 @@ export async function getStoreApplicationById(id: number) {
   const result = await db
     .select()
     .from(storeApplications)
-    .where(eq(storeApplications.id, id))
+    .where(
+      eq(
+        storeApplications.id,
+        id,
+      ),
+    )
     .limit(1);
 
   return result[0];
@@ -742,102 +933,167 @@ export async function getStoreApplicationById(id: number) {
 
 export async function updateStoreApplicationStatus(
   id: number,
-  status: "pending" | "approved" | "rejected" | "changes_requested",
-  adminNotes?: string
+  status:
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "changes_requested",
+  adminNotes?: string,
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   return db
     .update(storeApplications)
     .set({
       status,
-      adminNotes: adminNotes ?? null,
-      reviewedAt: status === "pending" ? null : new Date(),
+      adminNotes:
+        adminNotes ?? null,
+      reviewedAt:
+        status === "pending"
+          ? null
+          : new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(storeApplications.id, id));
+    .where(
+      eq(
+        storeApplications.id,
+        id,
+      ),
+    );
 }
 
 /**
- * Cria uma loja a partir de uma candidatura aprovada.
+ * Cria uma loja real a partir de uma candidatura aprovada.
  *
- * IMPORTANTE:
- * Uma loja pertence ao utilizador através de storeMembers.
+ * Tudo acontece numa única transação:
  *
- * Se o slug já existir:
- * - Se a loja pertencer ao mesmo utilizador, devolve a loja existente.
- * - Se pertencer a outro utilizador, bloqueia a operação.
+ * stores
+ * +
+ * storeMembers
+ * +
+ * storeApplications.approved
+ *
+ * themeKey inicia sempre como "nova".
  */
 export async function createStoreFromApplication(
   applicationId: number,
-  adminNotes?: string
+  adminNotes?: string,
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
-  return db.transaction(async tx => {
-    const applicationResult = await tx
-      .select()
-      .from(storeApplications)
-      .where(eq(storeApplications.id, applicationId))
-      .limit(1);
+  return db.transaction(async (tx) => {
+    const applicationResult =
+      await tx
+        .select()
+        .from(storeApplications)
+        .where(
+          eq(
+            storeApplications.id,
+            applicationId,
+          ),
+        )
+        .limit(1);
 
-    const application = applicationResult[0];
+    const application =
+      applicationResult[0];
 
     if (!application) {
-      throw new Error("APPLICATION_NOT_FOUND");
+      throw new Error(
+        "APPLICATION_NOT_FOUND",
+      );
     }
 
     if (
       application.status !== "pending" &&
-      application.status !== "changes_requested" &&
+      application.status !==
+        "changes_requested" &&
       application.status !== "approved"
     ) {
-      throw new Error("APPLICATION_NOT_APPROVABLE");
+      throw new Error(
+        "APPLICATION_NOT_APPROVABLE",
+      );
     }
 
-    const existingStoreResult = await tx
-      .select()
-      .from(stores)
-      .where(eq(stores.slug, application.storeSlug))
-      .limit(1);
-
-    if (existingStoreResult.length > 0) {
-      const existingStore = existingStoreResult[0];
-      const existingMembership = await tx
-        .select({ id: storeMembers.id })
-        .from(storeMembers)
+    const existingStoreResult =
+      await tx
+        .select()
+        .from(stores)
         .where(
-          and(
-            eq(storeMembers.storeId, existingStore.id),
-            eq(storeMembers.userId, application.userId)
-          )
+          eq(
+            stores.slug,
+            application.storeSlug,
+          ),
         )
         .limit(1);
 
-      if (existingMembership.length === 0) {
-        throw new Error("STORE_SLUG_ALREADY_EXISTS");
+    if (
+      existingStoreResult.length > 0
+    ) {
+      const existingStore =
+        existingStoreResult[0];
+
+      const existingMembership =
+        await tx
+          .select({
+            id: storeMembers.id,
+          })
+          .from(storeMembers)
+          .where(
+            and(
+              eq(
+                storeMembers.storeId,
+                existingStore.id,
+              ),
+              eq(
+                storeMembers.userId,
+                application.userId,
+              ),
+            ),
+          )
+          .limit(1);
+
+      if (
+        existingMembership.length ===
+        0
+      ) {
+        throw new Error(
+          "STORE_SLUG_ALREADY_EXISTS",
+        );
       }
 
-      // Safe retry: the real store and its real owner relationship already
-      // exist, so only complete the application state.
-      if (application.status !== "approved") {
+      if (
+        application.status !==
+        "approved"
+      ) {
         await tx
           .update(storeApplications)
           .set({
             status: "approved",
-            adminNotes: adminNotes ?? null,
-            reviewedAt: new Date(),
-            updatedAt: new Date(),
+            adminNotes:
+              adminNotes ?? null,
+            reviewedAt:
+              new Date(),
+            updatedAt:
+              new Date(),
           })
-          .where(eq(storeApplications.id, applicationId));
+          .where(
+            eq(
+              storeApplications.id,
+              applicationId,
+            ),
+          );
       }
 
       return existingStore;
@@ -845,37 +1101,49 @@ export async function createStoreFromApplication(
 
     const storeId = randomUUID();
 
-    // Store, ownership and approval are one transaction. A failure cannot
-    // leave an approved application without its corresponding store.
-    const createdStoreResult = await tx
-      .insert(stores)
-      .values({
-        id: storeId,
-        name: application.storeName,
-        slug: application.storeSlug,
-        category: "General",
-        planKey: "free",
-        status: "active",
-        currency: "MZN",
-        themeKey: "nova",
-      })
-      .returning();
+    const createdStoreResult =
+      await tx
+        .insert(stores)
+        .values({
+          id: storeId,
+          name:
+            application.storeName,
+          slug:
+            application.storeSlug,
+          category: "General",
+          planKey: "free",
+          status: "active",
+          currency: "MZN",
+          themeKey: "nova",
+        })
+        .returning();
 
-    await tx.insert(storeMembers).values({
-      storeId,
-      userId: application.userId,
-      role: "owner",
-    });
+    await tx
+      .insert(storeMembers)
+      .values({
+        storeId,
+        userId:
+          application.userId,
+        role: "owner",
+      });
 
     await tx
       .update(storeApplications)
       .set({
         status: "approved",
-        adminNotes: adminNotes ?? null,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
+        adminNotes:
+          adminNotes ?? null,
+        reviewedAt:
+          new Date(),
+        updatedAt:
+          new Date(),
       })
-      .where(eq(storeApplications.id, applicationId));
+      .where(
+        eq(
+          storeApplications.id,
+          applicationId,
+        ),
+      );
 
     return createdStoreResult[0];
   });

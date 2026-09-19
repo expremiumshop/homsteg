@@ -32,6 +32,7 @@ export interface NovaHeaderCategory {
 
 export interface NovaHeaderProps {
   storeName?: string;
+  storeSlug?: string;
   categories?: NovaHeaderCategory[];
   categoriesLoading?: boolean;
   cartCount?: number;
@@ -43,6 +44,7 @@ export interface NovaHeaderProps {
 
 export function Header({
   storeName = "NOVA STORE",
+  storeSlug,
   categories = [],
   categoriesLoading = false,
   cartCount = 0,
@@ -104,10 +106,14 @@ export function Header({
   const homePath = basePath;
 
   // Conta usa o mesmo caminho do BottomNavigation.
-  const accountPath = `${basePath}/conta`;
+  const storeContext = storeSlug
+    ? `?storeSlug=${encodeURIComponent(storeSlug)}`
+    : "";
+
+  const accountPath = `${basePath}/conta${storeContext}`;
 
   // Atendimento abre a página de mensagens da Nova.
-  const messagesPath = `${basePath}/mensagens`;
+  const messagesPath = `${basePath}/mensagens${storeContext}`;
 
   const cartPath = `${basePath}/carrinho`;
 

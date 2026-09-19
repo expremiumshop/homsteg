@@ -10,14 +10,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-
 import { useEffect, useState } from "react";
-
 import { useLocation } from "wouter";
 
 import DashboardHeader from "@/components/dashboard/layout/DashboardHeader";
 import DashboardSidebar from "@/components/dashboard/layout/DashboardSidebar";
-
 import OverviewPage from "@/components/dashboard/overview/OverviewPage";
 import ProductsPage from "@/components/dashboard/products/ProductsPage";
 import CategoriesPage from "@/components/dashboard/categories/CategoriesPage";
@@ -27,9 +24,7 @@ import PaymentsPage from "@/components/dashboard/payments/PaymentsPage";
 import ShippingPage from "@/components/dashboard/shipping/ShippingPage";
 import MarketingPage from "@/components/dashboard/Marketing/MarketingPage";
 import SettingsPage from "@/components/dashboard/Settings/SettingsPage";
-
 import { trpc } from "@/lib/trpc";
-
 
 export type DashboardSection =
   | "home"
@@ -106,39 +101,28 @@ const mainNav = [
   },
 ];
 
-function getSectionFromPath(
-  path: string,
-): DashboardSection {
+function getSectionFromPath(path: string): DashboardSection {
   const section = path.split("/")[2];
 
   switch (section) {
     case "products":
       return "products";
-
     case "categories":
       return "categories";
-
     case "orders":
       return "orders";
-
     case "customers":
       return "customers";
-
     case "themes":
       return "themes";
-
     case "payments":
       return "payments";
-
     case "shipping":
       return "shipping";
-
     case "marketing":
       return "marketing";
-
     case "settings":
       return "settings";
-
     default:
       return "home";
   }
@@ -146,15 +130,17 @@ function getSectionFromPath(
 
 function DashboardContent({
   section,
+  storeId,
 }: {
   section: DashboardSection;
+  storeId?: string;
 }) {
   switch (section) {
     case "products":
-      return <ProductsPage />;
+      return <ProductsPage storeId={storeId} />;
 
     case "categories":
-      return <CategoriesPage />;
+      return <CategoriesPage storeId={storeId} />;
 
     case "orders":
       return <OrdersPage />;
@@ -176,7 +162,7 @@ function DashboardContent({
 
     case "home":
     default:
-      return <OverviewPage />;
+      return <OverviewPage storeId={storeId} />;
   }
 }
 
@@ -191,15 +177,20 @@ export default function Dashboard() {
   const requestedStoreId = new URLSearchParams(
     window.location.search,
   ).get("storeId");
+
   const savedStoreId = sessionStorage.getItem(
     "homsteg_active_store_id",
   );
+
   const stores = (storesQuery.data ?? []).map((entry) =>
     "store" in entry ? entry.store : entry,
   );
+
   const selectedStore =
     stores.find(
-      (store) => store.id === requestedStoreId || store.id === savedStoreId,
+      (store) =>
+        store.id === requestedStoreId ||
+        store.id === savedStoreId,
     ) ?? stores[0];
 
   useEffect(() => {
@@ -213,25 +204,12 @@ export default function Dashboard() {
 
   const storeSlug = selectedStore?.slug;
 
-  const section =
-    getSectionFromPath(location);
+  const section = getSectionFromPath(location);
 
   const currentNav =
-    mainNav.find(
-      (item) => item.id === section,
-    ) ?? mainNav[0];
+    mainNav.find((item) => item.id === section) ??
+    mainNav[0];
 
-  /*
-   * Para clientes normais, o backend retorna:
-   *
-   * { store: { ... } }
-   *
-   * Para administradores, retorna:
-   *
-   * { ...store }
-   *
-   * Aqui normalizamos os dois formatos.
-   */
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#111713]">
       {/* Desktop sidebar */}
@@ -249,9 +227,7 @@ export default function Dashboard() {
             type="button"
             aria-label="Fechar menu"
             className="absolute inset-0 bg-black/30"
-            onClick={() =>
-              setMobileSidebarOpen(false)
-            }
+            onClick={() => setMobileSidebarOpen(false)}
           />
 
           <aside className="relative z-10 h-full w-[280px] bg-white shadow-2xl">
@@ -284,9 +260,7 @@ export default function Dashboard() {
               <nav className="space-y-1">
                 {mainNav.map((item) => {
                   const Icon = item.icon;
-
-                  const active =
-                    item.id === section;
+                  const active = item.id === section;
 
                   return (
                     <button
@@ -300,14 +274,10 @@ export default function Dashboard() {
                         );
 
                         window.dispatchEvent(
-                          new PopStateEvent(
-                            "popstate",
-                          ),
+                          new PopStateEvent("popstate"),
                         );
 
-                        setMobileSidebarOpen(
-                          false,
-                        );
+                        setMobileSidebarOpen(false);
                       }}
                       className={[
                         "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
@@ -318,9 +288,7 @@ export default function Dashboard() {
                     >
                       <Icon className="h-[18px] w-[18px]" />
 
-                      <span>
-                        {item.label}
-                      </span>
+                      <span>{item.label}</span>
                     </button>
                   );
                 })}
@@ -344,6 +312,7 @@ export default function Dashboard() {
         <main className="min-h-[calc(100vh-68px)] p-4 sm:p-6 lg:p-8">
           <DashboardContent
             section={section}
+            storeId={selectedStore?.id}
           />
         </main>
       </div>

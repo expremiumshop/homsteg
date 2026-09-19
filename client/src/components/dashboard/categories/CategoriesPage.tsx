@@ -6,9 +6,10 @@ import {
     ToggleLeft,
   } from "lucide-react";
   import { useMemo, useState } from "react";
+  import { trpc } from "@/lib/trpc";
   
   type Category = {
-    id: number;
+    id: string;
     name: string;
     description?: string;
     imageUrl?: string | null;
@@ -16,16 +17,61 @@ import {
     productCount: number;
   };
   
-  const demoCategories: Category[] = [];
-  
-  export default function CategoriesPage() {
+  export default function CategoriesPage({
+    storeId,
+  }: {
+    storeId?: string;
+  }) {
     const [search, setSearch] = useState("");
     const [showInactive, setShowInactive] = useState(false);
+
+    const productsQuery = trpc.products.list.useQuery(
+      { storeId: storeId ?? "" },
+      {
+        enabled: Boolean(storeId),
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
+      },
+    );
+
+    const categories = useMemo(() => {
+      const products = productsQuery.data ?? [];
+      const categoriesByName = new Map<
+        string,
+        { productCount: number; active: boolean }
+      >();
+
+      for (const product of products) {
+        const name = product.category.trim();
+
+        if (!name) {
+          continue;
+        }
+
+        const current = categoriesByName.get(name) ?? {
+          productCount: 0,
+          active: false,
+        };
+
+        current.productCount += 1;
+        current.active ||= product.status !== "archived";
+        categoriesByName.set(name, current);
+      }
+
+      return Array.from(categoriesByName, ([name, category]) => ({
+        id: name,
+        name,
+        productCount: category.productCount,
+        active: category.active,
+      })).sort((first, second) =>
+        first.name.localeCompare(second.name, "pt"),
+      );
+    }, [productsQuery.data]);
   
     const filteredCategories = useMemo(() => {
       const normalizedSearch = search.trim().toLowerCase();
   
-      return demoCategories.filter((category) => {
+      return categories.filter((category) => {
         const matchesSearch =
           !normalizedSearch ||
           category.name.toLowerCase().includes(normalizedSearch) ||
@@ -35,13 +81,13 @@ import {
   
         return matchesSearch && matchesStatus;
       });
-    }, [search, showInactive]);
+    }, [categories, search, showInactive]);
   
-    const activeCount = demoCategories.filter(
+    const activeCount = categories.filter(
       (category) => category.active,
     ).length;
   
-    const inactiveCount = demoCategories.length - activeCount;
+    const inactiveCount = categories.length - activeCount;
   
     return (
       <div className="space-y-6">
@@ -74,7 +120,7 @@ import {
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard
             label="Total de categorias"
-            value={demoCategories.length}
+            value={categories.length}
           />
   
           <StatCard

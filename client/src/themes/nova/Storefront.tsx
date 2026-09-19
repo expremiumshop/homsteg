@@ -5,26 +5,17 @@ import { trpc } from "@/lib/trpc";
 import Header, {
   type NovaHeaderCategory,
 } from "./components/Header";
-
 import BannerCarousel from "./components/BannerCarousel";
-
 import { TopBenefits } from "./components/TopBenefits";
-
 import { CategoryMenu } from "./components/CategoryMenu";
-
 import {
   ProductGrid,
   type NovaProduct,
 } from "./components/ProductGrid";
-
 import { PromotionBanner } from "./components/PromotionBanner";
-
 import { BenefitsSection } from "./components/BenefitsSection";
-
 import { BottomNavigation } from "./components/BottomNavigation";
-
 import Footer from "./components/Footer";
-
 import {
   novaDemoProducts,
   novaDemoStore,
@@ -41,10 +32,7 @@ type Product = {
   compareAtPriceMzn?: number | null;
   stock: number;
   category: string;
-  status:
-    | "draft"
-    | "active"
-    | "archived";
+  status: "draft" | "active" | "archived";
   imageUrl?: string | null;
 };
 
@@ -68,10 +56,7 @@ function getInitials(name: string) {
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map(
-      (word) =>
-        word[0]?.toUpperCase(),
-    )
+    .map((word) => word[0]?.toUpperCase())
     .join("");
 }
 
@@ -79,17 +64,9 @@ function slugify(value: string) {
   return value
     .toLowerCase()
     .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      "",
-    )
-    .replace(
-      /[^a-z0-9]+/g,
-      "-",
-    )
-    .replace(
-      /^-|-$/g,
-      "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export default function NovaStorefront({
@@ -107,27 +84,21 @@ export default function NovaStorefront({
     id: "nova-demo",
     name: novaDemoStore.name,
     slug: "nova-demo",
-    category:
-      novaDemoStore.category,
-    currency:
-      novaDemoStore.currency,
+    category: novaDemoStore.category,
+    currency: novaDemoStore.currency,
     status: "active",
   };
 
-  const demoProducts: Product[] =
-    novaDemoProducts.map(
-      (
-        product: NovaDemoProduct,
-      ) => ({
-        ...product,
-        status: "active",
-      }),
-    );
+  const demoProducts: Product[] = novaDemoProducts.map(
+    (product: NovaDemoProduct) => ({
+      ...product,
+      status: "active",
+    }),
+  );
 
   /* =========================================================
      MODO LOJA REAL
-     =========================================================
-     
+
      Existem dois cenários:
 
      1. /store/:slug
@@ -138,77 +109,52 @@ export default function NovaStorefront({
           mantendo a proteção existente.
      ========================================================= */
 
-  const publicStoreQuery =
-    trpc.stores.bySlug.useQuery(
-      {
-        slug: storeSlug ?? "",
-      },
-      {
-        enabled:
-          !isDemo &&
-          Boolean(storeSlug),
-      },
-    );
+  const publicStoreQuery = trpc.stores.bySlug.useQuery(
+    {
+      slug: storeSlug ?? "",
+    },
+    {
+      enabled: !isDemo && Boolean(storeSlug),
+    },
+  );
 
-  const storesQuery =
-    trpc.stores.mine.useQuery(
-      undefined,
-      {
-        enabled:
-          !isDemo &&
-          !storeSlug,
-      },
-    );
+  const storesQuery = trpc.stores.mine.useQuery(undefined, {
+    enabled: !isDemo && !storeSlug,
+  });
 
-  const accountStore =
-    storesQuery.data?.[0] as
-      | StoreData
-      | undefined;
+  const accountStore = storesQuery.data?.[0] as
+    | StoreData
+    | undefined;
 
-  const storeById =
-    storeId
-      ? (
-          storesQuery.data ?? []
-        ).find(
-          (item) => {
-            const possibleStore =
-              "store" in item
-                ? item.store
-                : item;
+  const storeById = storeId
+    ? (storesQuery.data ?? []).find((item) => {
+        const possibleStore =
+          "store" in item ? item.store : item;
 
-            return (
-              String(
-                possibleStore.id,
-              ) ===
-              String(storeId)
-            );
-          },
-        )
-      : undefined;
+        return (
+          String(possibleStore.id) ===
+          String(storeId)
+        );
+      })
+    : undefined;
 
-  const internalStore =
-    storeById
-      ? ((
-          "store" in storeById
-            ? storeById.store
-            : storeById
-        ) as StoreData)
-      : accountStore;
+  const internalStore = storeById
+    ? ((
+        "store" in storeById
+          ? storeById.store
+          : storeById
+      ) as StoreData)
+    : accountStore;
 
-  const publicStore =
-    publicStoreQuery.data
-      ?.store as
-      | StoreData
-      | undefined;
+  const publicStore = publicStoreQuery.data?.store as
+    | StoreData
+    | undefined;
 
-  const realStore =
-    storeSlug
-      ? publicStore
-      : internalStore;
+  const realStore = storeSlug
+    ? publicStore
+    : internalStore;
 
-  const store = isDemo
-    ? demoStore
-    : realStore;
+  const store = isDemo ? demoStore : realStore;
 
   /* =========================================================
      PRODUTOS
@@ -217,8 +163,7 @@ export default function NovaStorefront({
   const internalProductsQuery =
     trpc.products.list.useQuery(
       {
-        storeId:
-          store?.id ?? "",
+        storeId: store?.id ?? "",
       },
       {
         enabled:
@@ -228,15 +173,13 @@ export default function NovaStorefront({
       },
     );
 
-  const products: Product[] =
-    isDemo
-      ? demoProducts
-      : storeSlug
-        ? ((publicStoreQuery.data
-            ?.products ??
-            []) as Product[])
-        : ((internalProductsQuery.data ??
-            []) as Product[]);
+  const products: Product[] = isDemo
+    ? demoProducts
+    : storeSlug
+      ? ((publicStoreQuery.data?.products ??
+          []) as Product[])
+      : ((internalProductsQuery.data ??
+          []) as Product[]);
 
   /* =========================================================
      CATEGORIAS
@@ -249,10 +192,7 @@ export default function NovaStorefront({
         ...Array.from(
           new Set(
             products
-              .map(
-                (product) =>
-                  product.category,
-              )
+              .map((product) => product.category)
               .filter(Boolean),
           ),
         ),
@@ -263,75 +203,53 @@ export default function NovaStorefront({
      ========================================================= */
 
   const headerCategories: NovaHeaderCategory[] =
-    categories.map(
-      (
-        category,
-        index,
-      ) => ({
-        id: `category-${index}-${category}`,
-
-        name: category,
-
-        slug:
-          category === "Todos"
-            ? "todas"
-            : slugify(category),
-
-        active: true,
-      }),
-    );
+    categories.map((category, index) => ({
+      id: `category-${index}-${category}`,
+      name: category,
+      slug:
+        category === "Todos"
+          ? "todas"
+          : slugify(category),
+      active: true,
+    }));
 
   /* =========================================================
      PRODUTOS
      ========================================================= */
 
-  const activeProducts =
-    products.filter(
-      (product) =>
-        product.status !==
-        "archived",
-    );
+  const activeProducts = products.filter(
+    (product) => product.status !== "archived",
+  );
 
   const novaProducts: NovaProduct[] =
-    activeProducts.map(
-      (product) => ({
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        description:
-          product.description,
-        image: product.imageUrl,
-        price: product.priceMzn,
-        compare_at_price:
-          product.compareAtPriceMzn,
-        featured: false,
-        active:
-          product.status ===
-          "active",
-      }),
-    );
+    activeProducts.map((product) => ({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      image: product.imageUrl,
+      price: product.priceMzn,
+      compare_at_price:
+        product.compareAtPriceMzn,
+      featured: false,
+      active: product.status === "active",
+    }));
 
   /* =========================================================
      LOADING
      ========================================================= */
 
   const isStoreLoading =
-    !isDemo &&
-    Boolean(storeSlug)
+    !isDemo && Boolean(storeSlug)
       ? publicStoreQuery.isLoading
-      : storesQuery.isLoading &&
-        !storeId;
+      : storesQuery.isLoading && !storeId;
 
   const isProductsLoading =
-    !isDemo &&
-    Boolean(storeSlug)
+    !isDemo && Boolean(storeSlug)
       ? publicStoreQuery.isLoading
       : internalProductsQuery.isLoading;
 
-  if (
-    !isDemo &&
-    isStoreLoading
-  ) {
+  if (!isDemo && isStoreLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
@@ -349,16 +267,11 @@ export default function NovaStorefront({
      LOJA NÃO ENCONTRADA
      ========================================================= */
 
-  const storeQueryError =
-    storeSlug
-      ? publicStoreQuery.isError
-      : storesQuery.isError;
+  const storeQueryError = storeSlug
+    ? publicStoreQuery.isError
+    : storesQuery.isError;
 
-  if (
-    !isDemo &&
-    (!store ||
-      storeQueryError)
-  ) {
+  if (!isDemo && (!store || storeQueryError)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center">
@@ -371,8 +284,7 @@ export default function NovaStorefront({
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Não foi possível encontrar
-            a loja solicitada.
+            Não foi possível encontrar a loja solicitada.
           </p>
         </div>
       </div>
@@ -391,22 +303,15 @@ export default function NovaStorefront({
 
       <Header
         storeName={
-          store?.name ??
-          "NOVA STORE"
+          store?.name ?? "NOVA STORE"
         }
-        categories={
-          headerCategories
-        }
-        categoriesLoading={
-          isProductsLoading
-        }
+        storeSlug={store?.slug}
+        categories={headerCategories}
+        categoriesLoading={isProductsLoading}
         cartCount={0}
         whatsappNumber=""
         basePath="/themes/nova"
-        currency={
-          store?.currency ||
-          "MZN"
-        }
+        currency={store?.currency || "MZN"}
         country="Moçambique"
       />
 
@@ -435,9 +340,7 @@ export default function NovaStorefront({
 
         <ProductGrid
           products={novaProducts}
-          loading={
-            isProductsLoading
-          }
+          loading={isProductsLoading}
           error={
             (
               storeSlug
@@ -448,8 +351,12 @@ export default function NovaStorefront({
               : null
           }
           storeName={
-            store?.name ??
-            "NOVA STORE"
+            store?.name ?? "NOVA STORE"
+          }
+          storeSlug={
+            store?.slug ??
+            storeSlug ??
+            ""
           }
         />
 
@@ -465,8 +372,7 @@ export default function NovaStorefront({
 
         <BenefitsSection
           storeName={
-            store?.name ??
-            "NOVA STORE"
+            store?.name ?? "NOVA STORE"
           }
         />
 
@@ -480,8 +386,7 @@ export default function NovaStorefront({
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-xl font-bold text-white">
                   {getInitials(
-                    store?.name ??
-                      "",
+                    store?.name ?? "",
                   ) || "N"}
                 </div>
 
@@ -507,8 +412,7 @@ export default function NovaStorefront({
                   </p>
 
                   <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {store?.currency ||
-                      "MZN"}
+                    {store?.currency || "MZN"}
                   </p>
                 </div>
               </div>
@@ -523,8 +427,7 @@ export default function NovaStorefront({
 
       <Footer
         storeName={
-          store?.name ??
-          "NOVA STORE"
+          store?.name ?? "NOVA STORE"
         }
         whatsappNumber=""
         basePath="/themes/nova"
@@ -538,6 +441,7 @@ export default function NovaStorefront({
         cartCount={0}
         whatsappNumber=""
         basePath="/themes/nova"
+        storeSlug={store?.slug}
       />
     </div>
   );

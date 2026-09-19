@@ -8,7 +8,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useClerk } from "@clerk/react";
 
 import { trpc } from "@/lib/trpc";
 import UsersPanel from "@/components/admin/users/UsersPanel";
@@ -19,14 +18,11 @@ const adminNav = [
 ];
 
 export default function Admin() {
-  const { signOut } = useClerk();
-
   const [active, setActive] = useState("Utilizadores");
   const [search, setSearch] = useState("");
   const [mobile, setMobile] = useState(false);
 
   const usersQuery = trpc.admin.users.list.useQuery();
-
   const users = usersQuery.data ?? [];
 
   const stores = users.flatMap(({ user, stores: userStores }) =>
@@ -37,9 +33,9 @@ export default function Admin() {
   );
 
   const currentStores = stores.filter(({ store, user }) =>
-    `${store.name} ${store.slug} ${store.status} ${
-      user.name ?? ""
-    } ${user.email ?? ""}`
+    `${store.name} ${store.slug} ${store.status} ${user.name ?? ""} ${
+      user.email ?? ""
+    }`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
@@ -57,8 +53,16 @@ export default function Admin() {
   }, [usersQuery.isError, usersQuery.error]);
 
   async function handleLogout() {
-    await signOut();
-    window.location.replace("/admin/login");
+    try {
+      await fetch("/api/auth/sign-out", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("[Admin] Erro ao terminar sessão:", error);
+    } finally {
+      window.location.replace("/admin/login");
+    }
   }
 
   if (usersQuery.isLoading) {
@@ -290,9 +294,7 @@ export default function Admin() {
 
                     <input
                       value={search}
-                      onChange={(event) =>
-                        setSearch(event.target.value)
-                      }
+                      onChange={(event) => setSearch(event.target.value)}
                       placeholder="Pesquisar..."
                       className="h-8 w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none"
                     />
@@ -356,9 +358,7 @@ export default function Admin() {
                           </div>
 
                           <span className="text-[#748074]">
-                            {user.name ??
-                              user.email ??
-                              "Sem nome"}
+                            {user.name ?? user.email ?? "Sem nome"}
                           </span>
 
                           <span className="font-semibold text-[#657464]">

@@ -11,19 +11,24 @@ interface BottomNavigationProps {
   cartCount?: number;
   whatsappNumber?: string;
   basePath?: string;
+  storeSlug?: string;
 }
 
 export function BottomNavigation({
   cartCount = 0,
   whatsappNumber = "",
   basePath = "/themes/nova",
+  storeSlug,
 }: BottomNavigationProps) {
   const [location] = useLocation();
 
   const homePath = basePath;
-  const messagesPath = `${basePath}/mensagens`;
+  const storeContext = storeSlug
+    ? `?storeSlug=${encodeURIComponent(storeSlug)}`
+    : "";
+  const messagesPath = `${basePath}/mensagens${storeContext}`;
   const cartPath = `${basePath}/carrinho`;
-  const accountPath = `${basePath}/conta`;
+  const accountPath = `${basePath}/conta${storeContext}`;
 
   const navItems = [
     {

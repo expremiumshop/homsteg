@@ -7,17 +7,28 @@ import {
   UserPlus,
   ChevronDown,
 } from "lucide-react";
-import { Link } from "wouter";
-
-const STORE_NAME = "NOVA STORE";
+import { Link, useSearch } from "wouter";
+import { trpc } from "@/lib/trpc";
 
 const WHATSAPP_NUMBER = "";
 
-const WHATSAPP_MESSAGE = encodeURIComponent(
-  `Olá, ${STORE_NAME}! Gostaria de obter informações sobre uma compra.`
-);
-
 export default function NovaAccountPage() {
+  const search = useSearch();
+  const storeSlug = new URLSearchParams(search)
+    .get("storeSlug")
+    ?.trim();
+  const storeQuery = trpc.stores.bySlug.useQuery(
+    { slug: storeSlug ?? "" },
+    { enabled: Boolean(storeSlug) },
+  );
+  const storeName = storeQuery.data?.store.name ??
+    (storeSlug ? "Loja" : "NOVA STORE");
+  const storePath = storeSlug
+    ? `/store/${encodeURIComponent(storeSlug)}`
+    : "/themes/nova";
+  const whatsappMessage = encodeURIComponent(
+    `Olá, ${storeName}! Gostaria de obter informações sobre uma compra.`,
+  );
   const [openSection, setOpenSection] = useState<number | null>(null);
 
   function toggleSection(index: number) {
@@ -30,7 +41,7 @@ export default function NovaAccountPage() {
     }
 
     window.open(
-      `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MESSAGE}`,
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`,
       "_blank",
       "noopener,noreferrer"
     );
@@ -370,7 +381,7 @@ export default function NovaAccountPage() {
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-200 px-5 py-6 dark:border-gray-800 sm:px-8">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-              {STORE_NAME}
+              {storeName}
             </h1>
 
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -450,7 +461,7 @@ export default function NovaAccountPage() {
 
             <div className="mt-7 border-t border-gray-200 pt-6 text-center dark:border-gray-800">
               <Link
-                href="/themes/nova"
+                href={storePath}
                 className="
                   inline-flex
                   items-center

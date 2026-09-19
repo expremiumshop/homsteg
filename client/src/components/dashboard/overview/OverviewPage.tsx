@@ -1,12 +1,29 @@
-import {
+  import {
     ArrowUpRight,
     BarChart3,
     Box,
     ShoppingCart,
     Users,
   } from "lucide-react";
+  import { trpc } from "@/lib/trpc";
   
-  export default function OverviewPage() {
+  export default function OverviewPage({
+    storeId,
+  }: {
+    storeId?: string;
+  }) {
+    const summaryQuery = trpc.dashboard.summary.useQuery(
+      { storeId: storeId ?? "" },
+      {
+        enabled: Boolean(storeId),
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
+      },
+    );
+
+    const summary = summaryQuery.data;
+    const recentProducts = summary?.products.recent ?? [];
+
     return (
       <div className="space-y-6">
         {/* Cabeçalho */}
@@ -49,8 +66,12 @@ import {
   
           <StatCard
             title="Produtos"
-            value="0"
-            description="Comece adicionando produtos"
+            value={String(summary?.products.total ?? 0)}
+            description={
+              summary?.products.total
+                ? "Produtos registados"
+                : "Comece adicionando produtos"
+            }
             icon={Box}
           />
         </div>
@@ -149,6 +170,7 @@ import {
             description="Os produtos adicionados à sua loja aparecerão aqui."
             action="Ver produtos"
             href="/app/products"
+            items={recentProducts.map((product) => product.name)}
           />
   
           <EmptyPanel
@@ -240,12 +262,14 @@ import {
     description,
     action,
     href,
+    items,
   }: {
     icon: typeof Box;
     title: string;
     description: string;
     action: string;
     href: string;
+    items?: string[];
   }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -266,8 +290,10 @@ import {
         </div>
   
         <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-          <span className="text-xs text-slate-400">
-            Ainda sem dados
+          <span className="truncate text-xs text-slate-400">
+            {items?.length
+              ? items.join(" · ")
+              : "Ainda sem dados"}
           </span>
   
           <a

@@ -4,24 +4,36 @@ import {
     ShoppingBag,
     HelpCircle,
   } from "lucide-react";
-  import { Link } from "wouter";
-  
-  const STORE_NAME = "NOVA STORE";
+  import { Link, useSearch } from "wouter";
+  import { trpc } from "@/lib/trpc";
   
   const WHATSAPP_NUMBER = "";
   
-  const WHATSAPP_MESSAGE = encodeURIComponent(
-    `Olá, ${STORE_NAME}! Gostaria de falar com o atendimento.`
-  );
-  
   export default function NovaMessagesPage() {
+    const search = useSearch();
+    const storeSlug = new URLSearchParams(search)
+      .get("storeSlug")
+      ?.trim();
+    const storeQuery = trpc.stores.bySlug.useQuery(
+      { slug: storeSlug ?? "" },
+      { enabled: Boolean(storeSlug) },
+    );
+    const storeName = storeQuery.data?.store.name ??
+      (storeSlug ? "Loja" : "NOVA STORE");
+    const storePath = storeSlug
+      ? `/store/${encodeURIComponent(storeSlug)}`
+      : "/themes/nova";
+    const whatsappMessage = encodeURIComponent(
+      `Olá, ${storeName}! Gostaria de falar com o atendimento.`,
+    );
+
     function openWhatsApp() {
       if (!WHATSAPP_NUMBER) {
         return;
       }
   
       window.open(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MESSAGE}`,
+        `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`,
         "_blank",
         "noopener,noreferrer"
       );
@@ -44,7 +56,7 @@ import {
                   </h1>
   
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Fale com a nossa equipa pelo WhatsApp
+                    Fale com a equipa da {storeName} pelo WhatsApp
                   </p>
                 </div>
               </div>
@@ -166,7 +178,7 @@ import {
                 {/* VOLTAR */}
                 <div className="border-t border-gray-200 pt-6 text-center dark:border-gray-800">
                   <Link
-                    href="/themes/nova"
+                    href={storePath}
                     className="
                       inline-flex
                       items-center

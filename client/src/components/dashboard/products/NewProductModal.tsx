@@ -1,4 +1,8 @@
-import { ChangeEvent, useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  useEffect,
+  useState,
+} from "react";
 import {
   ImagePlus,
   Upload,
@@ -14,6 +18,7 @@ import {
   Footprints,
   Settings2,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 type ProductImage = {
   id: string;
@@ -27,6 +32,7 @@ type ProductOption = {
 };
 
 type NewProductModalProps = {
+  storeId?: string;
   onClose?: () => void;
 };
 
@@ -130,27 +136,60 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+function isSupportedImageType(
+  type: string,
+): type is
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "image/gif" {
+  return (
+    type === "image/jpeg" ||
+    type === "image/png" ||
+    type === "image/webp" ||
+    type === "image/gif"
+  );
+}
+
 export default function NewProductModal({
+  storeId,
   onClose,
 }: NewProductModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [compareAtPrice, setCompareAtPrice] = useState("");
+  const [compareAtPrice, setCompareAtPrice] =
+    useState("");
   const [category, setCategory] = useState("");
   const [stock, setStock] = useState("0");
-  const [status, setStatus] = useState<"active" | "draft">("active");
-  const [featured, setFeatured] = useState(false);
+  const [status, setStatus] =
+    useState<"active" | "draft">("active");
+  const [featured, setFeatured] =
+    useState(false);
 
-  const [images, setImages] = useState<ProductImage[]>([]);
-  const [mainImageId, setMainImageId] = useState<string | null>(null);
+  const [images, setImages] =
+    useState<ProductImage[]>([]);
+  const [mainImageId, setMainImageId] =
+    useState<string | null>(null);
 
-  const [options, setOptions] = useState<ProductOption[]>([]);
-  const [quickOption, setQuickOption] = useState("");
-  const [quickValues, setQuickValues] = useState<string[]>([]);
+  const [options, setOptions] =
+    useState<ProductOption[]>([]);
+
+  const [quickOption, setQuickOption] =
+    useState("");
+  const [quickValues, setQuickValues] =
+    useState<string[]>([]);
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const storageUpload =
+    trpc.storage.createUploadUrl.useMutation();
+
+  const createProduct =
+    trpc.products.create.useMutation();
+
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     return () => {
@@ -160,8 +199,12 @@ export default function NewProductModal({
     };
   }, [images]);
 
-  function handleImages(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files || []);
+  function handleImages(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = Array.from(
+      event.target.files || [],
+    );
 
     if (!files.length) {
       return;
@@ -173,13 +216,17 @@ export default function NewProductModal({
     const validImages: ProductImage[] = [];
 
     for (const file of files) {
-      if (!file.type.startsWith("image/")) {
-        setError(`"${file.name}" não é uma imagem válida.`);
+      if (!isSupportedImageType(file.type)) {
+        setError(
+          `"${file.name}" não é uma imagem válida. Use JPG, PNG, WebP ou GIF.`,
+        );
         continue;
       }
 
       if (file.size > MAX_IMAGE_SIZE) {
-        setError(`"${file.name}" ultrapassa o limite de 1 MB.`);
+        setError(
+          `"${file.name}" ultrapassa o limite de 1 MB.`,
+        );
         continue;
       }
 
@@ -190,9 +237,15 @@ export default function NewProductModal({
       });
     }
 
-    setImages((current) => [...current, ...validImages]);
+    setImages((current) => [
+      ...current,
+      ...validImages,
+    ]);
 
-    if (!mainImageId && validImages.length > 0) {
+    if (
+      !mainImageId &&
+      validImages.length > 0
+    ) {
       setMainImageId(validImages[0].id);
     }
 
@@ -201,18 +254,27 @@ export default function NewProductModal({
 
   function removeImage(id: string) {
     setImages((current) => {
-      const image = current.find((item) => item.id === id);
+      const image = current.find(
+        (item) => item.id === id,
+      );
 
       if (image) {
         URL.revokeObjectURL(image.preview);
       }
 
-      return current.filter((item) => item.id !== id);
+      return current.filter(
+        (item) => item.id !== id,
+      );
     });
 
     if (mainImageId === id) {
-      const remaining = images.filter((item) => item.id !== id);
-      setMainImageId(remaining[0]?.id || null);
+      const remaining = images.filter(
+        (item) => item.id !== id,
+      );
+
+      setMainImageId(
+        remaining[0]?.id || null,
+      );
     }
   }
 
@@ -228,11 +290,16 @@ export default function NewProductModal({
 
   function removeOption(index: number) {
     setOptions((current) =>
-      current.filter((_, i) => i !== index),
+      current.filter(
+        (_, i) => i !== index,
+      ),
     );
   }
 
-  function updateOptionName(index: number, value: string) {
+  function updateOptionName(
+    index: number,
+    value: string,
+  ) {
     setOptions((current) =>
       current.map((option, i) =>
         i === index
@@ -255,8 +322,11 @@ export default function NewProductModal({
         i === optionIndex
           ? {
               ...option,
-              values: option.values.map((item, j) =>
-                j === valueIndex ? value : item,
+              values: option.values.map(
+                (item, j) =>
+                  j === valueIndex
+                    ? value
+                    : item,
               ),
             }
           : option,
@@ -270,7 +340,10 @@ export default function NewProductModal({
         i === index
           ? {
               ...option,
-              values: [...option.values, ""],
+              values: [
+                ...option.values,
+                "",
+              ],
             }
           : option,
       ),
@@ -293,7 +366,9 @@ export default function NewProductModal({
 
         return {
           ...option,
-          values: values.length ? values : [""],
+          values: values.length
+            ? values
+            : [""],
         };
       }),
     );
@@ -302,7 +377,9 @@ export default function NewProductModal({
   function toggleQuickValue(value: string) {
     setQuickValues((current) =>
       current.includes(value)
-        ? current.filter((item) => item !== value)
+        ? current.filter(
+            (item) => item !== value,
+          )
         : [...current, value],
     );
   }
@@ -312,33 +389,42 @@ export default function NewProductModal({
       (item) => item.id === quickOption,
     );
 
-    if (!selected || quickValues.length === 0) {
-      setError("Escolha uma opção e pelo menos um valor.");
+    if (
+      !selected ||
+      quickValues.length === 0
+    ) {
+      setError(
+        "Escolha uma opção e pelo menos um valor.",
+      );
       return;
     }
 
     setError("");
 
     setOptions((current) => {
-      const existingIndex = current.findIndex(
-        (option) =>
-          option.name.toLowerCase() ===
-          selected.name.toLowerCase(),
-      );
+      const existingIndex =
+        current.findIndex(
+          (option) =>
+            option.name.toLowerCase() ===
+            selected.name.toLowerCase(),
+        );
 
       if (existingIndex >= 0) {
-        return current.map((option, index) =>
-          index === existingIndex
-            ? {
-                ...option,
-                values: Array.from(
-                  new Set([
-                    ...option.values.filter(Boolean),
-                    ...quickValues,
-                  ]),
-                ),
-              }
-            : option,
+        return current.map(
+          (option, index) =>
+            index === existingIndex
+              ? {
+                  ...option,
+                  values: Array.from(
+                    new Set([
+                      ...option.values.filter(
+                        Boolean,
+                      ),
+                      ...quickValues,
+                    ]),
+                  ),
+                }
+              : option,
         );
       }
 
@@ -351,27 +437,46 @@ export default function NewProductModal({
       ];
     });
 
-    setMessage(`${selected.name} adicionada.`);
+    setMessage(
+      `${selected.name} adicionada.`,
+    );
+
     setQuickValues([]);
   }
 
-  function handleSave() {
+  async function handleSave() {
     setError("");
     setMessage("");
 
     if (!name.trim()) {
-      setError("Digite o nome do produto.");
+      setError(
+        "Digite o nome do produto.",
+      );
       return;
     }
 
-    if (!price || Number(price) <= 0) {
+    const numericPrice = Number(price);
+
+    if (
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0
+    ) {
       setError("Digite um preço válido.");
       return;
     }
 
+    const numericCompareAtPrice =
+      compareAtPrice
+        ? Number(compareAtPrice)
+        : null;
+
     if (
-      compareAtPrice &&
-      Number(compareAtPrice) <= Number(price)
+      numericCompareAtPrice !== null &&
+      (!Number.isFinite(
+        numericCompareAtPrice,
+      ) ||
+        numericCompareAtPrice <=
+          numericPrice)
     ) {
       setError(
         "O preço antigo deve ser maior que o preço actual.",
@@ -379,14 +484,186 @@ export default function NewProductModal({
       return;
     }
 
-    setMessage(
-      "Produto preparado. A ligação com o Neon será feita no próximo passo.",
-    );
+    const numericStock =
+      Number.parseInt(
+        stock || "0",
+        10,
+      ) || 0;
+
+    const activeStoreId = storeId;
+
+    if (!activeStoreId) {
+      setError(
+        "Não foi possível identificar a loja actual.",
+      );
+      return;
+    }
+
+    try {
+      /*
+       * =================================================
+       * 1. ESCOLHER A IMAGEM PRINCIPAL
+       * =================================================
+       */
+      const mainImage =
+        images.find(
+          (image) =>
+            image.id === mainImageId,
+        ) ?? images[0];
+
+      const orderedImages = mainImage
+        ? [
+            mainImage,
+            ...images.filter(
+              (image) => image.id !== mainImage.id,
+            ),
+          ]
+        : [];
+
+      /*
+       * =================================================
+       * 2. PEDIR URL DE UPLOAD AO BACKEND
+       * =================================================
+       */
+      const uploadedImages = await Promise.all(
+        orderedImages.map(async (image) => {
+          if (image.file.size > MAX_IMAGE_SIZE) {
+            throw new Error(
+              `A imagem "${image.file.name}" ultrapassa o limite de 1 MB.`,
+            );
+          }
+
+          if (!isSupportedImageType(image.file.type)) {
+            throw new Error(
+              `A imagem "${image.file.name}" não está num formato suportado.`,
+            );
+          }
+
+          const upload = await storageUpload.mutateAsync({
+            storeId: activeStoreId,
+            fileName: image.file.name,
+            contentType: image.file.type,
+          });
+
+          const uploadResponse = await fetch(upload.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": image.file.type },
+            body: image.file,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(
+              `Falha no upload da imagem para o Cloudflare R2. HTTP ${uploadResponse.status}.`,
+            );
+          }
+
+          return upload;
+        }),
+      );
+
+      const productOptions = options
+        .map((option) => ({
+          name: option.name.trim(),
+          values: option.values
+            .map((value) => value.trim())
+            .filter(Boolean),
+        }))
+        .filter(
+          (option) =>
+            Boolean(option.name) && option.values.length > 0,
+        );
+
+      /*
+       * =================================================
+       * 4. GERAR SLUG
+       * =================================================
+       */
+      const baseSlug =
+        slugify(name) ||
+        `produto-${Date.now()}`;
+
+      const slug =
+        `${baseSlug}-${crypto
+          .randomUUID()
+          .slice(0, 8)}`;
+
+      /*
+       * =================================================
+       * 5. CRIAR PRODUTO NO NEON
+       * =================================================
+       */
+      await createProduct.mutateAsync({
+        storeId: activeStoreId,
+        name: name.trim(),
+        slug,
+        description:
+          description.trim() ||
+          undefined,
+        priceMzn: Math.round(
+          numericPrice,
+        ),
+        compareAtPriceMzn:
+          numericCompareAtPrice !==
+          null
+            ? Math.round(
+                numericCompareAtPrice,
+              )
+            : undefined,
+        stock: Math.max(
+          0,
+          numericStock,
+        ),
+        category:
+          category.trim() ||
+          "General",
+        imageUrl: uploadedImages[0]?.imageUrl,
+        imageKeys: uploadedImages.map((upload) => upload.key),
+        options: productOptions,
+      });
+
+      /*
+       * =================================================
+       * 6. ACTUALIZAR CACHE
+       * =================================================
+       */
+      await utils.products.list.invalidate({
+        storeId: activeStoreId,
+      });
+
+      await utils.dashboard.summary.invalidate({
+        storeId: activeStoreId,
+      });
+
+      /*
+       * =================================================
+       * 7. SUCESSO
+       * =================================================
+       */
+      setMessage(
+        "Produto criado com sucesso.",
+      );
+
+      setTimeout(() => {
+        onClose?.();
+      }, 700);
+    } catch (saveError) {
+      console.error(
+        "ERRO AO CRIAR PRODUTO:",
+        saveError,
+      );
+
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Não foi possível criar o produto.",
+      );
+    }
   }
 
-  const selectedQuickOption = QUICK_OPTIONS.find(
-    (item) => item.id === quickOption,
-  );
+  const selectedQuickOption =
+    QUICK_OPTIONS.find(
+      (item) => item.id === quickOption,
+    );
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-[2px] sm:p-6">
@@ -458,7 +735,9 @@ export default function NewProductModal({
                 <input
                   value={name}
                   onChange={(event) =>
-                    setName(event.target.value)
+                    setName(
+                      event.target.value,
+                    )
                   }
                   placeholder="Ex: Camiseta Nike"
                   className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
@@ -471,7 +750,9 @@ export default function NewProductModal({
                 <textarea
                   value={description}
                   onChange={(event) =>
-                    setDescription(event.target.value)
+                    setDescription(
+                      event.target.value,
+                    )
                   }
                   rows={6}
                   placeholder="Descrição do produto"
@@ -485,7 +766,8 @@ export default function NewProductModal({
                 </p>
 
                 <p className="mt-1 text-sm text-slate-600">
-                  {slugify(name) || "nome-do-produto"}
+                  {slugify(name) ||
+                    "nome-do-produto"}
                 </p>
               </div>
             </section>
@@ -505,12 +787,13 @@ export default function NewProductModal({
 
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                   <ImagePlus className="h-4 w-4 text-slate-500" />
+
                   Adicionar imagens
 
                   <input
                     type="file"
                     multiple
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     onChange={handleImages}
                     className="hidden"
                   />
@@ -540,11 +823,15 @@ export default function NewProductModal({
                     >
                       <img
                         src={image.preview}
-                        alt={name || "Produto"}
+                        alt={
+                          name ||
+                          "Produto"
+                        }
                         className="aspect-square w-full object-cover"
                       />
 
-                      {mainImageId === image.id && (
+                      {mainImageId ===
+                        image.id && (
                         <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white">
                           <Star
                             className="h-3 w-3"
@@ -555,11 +842,14 @@ export default function NewProductModal({
                       )}
 
                       <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-slate-950/60 p-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                        {mainImageId !== image.id && (
+                        {mainImageId !==
+                          image.id && (
                           <button
                             type="button"
                             onClick={() =>
-                              setMainImageId(image.id)
+                              setMainImageId(
+                                image.id,
+                              )
                             }
                             className="flex-1 rounded-lg bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                           >
@@ -569,7 +859,11 @@ export default function NewProductModal({
 
                         <button
                           type="button"
-                          onClick={() => removeImage(image.id)}
+                          onClick={() =>
+                            removeImage(
+                              image.id,
+                            )
+                          }
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100"
                           aria-label="Remover imagem"
                         >
@@ -611,7 +905,9 @@ export default function NewProductModal({
                     step="0.01"
                     value={price}
                     onChange={(event) =>
-                      setPrice(event.target.value)
+                      setPrice(
+                        event.target.value,
+                      )
                     }
                     placeholder="15000"
                     className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
@@ -627,7 +923,9 @@ export default function NewProductModal({
                     step="0.01"
                     value={compareAtPrice}
                     onChange={(event) =>
-                      setCompareAtPrice(event.target.value)
+                      setCompareAtPrice(
+                        event.target.value,
+                      )
                     }
                     placeholder="18000"
                     className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
@@ -649,13 +947,11 @@ export default function NewProductModal({
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Tamanho, cor, calçado, armazenamento, volume e
-                    opções personalizadas.
+                    Tamanho, cor, calçado, armazenamento, volume e opções personalizadas.
                   </p>
                 </div>
               </div>
 
-              {/* Adicionar rapidamente */}
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-600">
@@ -676,7 +972,9 @@ export default function NewProductModal({
                 <select
                   value={quickOption}
                   onChange={(event) => {
-                    setQuickOption(event.target.value);
+                    setQuickOption(
+                      event.target.value,
+                    );
                     setQuickValues([]);
                   }}
                   className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
@@ -685,14 +983,16 @@ export default function NewProductModal({
                     Selecionar tipo...
                   </option>
 
-                  {QUICK_OPTIONS.map((option) => (
-                    <option
-                      key={option.id}
-                      value={option.id}
-                    >
-                      {option.name}
-                    </option>
-                  ))}
+                  {QUICK_OPTIONS.map(
+                    (option) => (
+                      <option
+                        key={option.id}
+                        value={option.id}
+                      >
+                        {option.name}
+                      </option>
+                    ),
+                  )}
 
                   <option value="custom">
                     Personalizado
@@ -715,7 +1015,7 @@ export default function NewProductModal({
                         }
                         className="text-xs font-medium text-emerald-600 transition hover:text-emerald-700"
                       >
-                        Seleccionar todos
+                        Selecionar todos
                       </button>
                     </div>
 
@@ -723,14 +1023,18 @@ export default function NewProductModal({
                       {selectedQuickOption.values.map(
                         (value) => {
                           const selected =
-                            quickValues.includes(value);
+                            quickValues.includes(
+                              value,
+                            );
 
                           return (
                             <button
                               key={value}
                               type="button"
                               onClick={() =>
-                                toggleQuickValue(value)
+                                toggleQuickValue(
+                                  value,
+                                )
                               }
                               className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
                                 selected
@@ -738,8 +1042,9 @@ export default function NewProductModal({
                                   : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"
                               }`}
                             >
-                              {selected && "✓ "}
-                              {value}
+                              {selected
+                                ? `✓ ${value}`
+                                : value}
                             </button>
                           );
                         },
@@ -757,7 +1062,8 @@ export default function NewProductModal({
                   </div>
                 )}
 
-                {quickOption === "custom" && (
+                {quickOption ===
+                  "custom" && (
                   <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
                     <div className="flex gap-3">
                       <Settings2 className="h-5 w-5 shrink-0 text-slate-400" />
@@ -776,7 +1082,6 @@ export default function NewProductModal({
                 )}
               </div>
 
-              {/* Opções adicionadas */}
               <div className="mt-8">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
@@ -806,86 +1111,102 @@ export default function NewProductModal({
                 )}
 
                 <div className="space-y-4">
-                  {options.map((option, optionIndex) => (
-                    <div
-                      key={optionIndex}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
-                    >
-                      <div className="flex gap-3">
-                        <input
-                          value={option.name}
-                          onChange={(event) =>
-                            updateOptionName(
-                              optionIndex,
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Nome da opção"
-                          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                        />
+                  {options.map(
+                    (
+                      option,
+                      optionIndex,
+                    ) => (
+                      <div
+                        key={optionIndex}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <div className="flex gap-3">
+                          <input
+                            value={option.name}
+                            onChange={(event) =>
+                              updateOptionName(
+                                optionIndex,
+                                event.target
+                                  .value,
+                              )
+                            }
+                            placeholder="Nome da opção"
+                            className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeOption(
+                                optionIndex,
+                              )
+                            }
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-500 transition hover:bg-red-100"
+                            aria-label="Remover opção"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {option.values.map(
+                            (
+                              value,
+                              valueIndex,
+                            ) => (
+                              <div
+                                key={valueIndex}
+                                className="flex gap-3"
+                              >
+                                <input
+                                  value={value}
+                                  onChange={(
+                                    event,
+                                  ) =>
+                                    updateOptionValue(
+                                      optionIndex,
+                                      valueIndex,
+                                      event.target
+                                        .value,
+                                    )
+                                  }
+                                  placeholder="Valor"
+                                  className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeOptionValue(
+                                      optionIndex,
+                                      valueIndex,
+                                    )
+                                  }
+                                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-500"
+                                  aria-label="Remover valor"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ),
+                          )}
+                        </div>
 
                         <button
                           type="button"
                           onClick={() =>
-                            removeOption(optionIndex)
+                            addOptionValue(
+                              optionIndex,
+                            )
                           }
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-500 transition hover:bg-red-100"
-                          aria-label="Remover opção"
+                          className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-emerald-600 transition hover:text-emerald-700"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Plus className="h-4 w-4" />
+                          Adicionar valor
                         </button>
                       </div>
-
-                      <div className="mt-4 space-y-3">
-                        {option.values.map(
-                          (value, valueIndex) => (
-                            <div
-                              key={valueIndex}
-                              className="flex gap-3"
-                            >
-                              <input
-                                value={value}
-                                onChange={(event) =>
-                                  updateOptionValue(
-                                    optionIndex,
-                                    valueIndex,
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Valor"
-                                className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeOptionValue(
-                                    optionIndex,
-                                    valueIndex,
-                                  )
-                                }
-                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-500"
-                                aria-label="Remover valor"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ),
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          addOptionValue(optionIndex)
-                        }
-                        className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-emerald-600 transition hover:text-emerald-700"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Adicionar valor
-                      </button>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
             </section>
@@ -905,7 +1226,9 @@ export default function NewProductModal({
                 <select
                   value={category}
                   onChange={(event) =>
-                    setCategory(event.target.value)
+                    setCategory(
+                      event.target.value,
+                    )
                   }
                   className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                 >
@@ -946,9 +1269,11 @@ export default function NewProductModal({
                   min="0"
                   value={stock}
                   onChange={(event) =>
-                    setStock(event.target.value)
+                    setStock(
+                      event.target.value,
+                    )
                   }
-                  className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                 />
               </label>
             </section>
@@ -968,7 +1293,7 @@ export default function NewProductModal({
                       | "draft",
                   )
                 }
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="active">
                   Ativo
@@ -991,7 +1316,9 @@ export default function NewProductModal({
                   type="checkbox"
                   checked={featured}
                   onChange={(event) =>
-                    setFeatured(event.target.checked)
+                    setFeatured(
+                      event.target.checked,
+                    )
                   }
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-emerald-600"
                 />
@@ -1013,15 +1340,26 @@ export default function NewProductModal({
               <button
                 type="button"
                 onClick={handleSave}
-                className="h-10 w-full rounded-xl bg-emerald-600 px-6 text-sm font-medium text-white transition hover:bg-emerald-700"
+                disabled={
+                  createProduct.isPending ||
+                  storageUpload.isPending
+                }
+                className="h-10 w-full rounded-xl bg-emerald-600 px-6 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Guardar produto
+                {createProduct.isPending ||
+                storageUpload.isPending
+                  ? "A guardar..."
+                  : "Guardar produto"}
               </button>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-6 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+                disabled={
+                  createProduct.isPending ||
+                  storageUpload.isPending
+                }
+                className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-6 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancelar
               </button>

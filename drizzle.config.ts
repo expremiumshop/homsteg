@@ -1,16 +1,27 @@
+import "dotenv/config";
+
 import { defineConfig } from "drizzle-kit";
 
-const connectionString = process.env.DATABASE_URL;
+const migrationConnectionString =
+  process.env.MIGRATION_DATABASE_URL;
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL is required to run drizzle commands");
+if (!migrationConnectionString) {
+  throw new Error(
+    "MIGRATION_DATABASE_URL is required to run drizzle commands",
+  );
 }
 
 export default defineConfig({
-  schema: "./drizzle_old/schema.ts",
+  schema: [
+    "./drizzle/schema.ts",
+    "./drizzle/auth-schema.ts",
+  ],
+
   out: "./drizzle",
+
   dialect: "postgresql",
+
   dbCredentials: {
-    url: connectionString,
+    url: migrationConnectionString,
   },
 });

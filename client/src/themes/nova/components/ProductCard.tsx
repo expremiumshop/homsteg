@@ -9,6 +9,7 @@ interface ProductCardProps {
   compare_at_price?: number | string | null;
   featured?: boolean;
   storeName?: string;
+  storeSlug?: string;
 }
 
 export function ProductCard({
@@ -20,6 +21,7 @@ export function ProductCard({
   compare_at_price,
   featured = false,
   storeName = "NOVA STORE",
+  storeSlug,
 }: ProductCardProps) {
   const currentPrice = Number(price);
 
@@ -28,6 +30,10 @@ export function ProductCard({
 
   const hasDiscount =
     previousPrice !== null && previousPrice > currentPrice;
+
+  const productHref = storeSlug
+    ? `/themes/nova/produto/${encodeURIComponent(slug)}?storeSlug=${encodeURIComponent(storeSlug)}`
+    : `/themes/nova/produto/${encodeURIComponent(slug)}`;
 
   return (
     <div
@@ -47,7 +53,7 @@ export function ProductCard({
           IMAGEM DO PRODUTO
           ===================================================== */}
 
-      <Link href={`/themes/nova/produto/${slug}`}>
+      <Link href={productHref}>
         <div
           className="
             relative
@@ -131,7 +137,7 @@ export function ProductCard({
       >
         {/* NOME */}
 
-        <Link href={`/themes/nova/produto/${slug}`}>
+        <Link href={productHref}>
           <h3
             className="
               line-clamp-2

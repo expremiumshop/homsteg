@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+"use client";
+
+import { useMemo } from "react";
+
+import { ArrowLeft, Store } from "lucide-react";
+
+import { Link, useLocation, useRoute, useSearch } from "wouter";
+
+import { trpc } from "@/lib/trpc";
 
 import ProductGallery from "./product/ProductGallery";
 import ProductTop from "./product/ProductTop";
@@ -13,116 +19,361 @@ import ProductTabs from "./product/ProductTabs";
 import ReviewsSection from "./product/ReviewsSection";
 import RelatedProducts from "./product/RelatedProducts";
 
-const demoProduct = {
-  id: "nova-demo-001",
-  slug: "smartwatch-ultra-series-9",
-  name: "Smartwatch Ultra Series 9",
-  price: 2499,
-  compare_at_price: 3499,
-  stock: 18,
-  description:
-    "Smartwatch moderno com monitorização de saúde, notificações inteligentes e bateria de longa duração.",
-  category: "Eletrónicos",
-  storeName: "NOVA STORE",
-  image:
-    "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=80",
-  images: [
-    {
-      id: "image-1",
-      image_url:
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=80",
-      position: 0,
-    },
-    {
-      id: "image-2",
-      image_url:
-        "https://images.unsplash.com/photo-1544117519-31a4b719223d?auto=format&fit=crop&w=1000&q=80",
-      position: 1,
-    },
-    {
-      id: "image-3",
-      image_url:
-        "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=1000&q=80",
-      position: 2,
-    },
-  ],
+type StoreProduct = {
+  id: number | string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  priceMzn: number;
+  compareAtPriceMzn?: number | null;
+  stock: number;
+  category?: string | null;
+  status?: "draft" | "active" | "archived" | string;
+  imageUrl?: string | null;
+  images?: string[];
+  options?: {
+    name: string;
+    values: string[];
+  }[];
 };
 
-const demoOptions = [
-  {
-    id: "color",
-    name: "Cor",
-    values: ["Preto", "Prata", "Azul"],
-    position: 0,
-  },
-  {
-    id: "size",
-    name: "Tamanho",
-    values: ["40mm", "44mm"],
-    position: 1,
-  },
-];
+type ProductPageProduct = {
+  id: number | string;
+  slug: string;
+  name: string;
+  price: number;
+  compare_at_price: number | null;
+  stock: number;
+  description: string | null;
+  category: string;
+  storeName: string;
+  image: string | null;
+  images: {
+    id: string;
+    image_url: string;
+    position: number;
+  }[];
+  options: {
+    id: string;
+    name: string;
+    values: string[];
+    position: number;
+  }[];
+};
 
-const demoRelatedProducts = [
-  {
-    id: "related-1",
-    slug: "auriculares-bluetooth-pro",
-    name: "Auriculares Bluetooth Pro",
-    price: 899,
-    compare_at_price: 1199,
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "related-2",
-    slug: "relogio-smart-classic",
-    name: "Relógio Smart Classic",
-    price: 1499,
-    compare_at_price: 1899,
-    image:
-      "https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "related-3",
-    slug: "headphones-wireless",
-    name: "Headphones Wireless",
-    price: 1299,
-    compare_at_price: 1599,
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "related-4",
-    slug: "smartphone-pro-max",
-    name: "Smartphone Pro Max",
-    price: 12999,
-    compare_at_price: 14999,
-    image:
-      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "related-5",
-    slug: "power-bank-20000mah",
-    name: "Power Bank 20.000mAh",
-    price: 999,
-    compare_at_price: 1299,
-    image:
-      "https://images.unsplash.com/photo-1609592424987-1f6c9c7a9b9a?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "related-6",
-    slug: "camara-digital",
-    name: "Câmara Digital",
-    price: 5499,
-    compare_at_price: 6499,
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=500&q=80",
-  },
-];
+type RelatedProduct = {
+  id: number | string;
+  slug: string;
+  name: string;
+  price: number;
+  compare_at_price: number | null;
+  image: string | null;
+};
+
+function getStoreSlugFromSearch(search: string): string {
+  const params = new URLSearchParams(search);
+
+  return params.get("storeSlug")?.trim() ?? "";
+}
+
+function normalizeProduct(
+  product: StoreProduct,
+  storeName: string,
+): ProductPageProduct {
+  const imageUrls = Array.from(
+    new Set(
+      [
+        ...(product.images ?? []),
+        product.imageUrl,
+      ].filter((value): value is string => Boolean(value?.trim())),
+    ),
+  );
+  const image = imageUrls[0] ?? null;
+
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    price: Number(product.priceMzn ?? 0),
+    compare_at_price:
+      product.compareAtPriceMzn == null
+        ? null
+        : Number(product.compareAtPriceMzn),
+    stock: Number(product.stock ?? 0),
+    description:
+      product.description ?? null,
+    category:
+      product.category ?? "Produtos",
+    storeName,
+    image,
+    images: imageUrls.map((imageUrl, position) => ({
+      id: `product-image-${product.id}-${position}`,
+      image_url: imageUrl,
+      position,
+    })),
+    options: (product.options ?? []).map((option, position) => ({
+      id: `product-option-${product.id}-${position}`,
+      name: option.name,
+      values: option.values,
+      position,
+    })),
+  };
+}
 
 export default function NovaProductPage() {
-  const [product] = useState(demoProduct);
+  const [, setLocation] = useLocation();
+  const search = useSearch();
 
+  /*
+   * ============================================================
+   * ROTA CORRETA DA PÁGINA DO PRODUTO
+   * ============================================================
+   *
+   * O ProductCard abre:
+   *
+   * /themes/nova/produto/:slug?storeSlug=...
+   *
+   * Portanto a página precisa ler o slug desta rota.
+   */
+  const [, routeParams] = useRoute(
+    "/themes/nova/produto/:slug",
+  );
+
+  const productSlug =
+    routeParams?.slug?.trim() ?? "";
+
+  /*
+   * ============================================================
+   * CONTEXTO DA LOJA
+   * ============================================================
+   *
+   * O storeSlug acompanha o produto através da URL.
+   */
+  const storeSlug = getStoreSlugFromSearch(search);
+
+  /*
+   * Sem storeSlug não devemos consultar uma loja vazia.
+   */
+  const storeQuery =
+    trpc.stores.bySlug.useQuery(
+      {
+        slug: storeSlug,
+      },
+      {
+        enabled:
+          Boolean(storeSlug) &&
+          Boolean(productSlug),
+      },
+    );
+
+  const store =
+    storeQuery.data?.store as
+      | {
+          id: string;
+          name: string;
+          slug: string;
+          category?: string | null;
+          currency?: string | null;
+          status?: string | null;
+        }
+      | undefined;
+
+  /*
+   * Produtos pertencentes EXCLUSIVAMENTE
+   * à loja encontrada pelo storeSlug.
+   */
+  const storeProducts =
+    (storeQuery.data?.products ??
+      []) as StoreProduct[];
+
+  /*
+   * Procuramos o produto pelo slug
+   * dentro dos produtos da loja atual.
+   */
+  const rawProduct = useMemo(() => {
+    if (!productSlug) {
+      return undefined;
+    }
+
+    return storeProducts.find(
+      (product) =>
+        String(product.slug) ===
+        String(productSlug),
+    );
+  }, [storeProducts, productSlug]);
+
+  const product = rawProduct
+    ? normalizeProduct(
+        rawProduct,
+        store?.name ?? "Loja",
+      )
+    : undefined;
+
+  /*
+   * Produtos relacionados permanecem
+   * dentro da MESMA loja.
+   */
+  const relatedProducts: RelatedProduct[] =
+    storeProducts
+      .filter(
+        (item) =>
+          String(item.slug) !==
+            String(productSlug) &&
+          item.status !== "archived",
+      )
+      .slice(0, 6)
+      .map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        name: item.name,
+        price: Number(
+          item.priceMzn ?? 0,
+        ),
+        compare_at_price:
+          item.compareAtPriceMzn == null
+            ? null
+            : Number(
+                item.compareAtPriceMzn,
+              ),
+        image:
+          item.imageUrl?.trim() || null,
+      }));
+
+  const isLoading =
+    Boolean(storeSlug) &&
+    Boolean(productSlug) &&
+    storeQuery.isLoading;
+
+  const hasStoreSlug =
+    Boolean(storeSlug);
+
+  /*
+   * ============================================================
+   * CARREGAMENTO
+   * ============================================================
+   */
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-emerald-600" />
+
+          <p className="text-sm text-gray-500">
+            A carregar o produto...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * ============================================================
+   * LOJA NÃO ENCONTRADA
+   * ============================================================
+   */
+  if (
+    !hasStoreSlug ||
+    storeQuery.isError ||
+    !store
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-4">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
+            <Store className="h-7 w-7 text-emerald-600" />
+          </div>
+
+          <h1 className="text-xl font-semibold text-gray-950">
+            Loja não encontrada
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-gray-500">
+            Não foi possível encontrar a
+            loja associada a este produto.
+          </p>
+
+          <Link
+            href="/"
+            className="
+              mt-6
+              inline-flex
+              items-center
+              justify-center
+              rounded-xl
+              bg-emerald-600
+              px-5
+              py-3
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-emerald-700
+            "
+          >
+            Voltar
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * ============================================================
+   * PRODUTO NÃO ENCONTRADO
+   * ============================================================
+   */
+  if (!product) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-4">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
+            <Store className="h-7 w-7 text-emerald-600" />
+          </div>
+
+          <h1 className="text-xl font-semibold text-gray-950">
+            Produto não encontrado
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-gray-500">
+            Este produto não existe nesta
+            loja ou já não está disponível.
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              setLocation(
+                `/store/${store.slug}`,
+              )
+            }
+            className="
+              mt-6
+              inline-flex
+              items-center
+              justify-center
+              rounded-xl
+              bg-emerald-600
+              px-5
+              py-3
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-emerald-700
+            "
+          >
+            Voltar à loja
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * ============================================================
+   * PÁGINA DO PRODUTO
+   * ============================================================
+   */
   return (
     <main className="min-h-screen bg-[#f5f5f5] pb-24">
       <div
@@ -135,10 +386,12 @@ export default function NovaProductPage() {
           md:py-8
         "
       >
-        {/* VOLTAR */}
+        {/* =====================================================
+            VOLTAR À MESMA LOJA
+            ===================================================== */}
         <div className="mb-4">
           <Link
-            href="/themes/nova"
+            href={`/store/${store.slug}`}
             className="
               inline-flex
               items-center
@@ -154,7 +407,9 @@ export default function NovaProductPage() {
           </Link>
         </div>
 
-        {/* PRODUTO */}
+        {/* =====================================================
+            PRODUTO
+            ===================================================== */}
         <div
           className="
             overflow-hidden
@@ -176,7 +431,9 @@ export default function NovaProductPage() {
               xl:gap-10
             "
           >
-            {/* GALERIA */}
+            {/* =================================================
+                GALERIA
+                ================================================= */}
             <div className="min-w-0">
               <ProductGallery
                 image={product.image}
@@ -185,45 +442,60 @@ export default function NovaProductPage() {
               />
             </div>
 
-            {/* INFORMAÇÕES DO PRODUTO */}
+            {/* =================================================
+                INFORMAÇÕES
+                ================================================= */}
             <div className="min-w-0 space-y-5">
-              {/* TÍTULO */}
-              <ProductTop product={product} />
+              <ProductTop
+                product={product}
+              />
 
-              {/* PREÇO / DESCONTO / CUPÃO / STOCK */}
-              <ProductInfo product={product} />
+              <ProductInfo
+                product={product}
+              />
 
-              {/* PROMOÇÃO */}
-              <PromotionBar product={product} />
+              <PromotionBar
+                product={product}
+              />
 
-              {/* VARIANTES + ACÇÕES */}
               <ProductPurchaseSection
                 product={product}
-                options={demoOptions}
+                options={product.options}
                 variants={[]}
               />
 
-              {/* ENTREGA */}
               <ShippingCard />
 
-              {/* GARANTIA */}
               <GuaranteeCard />
             </div>
           </div>
 
-          {/* TABS */}
+          {/* ===================================================
+              TABS
+              =================================================== */}
           <div className="border-t border-gray-200">
-            <ProductTabs product={product} />
+            <ProductTabs
+              product={product}
+            />
           </div>
         </div>
 
-        {/* AVALIAÇÕES */}
+        {/* =====================================================
+            AVALIAÇÕES
+            ===================================================== */}
         <div className="mt-8">
           <ReviewsSection />
         </div>
 
-        {/* PRODUTOS RELACIONADOS */}
-        <RelatedProducts products={demoRelatedProducts} />
+        {/* =====================================================
+            PRODUTOS RELACIONADOS
+            ===================================================== */}
+        {relatedProducts.length > 0 && (
+          <RelatedProducts
+            products={relatedProducts}
+            storeSlug={store.slug}
+          />
+        )}
       </div>
     </main>
   );

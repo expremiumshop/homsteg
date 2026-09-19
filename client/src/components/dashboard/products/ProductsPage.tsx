@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   Archive,
   CheckCircle2,
@@ -7,7 +8,9 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
+
 import NewProductModal from "./NewProductModal";
+import { trpc } from "@/lib/trpc";
 
 type ProductStatus = "active" | "draft" | "archived";
 
@@ -20,8 +23,6 @@ type Product = {
   status: ProductStatus;
   imageUrl?: string | null;
 };
-
-const demoProducts: Product[] = [];
 
 function formatMzn(value: number) {
   return `${value.toLocaleString("pt-MZ")} MZN`;
@@ -123,9 +124,7 @@ function StatCard({
           {label}
         </span>
 
-        <span className={iconClassName}>
-          {icon}
-        </span>
+        <span className={iconClassName}>{icon}</span>
       </div>
 
       <div className="mt-3 text-2xl font-semibold text-slate-950">
@@ -139,14 +138,39 @@ function StatCard({
   );
 }
 
-export default function ProductsPage() {
-  const [products] = useState<Product[]>(demoProducts);
+export default function ProductsPage({
+  storeId,
+}: {
+  storeId?: string;
+}) {
+  const productsQuery = trpc.products.list.useQuery(
+    { storeId: storeId ?? "" },
+    {
+      enabled: Boolean(storeId),
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: true,
+    },
+  );
+
+  const products = (productsQuery.data ?? []) as Product[];
+
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState<
     "all" | ProductStatus
   >("all");
+
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
   const [showNewProduct, setShowNewProduct] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds((current) =>
+      current.filter((id) =>
+        products.some((product) => product.id === id),
+      ),
+    );
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -203,6 +227,7 @@ export default function ProductsPage() {
             ),
         ),
       );
+
       return;
     }
 
@@ -294,7 +319,9 @@ export default function ProductsPage() {
                 <input
                   type="text"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) =>
+                    setSearch(event.target.value)
+                  }
                   placeholder="Pesquisar produto..."
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                 />
@@ -403,8 +430,12 @@ export default function ProductsPage() {
                       <td className="px-5 py-4">
                         <input
                           type="checkbox"
-                          checked={selectedIds.includes(product.id)}
-                          onChange={() => toggleProduct(product.id)}
+                          checked={selectedIds.includes(
+                            product.id,
+                          )}
+                          onChange={() =>
+                            toggleProduct(product.id)
+                          }
                           className="h-4 w-4 rounded border-slate-300 text-emerald-600 accent-emerald-600"
                           aria-label={`Selecionar ${product.name}`}
                         />
@@ -580,6 +611,7 @@ export default function ProductsPage() {
 
       {showNewProduct && (
         <NewProductModal
+          storeId={storeId}
           onClose={() => setShowNewProduct(false)}
         />
       )}

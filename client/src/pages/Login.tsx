@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
-import { useSignIn } from "@clerk/react/legacy";
+
 import { useLocation } from "wouter";
+
 import {
   Eye,
   EyeOff,
@@ -8,21 +9,23 @@ import {
   Mail,
   Store,
 } from "lucide-react";
+
 import { toast } from "sonner";
+
+import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-
-  const {
-    isLoaded,
-    signIn,
-    setActive,
-  } = useSignIn();
+  const utils = trpc.useUtils();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [password, setPassword] =
+    useState("");
+  const [showPassword, setShowPassword] =
+    useState(false);
+  const [isLoading, setIsLoading] =
+    useState(false);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -33,21 +36,19 @@ export default function Login() {
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail =
+      email.trim().toLowerCase();
 
     if (!cleanEmail) {
-      toast.error("Introduz o teu email.");
+      toast.error(
+        "Introduz o teu email.",
+      );
       return;
     }
 
     if (!password) {
-      toast.error("Introduz a tua palavra-passe.");
-      return;
-    }
-
-    if (!isLoaded) {
       toast.error(
-        "O sistema de autenticação ainda está a iniciar. Tenta novamente.",
+        "Introduz a tua palavra-passe.",
       );
       return;
     }
@@ -55,46 +56,99 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const result = await signIn.create({
-        identifier: cleanEmail,
-        password,
-      });
+      const result =
+        await authClient.signIn.email({
+          email: cleanEmail,
+          password,
+          rememberMe: true,
+        });
 
-      if (result.status !== "complete") {
-        toast.error(
-          "O login não foi concluído. Verifica os dados da tua conta.",
+      if (result.error) {
+        console.error(
+          "[Better Auth Login Error]",
+          result.error,
         );
+
+        toast.error(
+          result.error.message ||
+            "E-mail ou palavra-passe incorretos.",
+        );
+
         return;
       }
 
-      if (!result.createdSessionId) {
-        toast.error(
-          "O login foi concluído, mas a sessão não foi criada.",
+      /*
+       * A sessão Better Auth já está criada.
+       * Agora procuramos as lojas reais deste utilizador.
+       */
+      const stores =
+        await utils.stores.mine.fetch();
+
+      if (stores.length > 0) {
+        /*
+         * Para utilizadores normais o backend retorna:
+         *
+         * { store: Store }
+         *
+         * Para admin retorna diretamente:
+         *
+         * Store
+         *
+         * Aceitamos os dois formatos.
+         */
+        const firstItem = stores[0];
+
+        const firstStore =
+          "store" in firstItem
+            ? firstItem.store
+            : firstItem;
+
+        if (firstStore?.id) {
+          toast.success(
+            "Login efetuado com sucesso!",
+          );
+
+          window.location.assign(
+            `/app?storeId=${encodeURIComponent(
+              firstStore.id,
+            )}`,
+          );
+
+          return;
+        }
+
+        console.error(
+          "[Login] Loja encontrada, mas sem ID:",
+          firstItem,
         );
-        return;
       }
 
-      await setActive({
-        session: result.createdSessionId,
-      });
-
-      toast.success("Login efetuado com sucesso!");
-
-      window.location.assign("/criar-loja/negocio");
-    } catch (error: any) {
-      console.error("[Clerk Login Error]", error);
-
-      const clerkError = error?.errors?.[0];
-
-      const clerkMessage =
-        clerkError?.longMessage ||
-        clerkError?.message ||
-        error?.message;
-
-      toast.error(
-        clerkMessage ||
-          "E-mail ou palavra-passe incorretos.",
+      /*
+       * Utilizador autenticado sem loja.
+       */
+      toast.success(
+        "Login efetuado com sucesso!",
       );
+
+      window.location.assign(
+        "/criar-loja/negocio",
+      );
+    } catch (error: unknown) {
+      console.error(
+        "[Login] Erro inesperado:",
+        error,
+      );
+
+      if (error instanceof Error) {
+        toast.error(
+          error.message ||
+            "Não foi possível iniciar sessão.",
+        );
+      } else {
+        toast.error(
+          "Não foi possível iniciar sessão.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +161,9 @@ export default function Login() {
           <div className="mb-8 text-center">
             <button
               type="button"
-              onClick={() => setLocation("/")}
+              onClick={() =>
+                setLocation("/")
+              }
               className="mx-auto mb-8 flex items-center justify-center gap-2"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
@@ -115,7 +171,10 @@ export default function Login() {
               </div>
 
               <span className="text-2xl font-black tracking-tight">
-                HOMSTEG<span className="text-lime-400">.</span>
+                HOMSTEG
+                <span className="text-lime-400">
+                  .
+                </span>
               </span>
             </button>
 
@@ -150,7 +209,9 @@ export default function Login() {
                     autoComplete="email"
                     value={email}
                     onChange={(event) =>
-                      setEmail(event.target.value)
+                      setEmail(
+                        event.target.value,
+                      )
                     }
                     placeholder="exemplo@email.com"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-black focus:bg-white"
@@ -172,11 +233,17 @@ export default function Login() {
 
                   <input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) =>
-                      setPassword(event.target.value)
+                      setPassword(
+                        event.target.value,
+                      )
                     }
                     placeholder="A tua palavra-passe"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm outline-none transition focus:border-black focus:bg-white"
@@ -186,7 +253,9 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((value) => !value)
+                      setShowPassword(
+                        (value) => !value,
+                      )
                     }
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-black"
                     aria-label={
@@ -251,7 +320,11 @@ export default function Login() {
 
             <button
               type="button"
-              onClick={() => setLocation("/criar-conta")}
+              onClick={() =>
+                setLocation(
+                  "/criar-conta",
+                )
+              }
               className="mt-3 h-12 w-full rounded-xl border border-slate-200 bg-white text-sm font-bold text-black transition hover:bg-slate-50"
             >
               Criar conta
@@ -260,7 +333,9 @@ export default function Login() {
 
           <button
             type="button"
-            onClick={() => setLocation("/")}
+            onClick={() =>
+              setLocation("/")
+            }
             className="mx-auto mt-6 block text-sm text-white/50 transition hover:text-white"
           >
             Voltar para a HOMSTEG

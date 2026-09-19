@@ -8,6 +8,20 @@
       "when": 1789303746600,
       "tag": "0000_nervous_jimmy_woo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789506578672,
+      "tag": "0001_early_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789592978672,
+      "tag": "0002_product_media_and_options",
+      "breakpoints": true
     }
   ]
 }

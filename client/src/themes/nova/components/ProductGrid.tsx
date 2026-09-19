@@ -18,6 +18,7 @@ interface ProductGridProps {
   loading?: boolean;
   error?: string | null;
   storeName?: string;
+  storeSlug?: string;
 }
 
 export function ProductGrid({
@@ -25,6 +26,7 @@ export function ProductGrid({
   loading = false,
   error = null,
   storeName = "NOVA STORE",
+  storeSlug,
 }: ProductGridProps) {
   return (
     <section className="w-full bg-background px-3 py-2 sm:px-4 md:py-3">
@@ -84,6 +86,7 @@ export function ProductGrid({
                 compare_at_price={product.compare_at_price}
                 featured={product.featured}
                 storeName={storeName}
+                storeSlug={storeSlug}
               />
             ))}
           </div>

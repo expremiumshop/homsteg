@@ -1,11 +1,20 @@
 import { Link } from "wouter";
 
 interface RelatedProductsProps {
-  products: any[];
+  products: {
+    id: string | number;
+    slug: string;
+    name: string;
+    price: number;
+    compare_at_price: number | null;
+    image: string | null;
+  }[];
+  storeSlug: string;
 }
 
 export default function RelatedProducts({
   products,
+  storeSlug,
 }: RelatedProductsProps) {
   if (!products || products.length === 0) {
     return null;
@@ -32,7 +41,7 @@ export default function RelatedProducts({
         </h2>
 
         <Link
-          href="/themes/nova"
+          href={`/store/${encodeURIComponent(storeSlug)}`}
           className="
             text-sm
             font-semibold
@@ -56,7 +65,7 @@ export default function RelatedProducts({
         {products.map((item) => (
           <Link
             key={item.id}
-            href={`/themes/nova/produto/${item.slug}`}
+            href={`/themes/nova/produto/${encodeURIComponent(item.slug)}?storeSlug=${encodeURIComponent(storeSlug)}`}
             className="
               overflow-hidden
               rounded-xl
