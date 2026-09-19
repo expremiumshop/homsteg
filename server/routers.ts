@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { systemRouter } from "./_core/systemRouter";
+import { systemRouter } from "./_core/systemRouter.js";
 
 import {
   adminProcedure,
   protectedProcedure,
   publicProcedure,
   router,
-} from "./_core/trpc";
+} from "./_core/trpc.js";
 
 import {
   archiveProduct,
@@ -23,12 +23,12 @@ import {
   listPublicProducts,
   updateStoreTheme,
   userHasStoreAccess,
-} from "./db";
+} from "./db.js";
 
 import {
   createStoreDownloadUrl,
   createStoreUploadUrl,
-} from "./r2";
+} from "./r2.js";
 
 const storeIdInput = z
   .string()
@@ -497,7 +497,11 @@ export const appRouter = router({
 
           imageKeys: z
             .array(
-              z.string().trim().min(1).max(1024),
+              z
+                .string()
+                .trim()
+                .min(1)
+                .max(1024),
             )
             .max(12)
             .default([]),
@@ -505,10 +509,19 @@ export const appRouter = router({
           options: z
             .array(
               z.object({
-                name: z.string().trim().min(1).max(80),
+                name: z
+                  .string()
+                  .trim()
+                  .min(1)
+                  .max(80),
+
                 values: z
                   .array(
-                    z.string().trim().min(1).max(120),
+                    z
+                      .string()
+                      .trim()
+                      .min(1)
+                      .max(120),
                   )
                   .min(1)
                   .max(100),
@@ -533,12 +546,16 @@ export const appRouter = router({
 
           if (
             input.imageKeys.some(
-              (key) => !key.startsWith(productImagePrefix),
+              (key) =>
+                !key.startsWith(
+                  productImagePrefix,
+                ),
             )
           ) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Imagem não pertence à loja selecionada.",
+              message:
+                "Imagem não pertence à loja selecionada.",
             });
           }
 
@@ -552,13 +569,16 @@ export const appRouter = router({
               input.priceMzn,
             compareAtPriceMzn:
               input.compareAtPriceMzn,
-            stock: input.stock,
+            stock:
+              input.stock,
             category:
               input.category,
             imageUrl:
               input.imageUrl,
-            imageKeys: input.imageKeys,
-            options: input.options,
+            imageKeys:
+              input.imageKeys,
+            options:
+              input.options,
             status: "draft",
           });
         },
