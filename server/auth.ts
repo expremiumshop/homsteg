@@ -5,23 +5,19 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import * as authSchema from "../drizzle/auth-schema";
-import { syncBetterAuthUser } from "./db";
+import * as authSchema from "../drizzle/auth-schema.js";
+import { syncBetterAuthUser } from "./db.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL não está configurada.",
-  );
+  throw new Error("DATABASE_URL não está configurada.");
 }
 
 const secret = process.env.BETTER_AUTH_SECRET;
 
 if (!secret) {
-  throw new Error(
-    "BETTER_AUTH_SECRET não está configurada.",
-  );
+  throw new Error("BETTER_AUTH_SECRET não está configurada.");
 }
 
 const baseURL =
@@ -38,9 +34,7 @@ const authDb = drizzle(pool);
 
 export const auth = betterAuth({
   appName: "HOMSTEG",
-
   secret,
-
   baseURL,
 
   database: drizzleAdapter(authDb, {
