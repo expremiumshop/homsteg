@@ -14,8 +14,9 @@ import {
   stores,
   storeMembers,
   users,
-} from "../drizzle/schema";
-import { createStoreDownloadUrl } from "./r2";
+} from "../drizzle/schema.js";
+
+import { createStoreDownloadUrl } from "./r2.js";
 
 let pool: Pool | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -77,12 +78,14 @@ export async function upsertUser(
     lastSignedIn: values.lastSignedIn,
   };
 
-  (["name", "email", "loginMethod"] as const).forEach((field) => {
-    if (user[field] !== undefined) {
-      values[field] = user[field] ?? null;
-      updateSet[field] = values[field];
-    }
-  });
+  (["name", "email", "loginMethod"] as const).forEach(
+    (field) => {
+      if (user[field] !== undefined) {
+        values[field] = user[field] ?? null;
+        updateSet[field] = values[field];
+      }
+    },
+  );
 
   if (user.role !== undefined) {
     values.role = user.role;
@@ -133,7 +136,9 @@ export async function getUserByEmail(
     return undefined;
   }
 
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = email
+    .toLowerCase()
+    .trim();
 
   const result = await db
     .select()
@@ -217,10 +222,16 @@ export async function getStoresForUser(
     .from(stores)
     .innerJoin(
       storeMembers,
-      eq(storeMembers.storeId, stores.id),
+      eq(
+        storeMembers.storeId,
+        stores.id,
+      ),
     )
     .where(
-      eq(storeMembers.userId, userId),
+      eq(
+        storeMembers.userId,
+        userId,
+      ),
     )
     .orderBy(desc(stores.createdAt));
 }
@@ -359,11 +370,10 @@ export async function getAdminUsers() {
       ),
   ]);
 
-  const latestApplicationByUser =
-    new Map<
-      number,
-      (typeof applications)[number]
-    >();
+  const latestApplicationByUser = new Map<
+    number,
+    (typeof applications)[number]
+  >();
 
   for (const application of applications) {
     if (
@@ -378,11 +388,10 @@ export async function getAdminUsers() {
     }
   }
 
-  const storesByUser =
-    new Map<
-      number,
-      typeof memberships
-    >();
+  const storesByUser = new Map<
+    number,
+    typeof memberships
+  >();
 
   for (const membership of memberships) {
     const userStores =
@@ -591,30 +600,48 @@ async function hydrateProductAssets(
     await Promise.all(
       product.imageKeys.map(async (key) => {
         try {
-          return await createStoreDownloadUrl(key);
+          return await createStoreDownloadUrl(
+            key,
+          );
         } catch {
           return null;
         }
       }),
     )
-  ).filter((url): url is string => Boolean(url));
+  ).filter(
+    (url): url is string =>
+      Boolean(url),
+  );
 
   if (product.imageUrl) {
-    imageUrls.push(product.imageUrl);
+    imageUrls.push(
+      product.imageUrl,
+    );
   }
 
-  const images = Array.from(new Set(imageUrls));
-  const options = Array.isArray(product.options)
+  const images = Array.from(
+    new Set(imageUrls),
+  );
+
+  const options = Array.isArray(
+    product.options,
+  )
     ? product.options.filter(
-        (option): option is StoredProductOption =>
-          typeof option?.name === "string" &&
-          Array.isArray(option.values),
+        (
+          option,
+        ): option is StoredProductOption =>
+          typeof option?.name ===
+            "string" &&
+          Array.isArray(
+            option.values,
+          ),
       )
     : [];
 
   return {
     ...product,
-    imageUrl: images[0] ?? null,
+    imageUrl:
+      images[0] ?? null,
     images,
     options,
   };
@@ -639,10 +666,16 @@ export async function listProducts(
       ),
     )
     .orderBy(
-      desc(products.createdAt),
+      desc(
+        products.createdAt,
+      ),
     );
 
-  return Promise.all(result.map(hydrateProductAssets));
+  return Promise.all(
+    result.map(
+      hydrateProductAssets,
+    ),
+  );
 }
 
 /**
@@ -695,7 +728,9 @@ export async function getStoreDashboardSummary(
       ),
     )
     .orderBy(
-      desc(products.createdAt),
+      desc(
+        products.createdAt,
+      ),
     );
 
   const totalProducts =
@@ -704,19 +739,22 @@ export async function getStoreDashboardSummary(
   const activeProducts =
     storeProducts.filter(
       (product) =>
-        product.status === "active",
+        product.status ===
+        "active",
     ).length;
 
   const draftProducts =
     storeProducts.filter(
       (product) =>
-        product.status === "draft",
+        product.status ===
+        "draft",
     ).length;
 
   const archivedProducts =
     storeProducts.filter(
       (product) =>
-        product.status === "archived",
+        product.status ===
+        "archived",
     ).length;
 
   const outOfStockProducts =
@@ -726,7 +764,10 @@ export async function getStoreDashboardSummary(
     ).length;
 
   const recentProducts =
-    storeProducts.slice(0, 5);
+    storeProducts.slice(
+      0,
+      5,
+    );
 
   return {
     store: {
@@ -738,16 +779,20 @@ export async function getStoreDashboardSummary(
       status: store.status,
       currency: store.currency,
       themeKey: store.themeKey,
-      createdAt: store.createdAt,
-      updatedAt: store.updatedAt,
+      createdAt:
+        store.createdAt,
+      updatedAt:
+        store.updatedAt,
     },
 
     products: {
       total: totalProducts,
       active: activeProducts,
       draft: draftProducts,
-      archived: archivedProducts,
-      outOfStock: outOfStockProducts,
+      archived:
+        archivedProducts,
+      outOfStock:
+        outOfStockProducts,
       recent: recentProducts,
     },
 
@@ -780,10 +825,16 @@ export async function listPublicProducts(
       ),
     )
     .orderBy(
-      desc(products.createdAt),
+      desc(
+        products.createdAt,
+      ),
     );
 
-  return Promise.all(result.map(hydrateProductAssets));
+  return Promise.all(
+    result.map(
+      hydrateProductAssets,
+    ),
+  );
 }
 
 export async function insertProduct(
@@ -958,7 +1009,8 @@ export async function updateStoreApplicationStatus(
         status === "pending"
           ? null
           : new Date(),
-      updatedAt: new Date(),
+      updatedAt:
+        new Date(),
     })
     .where(
       eq(
@@ -1016,10 +1068,12 @@ export async function createStoreFromApplication(
     }
 
     if (
-      application.status !== "pending" &&
+      application.status !==
+        "pending" &&
       application.status !==
         "changes_requested" &&
-      application.status !== "approved"
+      application.status !==
+        "approved"
     ) {
       throw new Error(
         "APPLICATION_NOT_APPROVABLE",
@@ -1039,7 +1093,8 @@ export async function createStoreFromApplication(
         .limit(1);
 
     if (
-      existingStoreResult.length > 0
+      existingStoreResult.length >
+      0
     ) {
       const existingStore =
         existingStoreResult[0];
@@ -1078,7 +1133,9 @@ export async function createStoreFromApplication(
         "approved"
       ) {
         await tx
-          .update(storeApplications)
+          .update(
+            storeApplications,
+          )
           .set({
             status: "approved",
             adminNotes:
@@ -1099,7 +1156,8 @@ export async function createStoreFromApplication(
       return existingStore;
     }
 
-    const storeId = randomUUID();
+    const storeId =
+      randomUUID();
 
     const createdStoreResult =
       await tx
