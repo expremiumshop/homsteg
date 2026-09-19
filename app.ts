@@ -1,5 +1,5 @@
 import express from "express";
-import { createApp } from "./server/app";
+import { createApp } from "./server/app.js";
 
 /**
  * Entry point da aplicação Express para a Vercel.
