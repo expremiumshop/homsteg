@@ -1,12 +1,11 @@
 import express from "express";
-
 import { toNodeHandler } from "better-auth/node";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
-import { auth } from "./auth";
-import { appRouter } from "./routers";
-import { createContext } from "./_core/context";
-import { registerStorageProxy } from "./_core/storageProxy";
+import { auth } from "./auth.js";
+import { appRouter } from "./routers.js";
+import { createContext } from "./_core/context.js";
+import { registerStorageProxy } from "./_core/storageProxy.js";
 
 /**
  * Regista as rotas de API partilhadas pelo Express local e pela Vercel.
@@ -17,10 +16,7 @@ export function createApp() {
   const app = express();
 
   // O Better Auth precisa receber o body original da requisição.
-  app.all(
-    "/api/auth/*",
-    toNodeHandler(auth),
-  );
+  app.all("/api/auth/*", toNodeHandler(auth));
 
   app.use(
     express.json({
