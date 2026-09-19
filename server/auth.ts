@@ -24,6 +24,12 @@ if (!secret) {
   );
 }
 
+const baseURL =
+  process.env.BETTER_AUTH_URL ||
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000");
+
 const pool = new Pool({
   connectionString: databaseUrl,
 });
@@ -35,9 +41,7 @@ export const auth = betterAuth({
 
   secret,
 
-  baseURL:
-    process.env.BETTER_AUTH_URL ||
-    "http://localhost:3000",
+  baseURL,
 
   database: drizzleAdapter(authDb, {
     provider: "pg",
