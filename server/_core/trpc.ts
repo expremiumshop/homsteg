@@ -10,9 +10,9 @@ import {
 
 import superjson from "superjson";
 
-import { getUserByOpenId } from "../db";
+import { getUserByOpenId } from "../db.js";
 
-import type { TrpcContext } from "./context";
+import type { TrpcContext } from "./context.js";
 
 const t = initTRPC
   .context<TrpcContext>()

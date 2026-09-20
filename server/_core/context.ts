@@ -4,10 +4,11 @@ import type {
 
 import { fromNodeHeaders } from "better-auth/node";
 
-import type { User } from "../../drizzle/schema";
+import type { User } from "../../drizzle/schema.js";
 
-import { auth } from "../auth";
-import { getUserByOpenId } from "../db";
+import { auth } from "../auth.js";
+
+import { getUserByOpenId } from "../db.js";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -21,13 +22,18 @@ export async function createContext(
   let user: User | null = null;
 
   try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(opts.req.headers),
-    });
+    const session =
+      await auth.api.getSession({
+        headers: fromNodeHeaders(
+          opts.req.headers,
+        ),
+      });
 
     if (session?.user?.id) {
       user =
-        (await getUserByOpenId(session.user.id)) ?? null;
+        (await getUserByOpenId(
+          session.user.id,
+        )) ?? null;
     }
   } catch (error) {
     console.error(
