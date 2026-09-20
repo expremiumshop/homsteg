@@ -1,7 +1,7 @@
 import {
   NOT_ADMIN_ERR_MSG,
   UNAUTHED_ERR_MSG,
-} from "@shared/const";
+} from "../../shared/const.js";
 
 import {
   initTRPC,
@@ -11,7 +11,6 @@ import {
 import superjson from "superjson";
 
 import { getUserByOpenId } from "../db.js";
-
 import type { TrpcContext } from "./context.js";
 
 const t = initTRPC
@@ -56,12 +55,12 @@ export const adminProcedure =
         });
       }
 
-      /*
+      /**
        * Nunca confiar apenas no role existente
        * na sessão/contexto.
        *
        * O administrador é validado diretamente
-       * no Neon usando o Clerk userId armazenado
+       * no Neon usando o openId armazenado
        * em users.openId.
        */
       const currentUser =
