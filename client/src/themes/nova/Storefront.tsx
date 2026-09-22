@@ -309,7 +309,7 @@ export default function NovaStorefront({
         categories={headerCategories}
         categoriesLoading={isProductsLoading}
         cartCount={0}
-        whatsappNumber=""
+        whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
         currency={store?.currency || "MZN"}
         country="Moçambique"
@@ -429,7 +429,7 @@ export default function NovaStorefront({
         storeName={
           store?.name ?? "NOVA STORE"
         }
-        whatsappNumber=""
+        whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
       />
 
@@ -439,7 +439,7 @@ export default function NovaStorefront({
 
       <BottomNavigation
         cartCount={0}
-        whatsappNumber=""
+        whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
         storeSlug={store?.slug}
       />

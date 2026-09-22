@@ -14,6 +14,7 @@ import {
     quantity: number;
     image_url?: string;
     variants?: Record<string, string>;
+    storeSlug?: string;
   }
   
   interface AddToCartItem {
@@ -22,6 +23,7 @@ import {
     price: number;
     image_url?: string;
     variants?: Record<string, string>;
+    storeSlug?: string;
     quantity?: number;
   }
   
@@ -83,12 +85,20 @@ import {
   
     const addToCart = (item: AddToCartItem) => {
       setCart((currentCart) => {
+        const cartForStore = item.storeSlug
+          ? currentCart.filter(
+              (cartItem) =>
+                !cartItem.storeSlug ||
+                cartItem.storeSlug === item.storeSlug,
+            )
+          : currentCart;
+
         const quantityToAdd = Math.max(
           1,
           Number(item.quantity ?? 1)
         );
   
-        const existingIndex = currentCart.findIndex(
+        const existingIndex = cartForStore.findIndex(
           (cartItem) =>
             cartItem.id === item.id &&
             JSON.stringify(cartItem.variants ?? {}) ===
@@ -96,7 +106,7 @@ import {
         );
   
         if (existingIndex !== -1) {
-          return currentCart.map((cartItem, index) => {
+          return cartForStore.map((cartItem, index) => {
             if (index !== existingIndex) {
               return cartItem;
             }
@@ -110,7 +120,7 @@ import {
         }
   
         return [
-          ...currentCart,
+          ...cartForStore,
           {
             id: item.id,
             name: item.name,
@@ -118,6 +128,7 @@ import {
             quantity: quantityToAdd,
             image_url: item.image_url,
             variants: item.variants,
+            storeSlug: item.storeSlug,
           },
         ];
       });

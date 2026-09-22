@@ -14,12 +14,14 @@ interface ProductActionsProps {
   product: any;
   productOptions?: ProductOption[];
   selectedVariants?: Record<string, string>;
+  storeSlug?: string;
 }
 
 export default function ProductActions({
   product,
   productOptions = [],
   selectedVariants = {},
+  storeSlug,
 }: ProductActionsProps) {
   const [, navigate] = useLocation();
   const { addToCart } = useCart();
@@ -113,6 +115,7 @@ export default function ProductActions({
           ? selectedVariants
           : undefined,
       quantity,
+      storeSlug,
     };
   }
 

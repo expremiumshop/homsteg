@@ -8,7 +8,7 @@ import type { User } from "../../drizzle/schema.js";
 
 import { auth } from "../auth.js";
 
-import { getUserByOpenId } from "../db.js";
+import { resolveBetterAuthBusinessUser } from "../db.js";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -30,10 +30,11 @@ export async function createContext(
       });
 
     if (session?.user?.id) {
-      user =
-        (await getUserByOpenId(
-          session.user.id,
-        )) ?? null;
+      user = await resolveBetterAuthBusinessUser({
+        userId: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+      });
     }
   } catch (error) {
     console.error(

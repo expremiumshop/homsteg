@@ -22,6 +22,7 @@ import {
   listProducts,
   listPublicProducts,
   updateStoreTheme,
+  updateStoreWhatsApp,
   userHasStoreAccess,
 } from "./db.js";
 
@@ -54,6 +55,24 @@ const optionalText = (max: number) =>
     .max(max)
     .optional()
     .or(z.literal(""));
+
+const whatsappInput = z
+  .string()
+  .trim()
+  .min(7)
+  .max(40)
+  .refine(
+    (value) => {
+      if (!/^\+?[\d\s().-]+$/.test(value)) {
+        return false;
+      }
+
+      const digits = value.replace(/\D/g, "");
+
+      return digits.length >= 7 && digits.length <= 15;
+    },
+    "Introduza um número de WhatsApp válido.",
+  );
 
 const themeInput = z.enum([
   "nova",
@@ -182,6 +201,41 @@ export const appRouter = router({
         ),
     }),
 
+    checkout: router({
+      updateWhatsApp: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            whatsapp: whatsappInput,
+          }),
+        )
+        .mutation(
+          async ({ ctx, input }) => {
+            requireStoreAccess(
+              await userHasStoreAccess(
+                ctx.user.id,
+                input.storeId,
+                ctx.user.role === "admin",
+              ),
+            );
+
+            const store = await updateStoreWhatsApp(
+              input.storeId,
+              input.whatsapp,
+            );
+
+            if (!store) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Loja não encontrada.",
+              });
+            }
+
+            return store;
+          },
+        ),
+    }),
+
     application: router({
       create: protectedProcedure
         .input(
@@ -255,11 +309,12 @@ export const appRouter = router({
           async ({ ctx, input }) => {
             try {
               const store =
-                await createStoreForUser({
-                  userId: ctx.user.id,
-                  name: input.storeName,
-                  slug: input.storeSlug,
-                });
+              await createStoreForUser({
+                userId: ctx.user.id,
+                name: input.storeName,
+                slug: input.storeSlug,
+                whatsapp: input.whatsapp || undefined,
+              });
 
               return {
                 success: true,

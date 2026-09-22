@@ -10,8 +10,6 @@ import {
 import { Link, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 
-const WHATSAPP_NUMBER = "";
-
 export default function NovaAccountPage() {
   const search = useSearch();
   const storeSlug = new URLSearchParams(search)
@@ -23,6 +21,8 @@ export default function NovaAccountPage() {
   );
   const storeName = storeQuery.data?.store.name ??
     (storeSlug ? "Loja" : "NOVA STORE");
+  const whatsappNumber = storeQuery.data?.store.whatsapp
+    ?.replace(/\D/g, "");
   const storePath = storeSlug
     ? `/store/${encodeURIComponent(storeSlug)}`
     : "/themes/nova";
@@ -36,12 +36,12 @@ export default function NovaAccountPage() {
   }
 
   function openWhatsApp() {
-    if (!WHATSAPP_NUMBER) {
+    if (!whatsappNumber) {
       return;
     }
 
     window.open(
-      `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`,
+      `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`,
       "_blank",
       "noopener,noreferrer"
     );
@@ -147,7 +147,7 @@ export default function NovaAccountPage() {
           <button
             type="button"
             onClick={openWhatsApp}
-            disabled={!WHATSAPP_NUMBER}
+            disabled={!whatsappNumber}
             className="
               flex
               w-full
@@ -347,7 +347,7 @@ export default function NovaAccountPage() {
           <button
             type="button"
             onClick={openWhatsApp}
-            disabled={!WHATSAPP_NUMBER}
+            disabled={!whatsappNumber}
             className="
               flex
               w-full

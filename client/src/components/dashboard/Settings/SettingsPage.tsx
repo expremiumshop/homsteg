@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   Check,
@@ -17,6 +17,8 @@ import {
   User,
   Wallet,
 } from "lucide-react";
+import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 type SettingsSection =
   | "loja"
@@ -131,7 +133,11 @@ function SettingRow({
   );
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({
+  storeId,
+}: {
+  storeId?: string;
+}) {
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("loja");
 
@@ -150,12 +156,48 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
+  const utils = trpc.useUtils();
+  const storesQuery = trpc.stores.mine.useQuery();
+  const updateWhatsApp =
+    trpc.stores.checkout.updateWhatsApp.useMutation();
 
-    window.setTimeout(() => {
-      setSaved(false);
-    }, 2500);
+  const selectedStore = (storesQuery.data ?? [])
+    .map((entry) =>
+      "store" in entry ? entry.store : entry,
+    )
+    .find((store) => store.id === storeId);
+
+  useEffect(() => {
+    setWhatsapp(selectedStore?.whatsapp ?? "");
+  }, [selectedStore?.id, selectedStore?.whatsapp]);
+
+  const handleSave = async () => {
+    if (!storeId) {
+      toast.error("Selecione uma loja para guardar as configurações.");
+      return;
+    }
+
+    if (!whatsapp.trim()) {
+      toast.error("Introduza o número de WhatsApp da loja.");
+      return;
+    }
+
+    try {
+      await updateWhatsApp.mutateAsync({
+        storeId,
+        whatsapp,
+      });
+
+      await utils.stores.mine.invalidate();
+      setSaved(true);
+
+      window.setTimeout(() => {
+        setSaved(false);
+      }, 2500);
+    } catch (error) {
+      console.error("[Settings] Não foi possível guardar WhatsApp:", error);
+      toast.error("Não foi possível guardar o número de WhatsApp.");
+    }
   };
 
   const activeLabel =
@@ -182,9 +224,12 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={handleSave}
+          disabled={updateWhatsApp.isPending}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          {saved ? (
+          {updateWhatsApp.isPending ? (
+            "A guardar..."
+          ) : saved ? (
             <>
               <Check className="h-4 w-4" />
               Guardado
@@ -523,7 +568,25 @@ export default function SettingsPage() {
 
             {/* Checkout */}
             {activeSection === "checkout" && (
-              <div className="p-5 sm:p-6">
+              <div className="space-y-6 p-5 sm:p-6">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Pedidos pelo WhatsApp
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Este número recebe os pedidos enviados no checkout da sua loja.
+                  </p>
+                </div>
+
+                <Field
+                  label="Número de WhatsApp da loja"
+                  value={whatsapp}
+                  onChange={setWhatsapp}
+                  placeholder="+258 84 000 0000"
+                  type="tel"
+                />
+
                 <SettingRow
                   title="Checkout activo"
                   description="Permite que os clientes avancem para finalizar uma encomenda."

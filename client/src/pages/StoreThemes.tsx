@@ -19,6 +19,9 @@ import { useLocation } from "wouter";
 
 import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
+import UrbanStorefront from "@/themes/urban/Storefront";
+import PrimeStorefront from "@/themes/prime/Storefront";
+import { getPublicStoreUrl } from "@/lib/store-url";
 
 import { trpc } from "@/lib/trpc";
 
@@ -50,14 +53,6 @@ const themes: Theme[] = [
     price: "Premium",
   },
   {
-    id: "market",
-    name: "Market",
-    description:
-      "Ideal para lojas com muitos produtos.",
-    category: "Marketplace",
-    price: "Premium",
-  },
-  {
     id: "urban",
     name: "Urban",
     description:
@@ -66,35 +61,11 @@ const themes: Theme[] = [
     price: "Premium",
   },
   {
-    id: "essenza",
-    name: "Essenza",
-    description:
-      "Minimalista, elegante e focado no produto.",
-    category: "Minimalista",
-    price: "Premium",
-  },
-  {
     id: "prime",
     name: "Prime",
     description:
       "Tecnologia e produtos modernos em destaque.",
     category: "Tecnologia",
-    price: "Premium",
-  },
-  {
-    id: "caliza",
-    name: "Caliza",
-    description:
-      "Design contemporâneo e sofisticado.",
-    category: "Moderno",
-    price: "Premium",
-  },
-  {
-    id: "chazuca",
-    name: "Chazuca",
-    description:
-      "Criativo, colorido e cheio de personalidade.",
-    category: "Criativo",
     price: "Premium",
   },
 ];
@@ -120,12 +91,8 @@ type StoreMineItem =
 type ThemeKey =
   | "nova"
   | "luxe"
-  | "market"
   | "urban"
-  | "essenza"
-  | "prime"
-  | "caliza"
-  | "chazuca";
+  | "prime";
 
 function getTheme(
   themeId: string | null | undefined,
@@ -138,9 +105,8 @@ function getTheme(
 }
 
 /* ============================================================
-   NORMALIZA A RESPOSTA DE stores.mine
-   ============================================================ */
-
+ *   NORMALIZA A RESPOSTA DE stores.mine
+ *   ============================================================ */
 function normalizeStore(
   item: StoreMineItem | undefined,
 ): ClientStore | undefined {
@@ -159,9 +125,8 @@ function normalizeStore(
 }
 
 /* ============================================================
-   MINIATURA DOS TEMAS
-   ============================================================ */
-
+ *   MINIATURA DOS TEMAS
+ *   ============================================================ */
 function ThemeMiniPreview({
   theme,
 }: {
@@ -191,6 +156,30 @@ function ThemeMiniPreview({
     );
   }
 
+  if (theme.id === "urban") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <UrbanStorefront mode="demo" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (theme.id === "prime") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <PrimeStorefront mode="demo" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[270px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
       <div className="px-5 text-center">
@@ -211,9 +200,8 @@ function ThemeMiniPreview({
 }
 
 /* ============================================================
-   VISUALIZAÇÃO DA LOJA REAL
-   ============================================================ */
-
+ *   VISUALIZAÇÃO DA LOJA REAL
+ *   ============================================================ */
 function RealStorePreview({
   store,
   device,
@@ -232,9 +220,8 @@ function RealStorePreview({
         : "min-w-[1100px] w-full";
 
   /* ========================================================
-     NOVA
-     ======================================================== */
-
+   *     NOVA
+   *     ======================================================== */
   if (themeId === "nova") {
     return (
       <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
@@ -253,9 +240,8 @@ function RealStorePreview({
   }
 
   /* ========================================================
-     LUXE
-     ======================================================== */
-
+   *     LUXE
+   *     ======================================================== */
   if (themeId === "luxe") {
     return (
       <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
@@ -263,7 +249,50 @@ function RealStorePreview({
           <div
             className={`mx-auto ${previewWidth}`}
           >
-            <LuxeStorefront mode="store" store={store} />
+            <LuxeStorefront
+              mode="store"
+              store={store}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+   *     URBAN
+   *     ======================================================== */
+  if (themeId === "urban") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <UrbanStorefront
+              mode="store"
+              store={store}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+   *     PRIME
+   *     ======================================================== */
+  if (themeId === "prime") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <PrimeStorefront
+              mode="store"
+              store={store}
+            />
           </div>
         </div>
       </div>
@@ -284,16 +313,15 @@ function RealStorePreview({
         </h3>
 
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          A sua loja está configurada com o
-          tema{" "}
+          A sua loja está configurada com o tema{" "}
           <strong>{theme.name}</strong>,
           mas a versão real deste tema ainda
           está em desenvolvimento.
         </p>
 
         <p className="mt-2 text-xs leading-5 text-slate-400">
-          Os seus produtos e outros dados
-          continuam preservados.
+          Os seus produtos e outros dados continuam
+          preservados.
         </p>
       </div>
     </div>
@@ -301,9 +329,8 @@ function RealStorePreview({
 }
 
 /* ============================================================
-   VISUALIZAÇÃO COMPLETA DE UM TEMA
-   ============================================================ */
-
+ *   VISUALIZAÇÃO COMPLETA DE UM TEMA
+ *   ============================================================ */
 function ThemeFullPreview({
   themeId,
 }: {
@@ -317,7 +344,19 @@ function ThemeFullPreview({
 
   if (themeId === "luxe") {
     return (
-      <LuxeStorefront />
+      <LuxeStorefront mode="demo" />
+    );
+  }
+
+  if (themeId === "urban") {
+    return (
+      <UrbanStorefront mode="demo" />
+    );
+  }
+
+  if (themeId === "prime") {
+    return (
+      <PrimeStorefront mode="demo" />
     );
   }
 
@@ -346,31 +385,27 @@ function ThemeFullPreview({
 }
 
 /* ============================================================
-   PÁGINA DE TEMAS
-   ============================================================ */
-
+ *   PÁGINA DE TEMAS
+ *   ============================================================ */
 export default function StoreThemes() {
   const [, navigate] =
     useLocation();
 
   /* ========================================================
-     BUSCA AS LOJAS
-     ======================================================== */
-
+   *     BUSCA AS LOJAS
+   *     ======================================================== */
   const storesQuery =
     trpc.stores.mine.useQuery();
 
   /* ========================================================
-     UTILITÁRIOS TRPC
-     ======================================================== */
-
+   *     UTILITÁRIOS TRPC
+   *     ======================================================== */
   const utils =
     trpc.useUtils();
 
   /* ========================================================
-     MUTATION PARA SALVAR O TEMA
-     ======================================================== */
-
+   *     MUTATION PARA SALVAR O TEMA
+   *     ======================================================== */
   const setThemeMutation =
     trpc.stores.theme.set.useMutation({
       onSuccess: async () => {
@@ -379,9 +414,8 @@ export default function StoreThemes() {
     });
 
   /* ========================================================
-     LOJA DO UTILIZADOR
-     ======================================================== */
-
+   *     LOJA DO UTILIZADOR
+   *     ======================================================== */
   const clientStore =
     normalizeStore(
       storesQuery.data?.[0] as
@@ -390,9 +424,8 @@ export default function StoreThemes() {
     );
 
   /* ========================================================
-     TEMA ATIVO
-     ======================================================== */
-
+   *     TEMA ATIVO
+   *     ======================================================== */
   const activeThemeId =
     clientStore?.themeKey ||
     "nova";
@@ -401,9 +434,8 @@ export default function StoreThemes() {
     getTheme(activeThemeId);
 
   /* ========================================================
-     DISPOSITIVO DE PRÉ-VISUALIZAÇÃO
-     ======================================================== */
-
+   *     DISPOSITIVO DE PRÉ-VISUALIZAÇÃO
+   *     ======================================================== */
   const [
     previewDevice,
     setPreviewDevice,
@@ -412,9 +444,8 @@ export default function StoreThemes() {
   );
 
   /* ========================================================
-     TEMA SENDO VISUALIZADO
-     ======================================================== */
-
+   *     TEMA SENDO VISUALIZADO
+   *     ======================================================== */
   const [
     viewingTheme,
     setViewingTheme,
@@ -423,9 +454,8 @@ export default function StoreThemes() {
   );
 
   /* ========================================================
-     FECHA VISUALIZAÇÃO QUANDO O TEMA É APLICADO
-     ======================================================== */
-
+   *     FECHA VISUALIZAÇÃO QUANDO O TEMA É APLICADO
+   *     ======================================================== */
   useEffect(() => {
     if (
       viewingTheme &&
@@ -440,9 +470,8 @@ export default function StoreThemes() {
   ]);
 
   /* ========================================================
-     SELECIONAR TEMA
-     ======================================================== */
-
+   *     SELECIONAR TEMA
+   *     ======================================================== */
   const handleSelectTheme =
     async (
       themeId: string,
@@ -467,7 +496,6 @@ export default function StoreThemes() {
           {
             storeId:
               clientStore.id,
-
             themeKey:
               themeId as ThemeKey,
           },
@@ -485,9 +513,8 @@ export default function StoreThemes() {
     };
 
   /* ========================================================
-     VER TEMA
-     ======================================================== */
-
+   *     VER TEMA
+   *     ======================================================== */
   const handleViewTheme =
     (themeId: string) => {
       setViewingTheme(
@@ -510,9 +537,8 @@ export default function StoreThemes() {
     };
 
   /* ========================================================
-     FECHAR VISUALIZAÇÃO
-     ======================================================== */
-
+   *     FECHAR VISUALIZAÇÃO
+   *     ======================================================== */
   const handleCloseThemeViewer =
     () => {
       setViewingTheme(null);
@@ -533,9 +559,8 @@ export default function StoreThemes() {
     };
 
   /* ========================================================
-     ABRIR A LOJA REAL
-     ======================================================== */
-
+   *     ABRIR A LOJA REAL
+   *     ======================================================== */
   const handleViewStore =
     () => {
       if (
@@ -544,8 +569,10 @@ export default function StoreThemes() {
         return;
       }
 
-      navigate(
-        `/store/${clientStore.slug}`,
+      window.open(
+        getPublicStoreUrl(clientStore.slug),
+        "_blank",
+        "noopener,noreferrer",
       );
     };
 
@@ -558,16 +585,12 @@ export default function StoreThemes() {
 
   return (
     <div className="min-h-screen bg-white">
-
       {/* ======================================================
-          HEADER
-          ====================================================== */}
-
+       *          HEADER
+       *          ====================================================== */}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-
           <div className="flex items-center gap-3">
-
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
               <Palette className="h-5 w-5" />
             </div>
@@ -581,7 +604,6 @@ export default function StoreThemes() {
                 Escolha o visual da sua loja.
               </p>
             </div>
-
           </div>
 
           <button
@@ -596,22 +618,16 @@ export default function StoreThemes() {
             <Eye className="h-4 w-4" />
             Ver tema
           </button>
-
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-
         {/* ====================================================
-            1. PRÉ-VISUALIZAÇÃO DA LOJA
-            ==================================================== */}
-
+         *            1. PRÉ-VISUALIZAÇÃO DA LOJA
+         *            ==================================================== */}
         <section className="mb-12">
-
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-
             <div>
-
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
                 <Store className="h-3.5 w-3.5" />
                 Loja real
@@ -625,15 +641,11 @@ export default function StoreThemes() {
                 Veja a sua loja real com o tema
                 atualmente aplicado.
               </p>
-
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-
               {/* DISPOSITIVOS */}
-
               <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1">
-
                 <button
                   type="button"
                   onClick={() =>
@@ -687,11 +699,9 @@ export default function StoreThemes() {
                 >
                   <Smartphone className="h-4 w-4" />
                 </button>
-
               </div>
 
               {/* VER LOJA */}
-
               <button
                 type="button"
                 onClick={
@@ -705,34 +715,23 @@ export default function StoreThemes() {
                 <ExternalLink className="h-4 w-4" />
                 Ver loja
               </button>
-
             </div>
           </div>
 
           {/* LOJA REAL */}
-
           {storesQuery.isLoading ? (
-
             <div className="flex h-[620px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
-
               <div className="text-center">
-
                 <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-slate-400" />
 
                 <p className="text-sm font-medium text-slate-600">
                   A carregar a sua loja...
                 </p>
-
               </div>
-
             </div>
-
           ) : storesQuery.isError ? (
-
             <div className="flex h-[620px] items-center justify-center rounded-2xl border border-dashed border-red-200 bg-red-50">
-
               <div className="max-w-md px-6 text-center">
-
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-red-400 shadow-sm">
                   <Store className="h-7 w-7" />
                 </div>
@@ -745,26 +744,18 @@ export default function StoreThemes() {
                   O sistema não conseguiu carregar
                   os dados da sua loja neste momento.
                 </p>
-
               </div>
-
             </div>
-
           ) : clientStore ? (
-
             <RealStorePreview
               store={clientStore}
               device={
                 previewDevice
               }
             />
-
           ) : (
-
             <div className="flex h-[620px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
-
               <div className="max-w-md px-6 text-center">
-
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm">
                   <Store className="h-7 w-7" />
                 </div>
@@ -778,23 +769,16 @@ export default function StoreThemes() {
                   sua conta. Quando ela for criada e
                   associada, a pré-visualização real aparecerá aqui.
                 </p>
-
               </div>
-
             </div>
-
           )}
-
         </section>
 
         {/* ====================================================
-            2. TEMAS DISPONÍVEIS
-            ==================================================== */}
-
+         *            2. TEMAS DISPONÍVEIS
+         *            ==================================================== */}
         <section id="available-themes">
-
           <div className="mb-6">
-
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
               <Sparkles className="h-3.5 w-3.5" />
               Personalização
@@ -808,14 +792,11 @@ export default function StoreThemes() {
               Escolha o tema da sua loja ou veja
               a experiência completa antes de decidir.
             </p>
-
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-
             {themes.map(
               (theme) => {
-
                 const isActive =
                   theme.id ===
                   activeThemeId;
@@ -828,7 +809,6 @@ export default function StoreThemes() {
                     theme.id;
 
                 return (
-
                   <article
                     key={theme.id}
                     className={`overflow-hidden rounded-2xl border bg-white transition ${
@@ -837,11 +817,8 @@ export default function StoreThemes() {
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-
                     {/* MINIATURA */}
-
                     <div className="relative">
-
                       <ThemeMiniPreview
                         theme={theme}
                       />
@@ -859,17 +836,12 @@ export default function StoreThemes() {
                           Tema ativo
                         </div>
                       )}
-
                     </div>
 
                     {/* INFORMAÇÕES */}
-
                     <div className="p-5">
-
                       <div className="flex items-start justify-between gap-4">
-
                         <div>
-
                           <h3 className="text-lg font-bold text-slate-950">
                             {theme.name}
                           </h3>
@@ -877,7 +849,6 @@ export default function StoreThemes() {
                           <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                             {theme.category}
                           </p>
-
                         </div>
 
                         <span
@@ -890,7 +861,6 @@ export default function StoreThemes() {
                         >
                           {theme.price}
                         </span>
-
                       </div>
 
                       <p className="mt-3 min-h-[48px] text-sm leading-6 text-slate-500">
@@ -898,11 +868,8 @@ export default function StoreThemes() {
                       </p>
 
                       {/* BOTÕES */}
-
                       <div className="mt-5 grid grid-cols-2 gap-2">
-
                         {/* SELECIONAR TEMA */}
-
                         <button
                           type="button"
                           onClick={() =>
@@ -921,31 +888,22 @@ export default function StoreThemes() {
                               : "border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                           }`}
                         >
-
                           {isActive ? (
-
                             <>
                               <Check className="h-4 w-4" />
                               Selecionado
                             </>
-
                           ) : isApplying ? (
-
                             <>
                               <Loader2 className="h-4 w-4 animate-spin" />
                               Aplicando...
                             </>
-
                           ) : (
-
                             "Selecionar tema"
-
                           )}
-
                         </button>
 
                         {/* VER TEMA */}
-
                         <button
                           type="button"
                           onClick={() =>
@@ -958,37 +916,26 @@ export default function StoreThemes() {
                           <Eye className="h-4 w-4" />
                           Ver tema
                         </button>
-
                       </div>
-
                     </div>
-
                   </article>
-
                 );
               },
             )}
-
           </div>
-
         </section>
 
         {/* ====================================================
-            VISUALIZAÇÃO COMPLETA DO TEMA
-            ==================================================== */}
-
+         *            VISUALIZAÇÃO COMPLETA DO TEMA
+         *            ==================================================== */}
         {viewingTheme &&
           viewingThemeData && (
-
             <section
               id="theme-viewer"
               className="mt-12 scroll-mt-6"
             >
-
               <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-
                 <div>
-
                   <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
                     <Eye className="h-3.5 w-3.5" />
                     Visualização completa
@@ -1002,7 +949,6 @@ export default function StoreThemes() {
                     Esta demonstração usa conteúdo fictício
                     e não altera os dados da sua loja.
                   </p>
-
                 </div>
 
                 <button
@@ -1015,25 +961,18 @@ export default function StoreThemes() {
                   <ArrowLeft className="h-4 w-4" />
                   Voltar aos temas
                 </button>
-
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-
                 <ThemeFullPreview
                   themeId={
                     viewingTheme
                   }
                 />
-
               </div>
-
             </section>
-
           )}
-
       </main>
-
     </div>
   );
 }

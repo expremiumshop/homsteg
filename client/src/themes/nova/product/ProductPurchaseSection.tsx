@@ -22,11 +22,13 @@ interface ProductPurchaseSectionProps {
   product: any;
   options: ProductOption[];
   variants: ProductVariant[];
+  storeSlug?: string;
 }
 
 export default function ProductPurchaseSection({
   product,
   options,
+  storeSlug,
 }: ProductPurchaseSectionProps) {
   const [selectedVariants, setSelectedVariants] =
     useState<Record<string, string>>({});
@@ -44,6 +46,7 @@ export default function ProductPurchaseSection({
         product={product}
         productOptions={options}
         selectedVariants={selectedVariants}
+        storeSlug={storeSlug}
       />
     </div>
   );

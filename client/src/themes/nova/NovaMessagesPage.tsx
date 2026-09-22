@@ -7,8 +7,6 @@ import {
   import { Link, useSearch } from "wouter";
   import { trpc } from "@/lib/trpc";
   
-  const WHATSAPP_NUMBER = "";
-  
   export default function NovaMessagesPage() {
     const search = useSearch();
     const storeSlug = new URLSearchParams(search)
@@ -20,6 +18,8 @@ import {
     );
     const storeName = storeQuery.data?.store.name ??
       (storeSlug ? "Loja" : "NOVA STORE");
+    const whatsappNumber = storeQuery.data?.store.whatsapp
+      ?.replace(/\D/g, "");
     const storePath = storeSlug
       ? `/store/${encodeURIComponent(storeSlug)}`
       : "/themes/nova";
@@ -28,12 +28,12 @@ import {
     );
 
     function openWhatsApp() {
-      if (!WHATSAPP_NUMBER) {
+      if (!whatsappNumber) {
         return;
       }
   
       window.open(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`,
+        `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`,
         "_blank",
         "noopener,noreferrer"
       );
@@ -148,7 +148,7 @@ import {
                   <button
                     type="button"
                     onClick={openWhatsApp}
-                    disabled={!WHATSAPP_NUMBER}
+                    disabled={!whatsappNumber}
                     className="
                       mt-5
                       flex

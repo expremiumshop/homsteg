@@ -174,6 +174,80 @@ export async function syncBetterAuthUser({
 }
 
 /**
+ * Resolve o utilizador de negócio que corresponde à sessão Better Auth.
+ *
+ * As contas criadas antes da adoção do Better Auth já podem ter uma linha em
+ * `users` e relações em `storeMembers`, mas com um `openId` legado. Nesse
+ * caso, reconciliamos a identidade pela mesma conta de e-mail. Mantemos o
+ * `users.id` original — que é a chave usada por `storeMembers` — por isso a
+ * loja existente continua associada ao respetivo owner.
+ */
+export async function resolveBetterAuthBusinessUser({
+  userId,
+  email,
+  name,
+}: {
+  userId: string;
+  email: string;
+  name: string;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedName = name.trim() || null;
+
+  const byOpenId = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, userId))
+    .limit(1);
+
+  if (byOpenId[0]) {
+    return byOpenId[0];
+  }
+
+  const byEmail = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalizedEmail))
+    .limit(1);
+
+  if (byEmail[0]) {
+    const updated = await db
+      .update(users)
+      .set({
+        openId: userId,
+        name: normalizedName,
+        email: normalizedEmail,
+        loginMethod: "better-auth",
+        lastSignedIn: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, byEmail[0].id))
+      .returning();
+
+    return updated[0];
+  }
+
+  const created = await db
+    .insert(users)
+    .values({
+      openId: userId,
+      email: normalizedEmail,
+      name: normalizedName,
+      loginMethod: "better-auth",
+      lastSignedIn: new Date(),
+    })
+    .returning();
+
+  return created[0];
+}
+
+/**
  * Atualiza a data do último login do utilizador de negócio.
  */
 export async function updateUserLastSignedIn(
@@ -244,10 +318,12 @@ export async function createStoreForUser({
   userId,
   name,
   slug,
+  whatsapp,
 }: {
   userId: number;
   name: string;
   slug: string;
+  whatsapp?: string;
 }) {
   const db = await getDb();
 
@@ -303,6 +379,7 @@ export async function createStoreForUser({
         planKey: "free",
         status: "active",
         currency: "MZN",
+        whatsapp: whatsapp?.trim() || null,
         themeKey: "nova",
       })
       .returning();
@@ -317,6 +394,28 @@ export async function createStoreForUser({
 
     return created[0];
   });
+}
+
+export async function updateStoreWhatsApp(
+  storeId: string,
+  whatsapp: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updated = await db
+    .update(stores)
+    .set({
+      whatsapp: whatsapp.trim(),
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return updated[0];
 }
 
 /* ============================================================

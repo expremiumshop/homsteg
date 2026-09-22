@@ -22,6 +22,27 @@
       "when": 1789592978672,
       "tag": "0002_product_media_and_options",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790009219996,
+      "tag": "0003_closed_charles_xavier",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790011201692,
+      "tag": "0004_require_email_otp",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790015000000,
+      "tag": "0005_store_whatsapp",
+      "breakpoints": true
     }
   ]
 }

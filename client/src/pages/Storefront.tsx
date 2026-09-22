@@ -4,10 +4,14 @@ import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
 import { trpc } from "@/lib/trpc";
 
-export default function Storefront() {
+export default function Storefront({
+  storeSlug,
+}: {
+  storeSlug?: string;
+}) {
   const [, params] = useRoute("/store/:slug");
 
-  const slug = params?.slug;
+  const slug = storeSlug ?? params?.slug;
 
   // The public storefront is the real store, never a theme preview. Load the
   // store once to select its persisted theme; every theme receives only this

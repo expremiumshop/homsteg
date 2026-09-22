@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { betterAuth } from "better-auth";
+
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -34,7 +35,9 @@ const authDb = drizzle(pool);
 
 export const auth = betterAuth({
   appName: "HOMSTEG",
+
   secret,
+
   baseURL,
 
   database: drizzleAdapter(authDb, {

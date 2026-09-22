@@ -9,9 +9,10 @@ import {
   Plus,
   MessageCircle,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 import { useCart } from "@/contexts/CartContext";
+import { trpc } from "@/lib/trpc";
 
 export default function NovaCheckoutPage() {
   const {
@@ -19,6 +20,18 @@ export default function NovaCheckoutPage() {
     removeFromCart,
     updateQuantity,
   } = useCart();
+  const search = useSearch();
+  const searchStoreSlug = new URLSearchParams(search)
+    .get("storeSlug")
+    ?.trim();
+  const storeSlug =
+    cart[0]?.storeSlug ??
+    searchStoreSlug;
+  const storeQuery = trpc.stores.bySlug.useQuery(
+    { slug: storeSlug ?? "" },
+    { enabled: Boolean(storeSlug) },
+  );
+  const store = storeQuery.data?.store;
 
   // =====================================================
   // DADOS DO CLIENTE
@@ -129,6 +142,13 @@ export default function NovaCheckoutPage() {
       return;
     }
 
+    const phoneDigits = phone.replace(/\D/g, "");
+
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      alert("Digite um telefone válido.");
+      return;
+    }
+
     if (!city.trim()) {
       alert("Digite a sua cidade.");
       return;
@@ -153,14 +173,37 @@ export default function NovaCheckoutPage() {
       return;
     }
 
+    const hasInvalidCartItem = cart.some((item) => {
+      const quantity = Number(item.quantity);
+      const price = Number(item.price);
+
+      return (
+        !item.name.trim() ||
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        !Number.isFinite(price) ||
+        price < 0
+      );
+    });
+
+    if (hasInvalidCartItem) {
+      alert("Existe um produto inválido no carrinho. Atualize a página e tente novamente.");
+      return;
+    }
+
+    const whatsappNumber = store?.whatsapp
+      ?.replace(/\D/g, "");
+
+    if (!store?.name || !whatsappNumber) {
+      alert(
+        "O WhatsApp desta loja ainda não está configurado. Tente novamente mais tarde.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Número temporário da Nova.
-      // Será substituído posteriormente pelo número
-      // configurado para cada loja.
-      const WHATSAPP_NUMBER = "";
-
       const productsText = cart
         .map((item, index) => {
           const price = Number(item.price);
@@ -199,7 +242,7 @@ export default function NovaCheckoutPage() {
         );
 
       const message = `
-*NOVO PEDIDO - NOVA STORE*
+*NOVO PEDIDO - ${store.name}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -286,31 +329,16 @@ Obrigado pela atenção!
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*NOVA STORE*
+*${store.name}*
 
 ━━━━━━━━━━━━━━━━━━━━
       `.trim();
-
-      // Enquanto o WhatsApp real ainda não está
-      // configurado, apenas prepara a mensagem.
-      if (!WHATSAPP_NUMBER) {
-        console.log(
-          "Mensagem do pedido preparada:",
-          message
-        );
-
-        alert(
-          "O pedido foi preparado. O WhatsApp da loja será configurado posteriormente."
-        );
-
-        return;
-      }
 
       const encodedMessage =
         encodeURIComponent(message);
 
       const whatsappUrl =
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+        `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
 
       window.open(
         whatsappUrl,

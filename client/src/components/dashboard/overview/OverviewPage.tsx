@@ -2,15 +2,20 @@
     ArrowUpRight,
     BarChart3,
     Box,
+    Copy,
     ShoppingCart,
     Users,
   } from "lucide-react";
   import { trpc } from "@/lib/trpc";
+  import { toast } from "sonner";
+  import { getPublicStoreUrl } from "@/lib/store-url";
   
   export default function OverviewPage({
     storeId,
+    storeSlug,
   }: {
     storeId?: string;
+    storeSlug?: string;
   }) {
     const summaryQuery = trpc.dashboard.summary.useQuery(
       { storeId: storeId ?? "" },
@@ -23,6 +28,33 @@
 
     const summary = summaryQuery.data;
     const recentProducts = summary?.products.recent ?? [];
+    const publicStoreUrl = storeSlug
+      ? getPublicStoreUrl(storeSlug)
+      : undefined;
+
+    async function copyPublicStoreUrl() {
+      if (!publicStoreUrl) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(publicStoreUrl);
+        toast.success("URL da loja copiada.");
+      } catch {
+        const input = document.createElement("textarea");
+
+        input.value = publicStoreUrl;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+
+        toast.success("URL da loja copiada.");
+      }
+    }
 
     return (
       <div className="space-y-6">
@@ -40,7 +72,42 @@
             Acompanhe o desempenho da sua loja num só lugar.
           </p>
         </div>
-  
+
+        {publicStoreUrl && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor="public-store-url"
+                  className="text-sm font-bold text-slate-950"
+                >
+                  URL pública da loja
+                </label>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Partilhe este endereço com os seus clientes.
+                </p>
+
+                <input
+                  id="public-store-url"
+                  readOnly
+                  value={publicStoreUrl}
+                  className="mt-3 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={copyPublicStoreUrl}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-700"
+              >
+                <Copy className="h-4 w-4" />
+                Copiar
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Estatísticas */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard

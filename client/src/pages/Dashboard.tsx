@@ -131,9 +131,11 @@ function getSectionFromPath(path: string): DashboardSection {
 function DashboardContent({
   section,
   storeId,
+  storeSlug,
 }: {
   section: DashboardSection;
   storeId?: string;
+  storeSlug?: string;
 }) {
   switch (section) {
     case "products":
@@ -158,11 +160,16 @@ function DashboardContent({
       return <MarketingPage />;
 
     case "settings":
-      return <SettingsPage />;
+      return <SettingsPage storeId={storeId} />;
 
     case "home":
     default:
-      return <OverviewPage storeId={storeId} />;
+      return (
+        <OverviewPage
+          storeId={storeId}
+          storeSlug={storeSlug}
+        />
+      );
   }
 }
 
@@ -313,6 +320,7 @@ export default function Dashboard() {
           <DashboardContent
             section={section}
             storeId={selectedStore?.id}
+            storeSlug={storeSlug}
           />
         </main>
       </div>

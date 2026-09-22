@@ -169,12 +169,6 @@ export default function CreateAccount() {
         "Conta criada com sucesso!",
       );
 
-      /*
-       * O Better Auth pode criar a sessão automaticamente
-       * após o cadastro, dependendo da configuração do servidor.
-       * O passo seguinte do HOMSTEG continua sendo a configuração
-       * da loja.
-       */
       window.location.assign(
         "/criar-loja/negocio",
       );

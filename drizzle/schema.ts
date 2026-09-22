@@ -177,6 +177,10 @@ export const stores = pgTable("stores", {
     .notNull()
     .default("MZN"),
 
+  whatsapp: varchar("whatsapp", {
+    length: 40,
+  }),
+
   /*
    * Tema visual escolhido pela loja.
    *

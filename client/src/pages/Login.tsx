@@ -20,12 +20,52 @@ export default function Login() {
   const utils = trpc.useUtils();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
-  const [showPassword, setShowPassword] =
-    useState(false);
-  const [isLoading, setIsLoading] =
-    useState(false);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function finishLogin() {
+    try {
+      const stores = await utils.stores.mine.fetch();
+
+      if (stores.length > 0) {
+        const firstItem = stores[0];
+
+        const firstStore =
+          "store" in firstItem
+            ? firstItem.store
+            : firstItem;
+
+        if (firstStore?.id) {
+          toast.success("Login efetuado com sucesso!");
+
+          window.location.assign(
+            `/app?storeId=${encodeURIComponent(firstStore.id)}`,
+          );
+
+          return;
+        }
+
+        console.error(
+          "[Login] Loja encontrada, mas sem ID:",
+          firstItem,
+        );
+      }
+
+      toast.success("Login efetuado com sucesso!");
+
+      window.location.assign("/criar-loja/negocio");
+    } catch (error: unknown) {
+      console.error(
+        "[Login] Erro ao procurar loja:",
+        error,
+      );
+
+      toast.error(
+        "A autenticação foi concluída, mas não foi possível carregar a tua loja.",
+      );
+    }
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -36,32 +76,26 @@ export default function Login() {
       return;
     }
 
-    const cleanEmail =
-      email.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
-      toast.error(
-        "Introduz o teu email.",
-      );
+      toast.error("Introduz o teu email.");
       return;
     }
 
     if (!password) {
-      toast.error(
-        "Introduz a tua palavra-passe.",
-      );
+      toast.error("Introduz a tua palavra-passe.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const result =
-        await authClient.signIn.email({
-          email: cleanEmail,
-          password,
-          rememberMe: true,
-        });
+      const result = await authClient.signIn.email({
+        email: cleanEmail,
+        password,
+        rememberMe: true,
+      });
 
       if (result.error) {
         console.error(
@@ -77,76 +111,29 @@ export default function Login() {
         return;
       }
 
-      /*
-       * A sessão Better Auth já está criada.
-       * Agora procuramos as lojas reais deste utilizador.
-       */
-      const stores =
-        await utils.stores.mine.fetch();
+      // A sessão Better Auth acabou de ser criada. Descarta qualquer resposta
+      // anterior (por exemplo, uma consulta sem sessão) antes de procurar a
+      // loja já associada a este utilizador.
+      await Promise.all([
+        utils.auth.me.invalidate(),
+        utils.stores.mine.invalidate(),
+      ]);
 
-      if (stores.length > 0) {
-        /*
-         * Para utilizadores normais o backend retorna:
-         *
-         * { store: Store }
-         *
-         * Para admin retorna diretamente:
-         *
-         * Store
-         *
-         * Aceitamos os dois formatos.
-         */
-        const firstItem = stores[0];
-
-        const firstStore =
-          "store" in firstItem
-            ? firstItem.store
-            : firstItem;
-
-        if (firstStore?.id) {
-          toast.success(
-            "Login efetuado com sucesso!",
-          );
-
-          window.location.assign(
-            `/app?storeId=${encodeURIComponent(
-              firstStore.id,
-            )}`,
-          );
-
-          return;
-        }
-
-        console.error(
-          "[Login] Loja encontrada, mas sem ID:",
-          firstItem,
-        );
-      }
-
-      /*
-       * Utilizador autenticado sem loja.
-       */
-      toast.success(
-        "Login efetuado com sucesso!",
-      );
-
-      window.location.assign(
-        "/criar-loja/negocio",
-      );
+      await finishLogin();
     } catch (error: unknown) {
       console.error(
-        "[Login] Erro inesperado:",
+        "[Login] Erro ao iniciar login:",
         error,
       );
 
       if (error instanceof Error) {
         toast.error(
           error.message ||
-            "Não foi possível iniciar sessão.",
+            "Não foi possível iniciar o login.",
         );
       } else {
         toast.error(
-          "Não foi possível iniciar sessão.",
+          "Não foi possível iniciar o login.",
         );
       }
     } finally {
@@ -158,12 +145,11 @@ export default function Login() {
     <div className="min-h-screen bg-black text-white">
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
+          {/* LOGO */}
           <div className="mb-8 text-center">
             <button
               type="button"
-              onClick={() =>
-                setLocation("/")
-              }
+              onClick={() => setLocation("/")}
               className="mx-auto mb-8 flex items-center justify-center gap-2"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
@@ -172,9 +158,7 @@ export default function Login() {
 
               <span className="text-2xl font-black tracking-tight">
                 HOMSTEG
-                <span className="text-lime-400">
-                  .
-                </span>
+                <span className="text-lime-400">.</span>
               </span>
             </button>
 
@@ -192,6 +176,7 @@ export default function Login() {
               onSubmit={handleSubmit}
               className="space-y-5"
             >
+              {/* EMAIL */}
               <div>
                 <label
                   htmlFor="email"
@@ -209,9 +194,7 @@ export default function Login() {
                     autoComplete="email"
                     value={email}
                     onChange={(event) =>
-                      setEmail(
-                        event.target.value,
-                      )
+                      setEmail(event.target.value)
                     }
                     placeholder="exemplo@email.com"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-black focus:bg-white"
@@ -220,6 +203,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* PASSWORD */}
               <div>
                 <label
                   htmlFor="password"
@@ -241,9 +225,7 @@ export default function Login() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) =>
-                      setPassword(
-                        event.target.value,
-                      )
+                      setPassword(event.target.value)
                     }
                     placeholder="A tua palavra-passe"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm outline-none transition focus:border-black focus:bg-white"
@@ -274,6 +256,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* RECUPERAÇÃO */}
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -283,11 +266,13 @@ export default function Login() {
                       "A recuperação da palavra-passe será adicionada nesta área.",
                     )
                   }
+                  disabled={isLoading}
                 >
                   Esqueceste a palavra-passe?
                 </button>
               </div>
 
+              {/* BOTÃO */}
               <button
                 type="submit"
                 disabled={isLoading}
@@ -296,7 +281,7 @@ export default function Login() {
                 {isLoading ? (
                   <>
                     <span className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    A entrar...
+                    A verificar...
                   </>
                 ) : (
                   "Entrar"
@@ -304,6 +289,7 @@ export default function Login() {
               </button>
             </form>
 
+            {/* SEPARADOR */}
             <div className="my-6 flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-200" />
 
@@ -314,6 +300,7 @@ export default function Login() {
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
+            {/* CRIAR CONTA */}
             <p className="text-center text-sm text-slate-500">
               Ainda não tens uma conta?
             </p>
@@ -321,21 +308,19 @@ export default function Login() {
             <button
               type="button"
               onClick={() =>
-                setLocation(
-                  "/criar-conta",
-                )
+                setLocation("/criar-conta")
               }
               className="mt-3 h-12 w-full rounded-xl border border-slate-200 bg-white text-sm font-bold text-black transition hover:bg-slate-50"
+              disabled={isLoading}
             >
               Criar conta
             </button>
           </div>
 
+          {/* RODAPÉ */}
           <button
             type="button"
-            onClick={() =>
-              setLocation("/")
-            }
+            onClick={() => setLocation("/")}
             className="mx-auto mt-6 block text-sm text-white/50 transition hover:text-white"
           >
             Voltar para a HOMSTEG

@@ -462,6 +462,7 @@ export default function NovaProductPage() {
                 product={product}
                 options={product.options}
                 variants={[]}
+                storeSlug={store.slug}
               />
 
               <ShippingCard />

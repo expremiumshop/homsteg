@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { getPublicStoreUrl } from "@/lib/store-url";
 
 type DashboardHeaderProps = {
   section: string;
@@ -99,13 +100,19 @@ export default function DashboardHeader({
           <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-lime-500" />
         </button>
 
-        <Link
-          href={storeSlug ? `/store/${storeSlug}` : "/store/themes"}
+        <a
+          href={
+            storeSlug
+              ? getPublicStoreUrl(storeSlug)
+              : "/store/themes"
+          }
+          target={storeSlug ? "_blank" : undefined}
+          rel={storeSlug ? "noreferrer" : undefined}
           className="hidden items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 sm:flex"
         >
           <Store className="h-4 w-4" />
           Ver loja
-        </Link>
+        </a>
       </div>
     </header>
   );
