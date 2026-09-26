@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
+import { getStoreUrlLabel } from "@/lib/store-url";
 
 type StoreData = {
   fullName: string;
@@ -306,7 +307,7 @@ export default function CreateStoreReview() {
 
               <ReviewItem
                 label="Endereço da loja"
-                value={`homsteg.com/${data.username}`}
+                value={getStoreUrlLabel(data.username)}
               />
 
               <div className="border-t border-neutral-900 pt-4">

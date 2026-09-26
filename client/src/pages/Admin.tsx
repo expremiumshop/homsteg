@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
+  CreditCard,
   LogOut,
   Menu,
   Search,
@@ -10,11 +11,17 @@ import {
 } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
+import {
+  getPublicStoreUrl,
+  getStoreUrlLabel,
+} from "@/lib/store-url";
 import UsersPanel from "@/components/admin/users/UsersPanel";
+import PlansPanel from "@/components/admin/plans/PlansPanel";
 
 const adminNav = [
   { label: "Utilizadores", icon: Users },
   { label: "Lojas", icon: Store },
+  { label: "Planos", icon: CreditCard },
 ];
 
 export default function Admin() {
@@ -242,7 +249,9 @@ export default function Admin() {
             <p className="mt-2 text-[13px] text-[#7d897e]">
               {active === "Utilizadores"
                 ? "Contas e lojas reais associadas."
-                : "Lojas ativas criadas pelos utilizadores."}
+                : active === "Planos"
+                  ? "Planos, limites de produtos e pedidos de upgrade."
+                  : "Lojas ativas criadas pelos utilizadores."}
             </p>
           </div>
 
@@ -269,6 +278,9 @@ export default function Admin() {
           </div>
 
           <div>
+            {active === "Planos" ? (
+              <PlansPanel />
+            ) : (
             <div className="rounded-[14px] border border-[#e1e9df] bg-white">
               <div className="flex flex-col justify-between gap-3 border-b border-[#edf1eb] px-5 py-4 sm:flex-row sm:items-center">
                 <div>
@@ -285,8 +297,8 @@ export default function Admin() {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="relative">
+                <div className="flex w-full justify-end gap-2 sm:w-auto">
+                  <div className="relative w-full sm:w-auto">
                     <Search
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0aba0]"
                       size={13}
@@ -296,7 +308,7 @@ export default function Admin() {
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Pesquisar..."
-                      className="h-8 w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none"
+                      className="h-8 w-full max-w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none sm:w-[180px]"
                     />
                   </div>
                 </div>
@@ -362,7 +374,7 @@ export default function Admin() {
                           </span>
 
                           <span className="font-semibold text-[#657464]">
-                            /store/{store.slug}
+                            {getStoreUrlLabel(store.slug)}
                           </span>
 
                           <span>
@@ -370,7 +382,7 @@ export default function Admin() {
                           </span>
 
                           <a
-                            href={`/store/${store.slug}`}
+                            href={getPublicStoreUrl(store.slug)}
                             className="grid h-7 w-7 place-items-center rounded-full text-[#9aa69b] hover:bg-[#eff5ec] hover:text-[#58754c]"
                             title="Abrir loja"
                           >
@@ -383,6 +395,7 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </main>
       </div>

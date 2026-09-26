@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 
 export type DashboardNavItem = {
@@ -11,11 +12,13 @@ export type DashboardNavItem = {
 type DashboardSidebarProps = {
   navigation: DashboardNavItem[];
   activeSection: string;
+  children?: ReactNode;
 };
 
 export default function DashboardSidebar({
   navigation,
   activeSection,
+  children,
 }: DashboardSidebarProps) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[238px] flex-col border-r border-gray-200 bg-white">
@@ -99,30 +102,25 @@ export default function DashboardSidebar({
 
       {/* Plano */}
       <div className="border-t border-gray-100 p-3">
-        <div className="rounded-2xl bg-[#111713] p-4 text-white">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-300">
-              Plano atual
-            </span>
+        {children ?? (
+          <div className="rounded-2xl bg-[#111713] p-4 text-white">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-300">
+                Plano atual
+              </span>
 
-            <span className="rounded-full bg-lime-300 px-2 py-0.5 text-[10px] font-bold text-[#111713]">
-              FREE
-            </span>
+              <span className="rounded-full bg-lime-300 px-2 py-0.5 text-[10px] font-bold text-[#111713]">
+                FREE
+              </span>
+            </div>
+
+            <p className="text-sm font-semibold">Comece a sua loja</p>
+
+            <p className="mt-1 text-xs leading-5 text-gray-400">
+              Evolua o seu plano quando a sua loja crescer.
+            </p>
           </div>
-
-          <p className="text-sm font-semibold">Comece a sua loja</p>
-
-          <p className="mt-1 text-xs leading-5 text-gray-400">
-            Evolua o seu plano quando a sua loja crescer.
-          </p>
-
-          <button
-            type="button"
-            className="mt-3 w-full rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#111713] transition hover:bg-gray-100"
-          >
-            Ver planos
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Utilizador */}

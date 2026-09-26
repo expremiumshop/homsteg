@@ -9,6 +9,7 @@
   import { trpc } from "@/lib/trpc";
   import { toast } from "sonner";
   import { getPublicStoreUrl } from "@/lib/store-url";
+  import PlanUsageCard from "@/components/dashboard/plan/PlanUsageCard";
   
   export default function OverviewPage({
     storeId,
@@ -72,6 +73,9 @@
             Acompanhe o desempenho da sua loja num só lugar.
           </p>
         </div>
+
+        {/* Plano ativo e utilização */}
+        <PlanUsageCard storeId={storeId} />
 
         {publicStoreUrl && (
           <div className="rounded-2xl border border-slate-200 bg-white p-5">

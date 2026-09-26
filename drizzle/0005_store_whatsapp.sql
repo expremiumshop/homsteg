@@ -1,2 +1,2 @@
 ALTER TABLE "stores"
-ADD COLUMN "whatsapp" varchar(40);
+ADD COLUMN IF NOT EXISTS "whatsapp" varchar(40);

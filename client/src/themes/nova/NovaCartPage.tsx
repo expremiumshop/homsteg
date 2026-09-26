@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 
@@ -12,6 +12,21 @@ export default function NovaCartPage() {
     clearCart,
     total,
   } = useCart();
+
+  /*
+   * O cliente volta sempre para a loja real de onde veio.
+   * O storeSlug acompanha os itens do carrinho (adicionados
+   * na loja) e a URL (?storeSlug=...) como fallback.
+   */
+  const search = useSearch();
+  const searchStoreSlug = new URLSearchParams(search)
+    .get("storeSlug")
+    ?.trim();
+  const storeSlug =
+    cart[0]?.storeSlug ?? searchStoreSlug;
+  const backToStorePath = storeSlug
+    ? `/store/${encodeURIComponent(storeSlug)}`
+    : "/themes/nova";
 
   /*
    * =====================================================
@@ -81,7 +96,7 @@ export default function NovaCartPage() {
           </p>
 
           <Link
-            href="/themes/nova"
+            href={backToStorePath}
             className="
               mt-6
               inline-block
@@ -129,7 +144,7 @@ export default function NovaCartPage() {
 
         <div className="mb-8 min-w-0">
           <Link
-            href="/themes/nova"
+            href={backToStorePath}
             className="
               mb-4
               inline-block

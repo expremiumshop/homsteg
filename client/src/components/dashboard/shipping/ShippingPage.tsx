@@ -195,7 +195,7 @@ export default function ShippingPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:min-w-[430px]">
+                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:w-[430px] lg:shrink-0">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
                       Preço

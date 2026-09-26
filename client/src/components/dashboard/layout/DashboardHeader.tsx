@@ -7,11 +7,14 @@ import {
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { getPublicStoreUrl } from "@/lib/store-url";
+import { useStorePlan } from "@/components/dashboard/plan/useStorePlan";
+import PlanBadge from "@/components/dashboard/plan/PlanBadge";
 
 type DashboardHeaderProps = {
   section: string;
   title: string;
   storeSlug?: string;
+  storeId?: string;
   onOpenMobileMenu: () => void;
 };
 
@@ -19,9 +22,12 @@ export default function DashboardHeader({
   section,
   title,
   storeSlug,
+  storeId,
   onOpenMobileMenu,
 }: DashboardHeaderProps) {
   const userQuery = trpc.auth.me.useQuery();
+
+  const { planKey } = useStorePlan(storeId);
 
   const user = userQuery.data;
 
@@ -78,6 +84,11 @@ export default function DashboardHeader({
       </div>
 
       <div className="flex items-center gap-2">
+        <PlanBadge
+          planKey={planKey}
+          className="hidden sm:inline-flex"
+        />
+
         <div className="hidden text-right md:block">
           <p className="text-sm font-semibold text-slate-900">
             {greeting}, {userName} 👋

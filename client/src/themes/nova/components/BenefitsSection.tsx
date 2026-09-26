@@ -56,19 +56,19 @@ import {
       `${storeName} — qualidade que chega até si.`;
   
     return (
-      <section className="w-full px-4 py-8 md:px-6 lg:px-8">
+      <section className="@container w-full px-4 py-8 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-foreground md:text-3xl">
+          <div className="mb-6 text-center @[720px]:text-left">
+            <h2 className="text-2xl font-bold text-foreground @[720px]:text-3xl">
               {title}
             </h2>
   
-            <p className="mt-2 text-sm text-muted-foreground md:text-base">
+            <p className="mt-2 text-sm text-muted-foreground @[720px]:text-base">
               {description}
             </p>
           </div>
   
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:gap-5">
+          <div className="grid grid-cols-1 gap-4 @[720px]:grid-cols-4 @[720px]:gap-5">
             {benefits.map((benefit) => {
               const Icon = benefit.icon;
   
@@ -88,12 +88,12 @@ import {
                     transition
                     hover:-translate-y-1
                     hover:shadow-md
-                    md:min-h-[190px]
-                    md:flex-col
-                    md:items-center
-                    md:justify-center
-                    md:px-4
-                    md:text-center
+                    @[720px]:min-h-[190px]
+                    @[720px]:flex-col
+                    @[720px]:items-center
+                    @[720px]:justify-center
+                    @[720px]:px-4
+                    @[720px]:text-center
                   "
                 >
                   <div
@@ -106,15 +106,15 @@ import {
                       justify-center
                       rounded-full
                       bg-primary/10
-                      md:h-14
-                      md:w-14
+                      @[720px]:h-14
+                      @[720px]:w-14
                     "
                   >
-                    <Icon className="h-6 w-6 text-primary md:h-7 md:w-7" />
+                    <Icon className="h-6 w-6 text-primary @[720px]:h-7 @[720px]:w-7" />
                   </div>
   
                   <div>
-                    <h3 className="text-base font-bold text-foreground md:text-lg">
+                    <h3 className="text-base font-bold text-foreground @[720px]:text-lg">
                       {benefit.title}
                     </h3>
   
@@ -128,13 +128,13 @@ import {
           </div>
   
           <div className="mt-10">
-            <div className="rounded-2xl bg-white p-6 shadow-sm md:p-8 lg:p-10">
+            <div className="rounded-2xl bg-white p-6 shadow-sm @[720px]:p-8 @[960px]:p-10">
               <div className="max-w-5xl">
-                <h2 className="text-2xl font-bold text-foreground md:text-3xl">
+                <h2 className="text-2xl font-bold text-foreground @[720px]:text-3xl">
                   {storeName}
                 </h2>
   
-                <div className="mt-5 space-y-4 text-sm leading-7 text-muted-foreground md:text-base">
+                <div className="mt-5 space-y-4 text-sm leading-7 text-muted-foreground @[720px]:text-base">
                   <p>
                     A{" "}
                     <strong className="text-foreground">
@@ -179,7 +179,7 @@ import {
                 </div>
   
                 <div className="mt-6 pt-5">
-                  <p className="text-sm font-semibold text-foreground md:text-base">
+                  <p className="text-sm font-semibold text-foreground @[720px]:text-base">
                     {slogan || defaultSlogan}
                   </p>
                 </div>

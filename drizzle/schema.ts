@@ -41,6 +41,12 @@ export const applicationStatusEnum = pgEnum("application_status", [
   "changes_requested",
 ]);
 
+export const planRequestStatusEnum = pgEnum("plan_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
 export const productStatusEnum = pgEnum("product_status", [
   "draft",
   "active",
@@ -180,6 +186,31 @@ export const stores = pgTable("stores", {
   whatsapp: varchar("whatsapp", {
     length: 40,
   }),
+
+  /*
+   * Subscrição mensal do plano.
+   *
+   * null para lojas no plano Free.
+   * Para planos pagos: até quando o período
+   * pago está válido.
+   */
+  subscriptionPaidUntil: timestamp(
+    "subscriptionPaidUntil",
+    {
+      withTimezone: true,
+    },
+  ),
+
+  /*
+   * Quando o último pagamento foi registado
+   * pelo admin ("Mark as Paid").
+   */
+  subscriptionPaidAt: timestamp(
+    "subscriptionPaidAt",
+    {
+      withTimezone: true,
+    },
+  ),
 
   /*
    * Tema visual escolhido pela loja.
@@ -328,6 +359,71 @@ export const storeApplications = pgTable("storeApplications", {
 });
 
 /* ============================================================
+   PLAN REQUESTS
+   ============================================================ */
+
+/**
+ * Pedidos de upgrade de plano.
+ *
+ * O proprietário da loja pede um plano superior.
+ * O limite só aumenta depois de aprovação manual
+ * do administrador.
+ */
+
+export const planRequests = pgTable("planRequests", {
+  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+
+  storeId: varchar("storeId", {
+    length: 64,
+  }).notNull(),
+
+  requestedPlanKey: varchar("requestedPlanKey", {
+    length: 32,
+  }).notNull(),
+
+  currentPlanKey: varchar("currentPlanKey", {
+    length: 32,
+  }).notNull(),
+
+  productsUsed: integer("productsUsed")
+    .notNull()
+    .default(0),
+
+  status: planRequestStatusEnum("status")
+    .notNull()
+    .default("pending"),
+
+  note: text("note"),
+
+  adminNotes: text("adminNotes"),
+
+  /*
+   * Plano efetivamente atribuído pelo admin.
+   * Pode diferir do pedido (ex.: aprovar Business
+   * quando foi pedido Professional).
+   */
+  assignedPlanKey: varchar("assignedPlanKey", {
+    length: 32,
+  }),
+
+  createdAt: timestamp("createdAt", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updatedAt", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+
+  reviewedAt: timestamp("reviewedAt", {
+    withTimezone: true,
+  }),
+});
+
+/* ============================================================
    PRODUCTS
    ============================================================ */
 
@@ -420,3 +516,9 @@ export type Product = typeof products.$inferSelect;
 
 export type InsertProduct =
   typeof products.$inferInsert;
+
+export type PlanRequest =
+  typeof planRequests.$inferSelect;
+
+export type InsertPlanRequest =
+  typeof planRequests.$inferInsert;

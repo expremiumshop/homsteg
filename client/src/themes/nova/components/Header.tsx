@@ -40,6 +40,15 @@ export interface NovaHeaderProps {
   basePath?: string;
   currency?: string;
   country?: string;
+
+  /**
+   * Força a variante do cabeçalho, ignorando o
+   * viewport. Usado nas pré-visualizações por
+   * dispositivo, onde o media query do viewport
+   * não corresponde à largura da caixa de preview.
+   * "auto" (padrão) mantém o comportamento atual.
+   */
+  headerVariant?: "auto" | "desktop" | "mobile";
 }
 
 export function Header({
@@ -52,6 +61,7 @@ export function Header({
   basePath = "/themes/nova",
   currency = "MZN",
   country = "Moçambique",
+  headerVariant = "auto",
 }: NovaHeaderProps) {
   const [, navigate] = useLocation();
 
@@ -115,7 +125,7 @@ export function Header({
   // Atendimento abre a página de mensagens da Nova.
   const messagesPath = `${basePath}/mensagens${storeContext}`;
 
-  const cartPath = `${basePath}/carrinho`;
+  const cartPath = `${basePath}/carrinho${storeContext}`;
 
   return (
     <>
@@ -124,15 +134,14 @@ export function Header({
       ====================================================== */}
 
       <header
-        className="
-          sticky
-          top-0
-          z-50
-          hidden
-          bg-white/90
-          backdrop-blur-md
-          md:block
-        "
+        className={[
+          "sticky top-0 z-50 bg-white/90 backdrop-blur-md",
+          headerVariant === "mobile"
+            ? "hidden"
+            : headerVariant === "desktop"
+              ? "block"
+              : "hidden md:block",
+        ].join(" ")}
       >
         {/* =====================================================
             TOP BAR
@@ -795,7 +804,15 @@ export function Header({
           MOBILE
       ========================================================== */}
 
-      <div className="md:hidden">
+      <div
+        className={
+          headerVariant === "mobile"
+            ? "block"
+            : headerVariant === "desktop"
+              ? "hidden"
+              : "md:hidden"
+        }
+      >
         {/* TOPO MOBILE */}
 
         <div
@@ -932,15 +949,17 @@ export function Header({
 
         {/* ESPAÇO QUANDO NAVEGAÇÃO ESTÁ FIXA */}
 
-        {mobileNavFixed && (
-          <div className="h-[88px]" />
-        )}
+        {mobileNavFixed &&
+          headerVariant !== "mobile" && (
+            <div className="h-[88px]" />
+          )}
 
         {/* PESQUISA MOBILE */}
 
         <div
           className={
-            mobileNavFixed
+            mobileNavFixed &&
+            headerVariant !== "mobile"
               ? `
                 fixed
                 left-0

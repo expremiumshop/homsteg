@@ -21,6 +21,10 @@ import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
 import UrbanStorefront from "@/themes/urban/Storefront";
 import PrimeStorefront from "@/themes/prime/Storefront";
+import MarketStorefront from "@/themes/market/Storefront";
+import EssenzaStorefront from "@/themes/essenza/Storefront";
+import CalizaStorefront from "@/themes/caliza/Storefront";
+import ChazucaStorefront from "@/themes/chazuca/Storefront";
 import { getPublicStoreUrl } from "@/lib/store-url";
 
 import { trpc } from "@/lib/trpc";
@@ -68,6 +72,38 @@ const themes: Theme[] = [
     category: "Tecnologia",
     price: "Premium",
   },
+  {
+    id: "market",
+    name: "Market",
+    description:
+      "Aconchegante para mercados e produtos frescos.",
+    category: "Mercado & Fresco",
+    price: "Premium",
+  },
+  {
+    id: "essenza",
+    name: "Essenza",
+    description:
+      "Minimalista e essencial, foco no produto.",
+    category: "Minimalista",
+    price: "Premium",
+  },
+  {
+    id: "caliza",
+    name: "Caliza",
+    description:
+      "Tons terrosos para artesanato e decoração.",
+    category: "Artesanato & Decoração",
+    price: "Premium",
+  },
+  {
+    id: "chazuca",
+    name: "Chazuca",
+    description:
+      "Vibrante e criativo para marcas ousadas.",
+    category: "Criativo",
+    price: "Premium",
+  },
 ];
 
 type PreviewDevice =
@@ -92,7 +128,11 @@ type ThemeKey =
   | "nova"
   | "luxe"
   | "urban"
-  | "prime";
+  | "prime"
+  | "market"
+  | "essenza"
+  | "caliza"
+  | "chazuca";
 
 function getTheme(
   themeId: string | null | undefined,
@@ -180,6 +220,54 @@ function ThemeMiniPreview({
     );
   }
 
+  if (theme.id === "market") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <MarketStorefront />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (theme.id === "essenza") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <EssenzaStorefront />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (theme.id === "caliza") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <CalizaStorefront />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (theme.id === "chazuca") {
+    return (
+      <div className="h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="pointer-events-none origin-top scale-[0.28]">
+          <div className="w-[1100px]">
+            <ChazucaStorefront />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[270px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
       <div className="px-5 text-center">
@@ -214,10 +302,18 @@ function RealStorePreview({
 
   const previewWidth =
     device === "mobile"
-      ? "w-[390px]"
+      ? "w-[390px] max-w-full"
       : device === "tablet"
-        ? "w-[768px]"
-        : "min-w-[1100px] w-full";
+        ? "w-[768px] max-w-full"
+        : "w-full min-w-0";
+
+  /*
+   * O media query responde ao viewport, não à
+   * caixa de preview. Força a variante correta do
+   * cabeçalho em cada dispositivo pré-visualizado.
+   */
+  const headerVariant: "desktop" | "mobile" =
+    device === "mobile" ? "mobile" : "desktop";
 
   /* ========================================================
    *     NOVA
@@ -232,6 +328,7 @@ function RealStorePreview({
             <NovaStorefront
               mode="store"
               storeSlug={store.slug}
+              headerVariant={headerVariant}
             />
           </div>
         </div>
@@ -299,6 +396,90 @@ function RealStorePreview({
     );
   }
 
+  /* ========================================================
+   *     MARKET
+   *     ======================================================== */
+  if (themeId === "market") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <MarketStorefront
+              mode="store"
+              storeSlug={store.slug}
+              headerVariant={headerVariant}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+   *     ESSENZA
+   *     ======================================================== */
+  if (themeId === "essenza") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <EssenzaStorefront
+              mode="store"
+              storeSlug={store.slug}
+              headerVariant={headerVariant}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+   *     CALIZA
+   *     ======================================================== */
+  if (themeId === "caliza") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <CalizaStorefront
+              mode="store"
+              storeSlug={store.slug}
+              headerVariant={headerVariant}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+   *     CHAZUCA
+   *     ======================================================== */
+  if (themeId === "chazuca") {
+    return (
+      <div className="h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <div className="h-full overflow-auto">
+          <div
+            className={`mx-auto ${previewWidth}`}
+          >
+            <ChazucaStorefront
+              mode="store"
+              storeSlug={store.slug}
+              headerVariant={headerVariant}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const theme = getTheme(themeId);
 
   return (
@@ -358,6 +539,22 @@ function ThemeFullPreview({
     return (
       <PrimeStorefront mode="demo" />
     );
+  }
+
+  if (themeId === "market") {
+    return <MarketStorefront />;
+  }
+
+  if (themeId === "essenza") {
+    return <EssenzaStorefront />;
+  }
+
+  if (themeId === "caliza") {
+    return <CalizaStorefront />;
+  }
+
+  if (themeId === "chazuca") {
+    return <ChazucaStorefront />;
   }
 
   const theme = getTheme(themeId);

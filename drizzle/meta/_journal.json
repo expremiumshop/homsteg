@@ -43,6 +43,20 @@
       "when": 1790015000000,
       "tag": "0005_store_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790317667749,
+      "tag": "0006_plan_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790320305413,
+      "tag": "0007_subscription_period",
+      "breakpoints": true
     }
   ]
 }

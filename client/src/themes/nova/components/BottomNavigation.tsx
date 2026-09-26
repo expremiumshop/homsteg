@@ -27,7 +27,7 @@ export function BottomNavigation({
     ? `?storeSlug=${encodeURIComponent(storeSlug)}`
     : "";
   const messagesPath = `${basePath}/mensagens${storeContext}`;
-  const cartPath = `${basePath}/carrinho`;
+  const cartPath = `${basePath}/carrinho${storeContext}`;
   const accountPath = `${basePath}/conta${storeContext}`;
 
   const navItems = [

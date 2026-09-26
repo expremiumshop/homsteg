@@ -34,7 +34,7 @@ import {
       },
     );
 
-    const categories = useMemo(() => {
+    const categories = useMemo<Category[]>(() => {
       const products = productsQuery.data ?? [];
       const categoriesByName = new Map<
         string,

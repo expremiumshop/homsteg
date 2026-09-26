@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 
-import { and, desc, eq, ne } from "drizzle-orm";
+import {
+  addOneMonth,
+  isPlanKey,
+  isPaidPlan,
+} from "../shared/homsteg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
@@ -9,6 +14,7 @@ import {
   InsertStoreApplication,
   InsertUser,
   products,
+  planRequests,
   plans,
   storeApplications,
   stores,
@@ -43,16 +49,6 @@ export async function getDb() {
    USERS
    ============================================================ */
 
-/**
- * Cria ou atualiza o utilizador de negócio do HOMSTEG.
- *
- * O openId recebe o ID do utilizador do Better Auth.
- *
- * IMPORTANTE:
- * - users.id continua a ser o ID interno numérico do HOMSTEG.
- * - users.openId guarda o ID externo do Better Auth.
- * - Não alteramos users.id.
- */
 export async function upsertUser(
   user: InsertUser,
 ): Promise<void> {
@@ -101,9 +97,6 @@ export async function upsertUser(
     });
 }
 
-/**
- * Procura um utilizador de negócio pelo ID do Better Auth.
- */
 export async function getUserByOpenId(
   openId: string,
 ) {
@@ -122,11 +115,6 @@ export async function getUserByOpenId(
   return result[0];
 }
 
-/**
- * Procura um utilizador pelo e-mail.
- *
- * O e-mail é normalizado para minúsculas.
- */
 export async function getUserByEmail(
   email: string,
 ) {
@@ -149,12 +137,6 @@ export async function getUserByEmail(
   return result[0];
 }
 
-/**
- * Sincroniza o utilizador autenticado pelo Better Auth
- * com a tabela de negócio users do HOMSTEG.
- *
- * Esta função será chamada pelo hook do Better Auth.
- */
 export async function syncBetterAuthUser({
   userId,
   email,
@@ -173,15 +155,6 @@ export async function syncBetterAuthUser({
   });
 }
 
-/**
- * Resolve o utilizador de negócio que corresponde à sessão Better Auth.
- *
- * As contas criadas antes da adoção do Better Auth já podem ter uma linha em
- * `users` e relações em `storeMembers`, mas com um `openId` legado. Nesse
- * caso, reconciliamos a identidade pela mesma conta de e-mail. Mantemos o
- * `users.id` original — que é a chave usada por `storeMembers` — por isso a
- * loja existente continua associada ao respetivo owner.
- */
 export async function resolveBetterAuthBusinessUser({
   userId,
   email,
@@ -247,9 +220,6 @@ export async function resolveBetterAuthBusinessUser({
   return created[0];
 }
 
-/**
- * Atualiza a data do último login do utilizador de negócio.
- */
 export async function updateUserLastSignedIn(
   userId: number,
 ) {
@@ -310,10 +280,6 @@ export async function getStoresForUser(
     .orderBy(desc(stores.createdAt));
 }
 
-/**
- * Cria uma loja ativa e a relação owner
- * dentro da mesma transação.
- */
 export async function createStoreForUser({
   userId,
   name,
@@ -415,6 +381,684 @@ export async function updateStoreWhatsApp(
     .where(eq(stores.id, storeId))
     .returning();
 
+  return updated[0];
+}
+
+/* ============================================================
+   SUBSCRIPTION PLANS
+   ============================================================ */
+
+/**
+ * Garante que os planos HOMSTEG existem na base de dados
+ * com os limites corretos. Chamado no arranque do servidor
+ * e antes de leituras de planos.
+ *
+ * O plano Free é o único obrigatório para o correto
+ * funcionamento do sistema de planos.
+ */
+export const PLAN_CATALOG = [
+  {
+    key: "free",
+    name: "Free",
+    priceMzn: 0,
+    productLimit: 50,
+    features: [
+      "Loja online",
+      "50 produtos",
+      "Tema base",
+      "Gestão de stock",
+      "Gestão de pedidos",
+      "Painel administrativo",
+      "Banner da loja",
+      "Logo e informações da loja",
+      "Link para WhatsApp",
+    ],
+  },
+  {
+    key: "starter",
+    name: "Starter",
+    priceMzn: 480,
+    productLimit: 580,
+    features: [
+      "Tudo do Free",
+      "580 produtos",
+      "Todos os temas disponíveis",
+      "Variantes de produtos",
+      "Galeria de imagens",
+      "Promoções",
+      "Cupons",
+      "Relatórios básicos",
+      "Mais personalização",
+    ],
+  },
+  {
+    key: "business",
+    name: "Business",
+    priceMzn: 1590,
+    productLimit: 2450,
+    features: [
+      "Tudo do Starter",
+      "2.450 produtos",
+      "Domínio personalizado",
+      "Relatórios avançados",
+      "Gestão avançada de pedidos",
+      "Marketing e promoções",
+      "Mais membros da equipa",
+      "Permissões de equipa",
+      "Personalização avançada",
+    ],
+  },
+  {
+    key: "professional",
+    name: "Professional",
+    priceMzn: 2150,
+    productLimit: 5850,
+    features: [
+      "Tudo do Business",
+      "5.850 produtos",
+      "Maior capacidade",
+      "Prioridade de suporte",
+      "Integrações avançadas",
+      "Equipas maiores",
+    ],
+  },
+  {
+    key: "enterprise",
+    name: "Enterprise",
+    priceMzn: 8900,
+    productLimit: -1,
+    features: [
+      "Tudo do Professional",
+      "Produtos ilimitados",
+      "Variantes ilimitadas",
+      "Equipas maiores",
+      "Permissões avançadas",
+      "Domínio personalizado",
+      "Integrações personalizadas",
+      "Maior capacidade",
+      "Suporte prioritário",
+    ],
+  },
+] as const;
+
+export async function seedPlans() {
+  const db = await getDb();
+
+  if (!db) {
+    return;
+  }
+
+  for (const plan of PLAN_CATALOG) {
+    await db
+      .insert(plans)
+      .values({
+        key: plan.key,
+        name: plan.name,
+        priceMzn: plan.priceMzn,
+        productLimit:
+          plan.productLimit === -1
+            ? 2147483647
+            : plan.productLimit,
+        features: plan.features.join("\n"),
+      })
+      .onConflictDoUpdate({
+        target: plans.key,
+        set: {
+          name: plan.name,
+          priceMzn: plan.priceMzn,
+          productLimit:
+            plan.productLimit === -1
+              ? 2147483647
+              : plan.productLimit,
+          features: plan.features.join("\n"),
+          status: "active",
+        },
+      });
+  }
+}
+
+/**
+ * Número de produtos não arquivados da loja.
+ * É este valor que conta para o limite do plano.
+ */
+export async function countActiveStoreProducts(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    return 0;
+  }
+
+  const result = await db
+    .select({ value: count() })
+  
+    .from(products)
+    .where(
+      and(
+        eq(
+          products.storeId,
+          storeId,
+        ),
+        ne(
+          products.status,
+          "archived",
+      )),
+    );
+
+  return Number(result[0]?.value ?? 0);
+}
+
+export async function getStoreWithPlanUsage(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    return undefined;
+  }
+
+  const storeResult = await db
+    .select()
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .limit(1);
+
+  const store = storeResult[0];
+
+  if (!store) {
+    return undefined;
+  }
+
+  const productsUsed =
+    await countActiveStoreProducts(
+      store.id,
+    );
+
+  const latestRequest =
+    await getLatestPlanRequestByStoreId(
+      store.id,
+    );
+
+  return {
+    store,
+    productsUsed,
+    latestRequest: latestRequest ?? null,
+  };
+}
+
+export async function createPlanUpgradeRequest({
+  storeId,
+  requestedPlanKey,
+  note,
+}: {
+  storeId: string;
+  requestedPlanKey: string;
+  note?: string | null;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const storeResult = await db
+    .select()
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .limit(1);
+
+  const store = storeResult[0];
+
+  if (!store) {
+    throw new Error("STORE_NOT_FOUND");
+  }
+
+  const productsUsed =
+    await countActiveStoreProducts(
+      storeId,
+    );
+
+  const result = await db
+    .insert(planRequests)
+    .values({
+      storeId,
+      requestedPlanKey,
+      currentPlanKey: store.planKey,
+      productsUsed,
+      status: "pending",
+      note: note?.trim() || null,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function getLatestPlanRequestByStoreId(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(planRequests)
+    .where(
+      eq(planRequests.storeId, storeId),
+    )
+    .orderBy(
+      desc(planRequests.createdAt),
+    )
+    .limit(1);
+
+  return result[0];
+}
+
+export async function getAdminPlanRequests() {
+  const db = await getDb();
+
+  if (!db) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      request: planRequests,
+      store: stores,
+    })
+    .from(planRequests)
+    .innerJoin(
+      stores,
+      eq(
+        planRequests.storeId,
+        stores.id,
+      ),
+    )
+    .orderBy(
+      desc(planRequests.createdAt),
+    );
+
+  return Promise.all(
+    rows.map(async ({ request, store }) => {
+      const productsUsed =
+        await countActiveStoreProducts(
+          store.id,
+        );
+
+      return {
+        request,
+        store: {
+          id: store.id,
+          name: store.name,
+          slug: store.slug,
+          planKey: store.planKey,
+          whatsapp: store.whatsapp,
+        },
+        productsUsed,
+      };
+    }),
+  );
+}
+
+export async function getAdminPlanOverview() {
+  const db = await getDb();
+
+  if (!db) {
+    return {
+      plans: [],
+      stores: [],
+    };
+  }
+
+  await seedPlans();
+
+  const [allPlans, allStores] =
+    await Promise.all([
+      db
+        .select()
+        .from(plans)
+        .orderBy(plans.priceMzn),
+
+      db
+        .select()
+        .from(stores)
+        .orderBy(desc(stores.createdAt)),
+    ]);
+
+  const storesWithUsage = await Promise.all(
+    allStores.map(async (store) => {
+      const productsUsed =
+        await countActiveStoreProducts(
+          store.id,
+        );
+
+      const latestRequest =
+        await getLatestPlanRequestByStoreId(
+          store.id,
+        );
+      const plan =
+        allPlans.find(
+          (item) =>
+            item.key === store.planKey,
+        ) ?? allPlans.find(
+          (item) => item.key === "free",
+        );
+      const ownerResult = await db
+        .select({
+          userId: storeMembers.userId,
+        })
+        .from(storeMembers)
+        .where(
+          and(
+            eq(
+              storeMembers.storeId,
+              store.id,
+            ),
+            eq(
+              storeMembers.role,
+              "owner",
+            ),
+        ))
+        .limit(1);
+
+      const ownerId =
+        ownerResult[0]?.userId ?? null;
+
+      const owner = ownerId
+        ? (
+            await db
+              .select({
+                id: users.id,
+                name: users.name,
+                email: users.email,
+              })
+              .from(users)
+              .where(
+                eq(users.id, ownerId),
+              )
+              .limit(1)
+          )[0] ?? null
+        : null;
+
+      return {
+        store: {
+          id: store.id,
+          name: store.name,
+          slug: store.slug,
+          status: store.status,
+          planKey: store.planKey,
+          whatsapp: store.whatsapp,
+          createdAt: store.createdAt,
+          subscriptionPaidUntil:
+            store.subscriptionPaidUntil,
+          subscriptionPaidAt:
+            store.subscriptionPaidAt,
+        },
+        plan: plan
+          ? {
+              key: plan.key,
+              name: plan.name,
+              productLimit: plan.productLimit,
+            }
+          : null,
+        productsUsed,
+        owner,
+        latestRequest: latestRequest ?? null,
+      };
+    }),
+  );
+
+  return {
+    plans: allPlans,
+    stores: storesWithUsage,
+  };
+}
+
+/**
+ * Decide um pedido de plano. approved = atribui o
+ * plano (assignedPlanKey ou o pedido) à loja;
+ * rejected = apenas marca o pedido como rejeitado.
+ */
+export async function reviewPlanRequest({
+  requestId,
+  decision,
+  assignedPlanKey,
+  adminNotes,
+}: {
+  requestId: number;
+  decision: "approved" | "rejected";
+  assignedPlanKey?: string | null;
+  adminNotes?: string | null;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  return db.transaction(async (tx) => {
+    const requestResult = await tx
+      .select()
+      .from(planRequests)
+      .where(
+        eq(planRequests.id, requestId),
+      )
+      .limit(1);
+
+    const request = requestResult[0];
+
+    if (!request) {
+      throw new Error(
+        "PLAN_REQUEST_NOT_FOUND",
+      );
+    }
+
+    if (request.status !== "pending") {
+      throw new Error(
+        "PLAN_REQUEST_ALREADY_REVIEWED",
+      );
+    }
+
+    const targetPlanKey =
+      decision === "approved"
+        ? assignedPlanKey ||
+          request.requestedPlanKey
+        : null;    if (decision === "approved") {
+      if (
+        !PLAN_CATALOG.some(
+          (plan) => plan.key === targetPlanKey,
+        )
+      ) {
+        throw new Error(
+          "INVALID_PLAN_KEY",
+      );
+      }
+
+      /*
+       * O plano aprovado inicia um novo período
+       * mensal de subscrição (planos pagos).
+       */
+      await tx
+        .update(stores)
+        .set({
+          planKey: targetPlanKey!,
+          ...buildSubscriptionPeriodSet(
+            targetPlanKey!,
+          ),
+          updatedAt: new Date(),
+        })
+    
+        .where(
+          eq(stores.id, request.storeId),
+        );
+    }
+
+    const updatedRequest = await tx
+      .update(planRequests)
+      .set({
+        status: decision,
+        assignedPlanKey:
+          decision === "approved"
+            ? targetPlanKey
+            : null,
+        adminNotes: adminNotes?.trim() || null,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        eq(planRequests.id, requestId),
+      )
+
+      .returning();
+
+    const storeResult = await tx
+      .select()
+      .from(stores)
+      .where(
+        eq(stores.id, request.storeId),
+      )
+      .limit(1);
+
+    return {
+      request: updatedRequest[0],
+      store: storeResult[0],
+    };
+  });
+}
+
+/**
+ * Campos de período de subscrição a gravar quando
+ * um plano é aplicado à loja. Planos pagos começam
+ * um período de um mês; Free não tem cobrança.
+ */
+function buildSubscriptionPeriodSet(
+  planKey: string,
+  from: Date = new Date(),
+) {
+  if (!isPlanKey(planKey) || !isPaidPlan(planKey)) {
+    return {
+      subscriptionPaidUntil: null,
+      subscriptionPaidAt: null,
+    };
+  }
+
+  return {
+    subscriptionPaidUntil: addOneMonth(from),
+    subscriptionPaidAt: from,
+  };
+}
+
+/**
+ * Renova a subscrição mensal da loja por mais um
+ * mês após confirmação de pagamento pelo admin.
+ * Não altera o plano, limites ou outras configurações.
+ */
+export async function markStoreSubscriptionPaid(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  return db.transaction(async (tx) => {
+    const storeResult = await tx
+      .select()
+      .from(stores)
+      .where(eq(stores.id, storeId))
+      .limit(1);
+
+    const store = storeResult[0];
+
+    if (!store) {
+      throw new Error("STORE_NOT_FOUND");
+    }
+
+    if (
+      !isPlanKey(store.planKey) ||
+      !isPaidPlan(store.planKey)
+    ) {
+      throw new Error(
+        "SUBSCRIPTION_NOT_REQUIRED_FOR_FREE_PLAN",
+      );
+    }
+
+    /*
+     * Renova a partir do período atual se ainda
+     * válido (evita perder dias pagos), ou de hoje
+     * se já expirou.
+     */
+    const currentUntil =
+      store.subscriptionPaidUntil;
+
+    const baseDate =
+      currentUntil &&
+      currentUntil.getTime() > Date.now()
+        ? currentUntil
+        : new Date();
+
+    const renewedUntil =
+      addOneMonth(baseDate);
+
+    const updated = await tx
+      .update(stores)
+      .set({
+        subscriptionPaidUntil: renewedUntil,
+        subscriptionPaidAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(stores.id, storeId))
+      .returning();
+
+    return updated[0];
+  });
+}
+
+/**
+ * Atribuição direta de plano pelo admin,
+ * sem pedido prévio do proprietário.
+ */
+export async function assignPlanToStore({
+  storeId,
+  planKey,
+}: {
+  storeId: string;
+  planKey: string;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  if (
+    !PLAN_CATALOG.some(
+      (plan) => plan.key === planKey,
+    )
+  ) {
+    throw new Error("INVALID_PLAN_KEY");
+  }
+
+  const updated = await db
+    .update(stores)
+    .set({
+      planKey,
+      ...buildSubscriptionPeriodSet(
+        planKey,
+      ),
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  if (!updated[0]) {
+    throw new Error("STORE_NOT_FOUND");
+  }
+  
   return updated[0];
 }
 
@@ -530,6 +1174,168 @@ export async function getAdminUsers() {
   }));
 }
 
+export async function updateStoreStatus(
+  storeId: string,
+  status: "active" | "suspended",
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const result = await db
+    .update(stores)
+    .set({
+      status,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
+
+export async function deleteStore(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(storeMembers)
+      .where(
+        eq(
+          storeMembers.storeId,
+          storeId,
+        ),
+      );
+
+    await tx
+      .delete(products)
+      .where(
+        eq(
+          products.storeId,
+          storeId,
+        ),
+      );
+
+    const result = await tx
+      .delete(stores)
+      .where(
+        eq(stores.id, storeId),
+      )
+      .returning();
+
+    return result[0];
+  });
+}
+
+/**
+ * Elimina um utilizador do painel Admin.
+ *
+ * Remove:
+ * - lojas do utilizador
+ * - produtos dessas lojas
+ * - membros dessas lojas
+ * - candidaturas do utilizador
+ * - utilizador da tabela users
+ *
+ * Tudo acontece dentro da mesma transação.
+ */
+export async function deleteAdminUser(
+  userId: number,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  return db.transaction(async (tx) => {
+    const userResult = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const user = userResult[0];
+
+    if (!user) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    const memberships = await tx
+      .select({
+        storeId: storeMembers.storeId,
+      })
+      .from(storeMembers)
+      .where(
+        eq(
+          storeMembers.userId,
+          userId,
+        ),
+      );
+
+    const storeIds = Array.from(
+      new Set(
+        memberships.map(
+          (membership) =>
+            membership.storeId,
+        ),
+      ),
+    );
+
+    for (const storeId of storeIds) {
+      await tx
+        .delete(storeMembers)
+        .where(
+          eq(
+            storeMembers.storeId,
+            storeId,
+          ),
+        );
+
+      await tx
+        .delete(products)
+        .where(
+          eq(
+            products.storeId,
+            storeId,
+          ),
+        );
+
+      await tx
+        .delete(stores)
+        .where(
+          eq(stores.id, storeId),
+        );
+    }
+
+    await tx
+      .delete(storeApplications)
+      .where(
+        eq(
+          storeApplications.userId,
+          userId,
+        ),
+      );
+
+    const deleted = await tx
+      .delete(users)
+      .where(
+        eq(users.id, userId),
+      )
+      .returning();
+
+    return deleted[0];
+  });
+}
+
 export async function getAdminPlans() {
   const db = await getDb();
 
@@ -569,7 +1375,6 @@ export async function getAdminPlans() {
 
   return allPlans.map((plan) => ({
     plan,
-
     storeCount:
       usageByPlanKey.get(
         plan.key,
@@ -697,15 +1502,17 @@ async function hydrateProductAssets(
 ) {
   const imageUrls = (
     await Promise.all(
-      product.imageKeys.map(async (key) => {
-        try {
-          return await createStoreDownloadUrl(
-            key,
-          );
-        } catch {
-          return null;
-        }
-      }),
+      product.imageKeys.map(
+        async (key) => {
+          try {
+            return await createStoreDownloadUrl(
+              key,
+            );
+          } catch {
+            return null;
+          }
+        },
+      ),
     )
   ).filter(
     (url): url is string =>
@@ -777,20 +1584,6 @@ export async function listProducts(
   );
 }
 
-/**
- * Dados reais usados pelo dashboard da loja.
- *
- * Não cria números fictícios:
- * - total de produtos
- * - produtos ativos
- * - rascunhos
- * - arquivados
- * - produtos sem stock
- * - produtos recentes
- *
- * Os dados são sempre calculados a partir da loja
- * e dos produtos existentes no Neon.
- */
 export async function getStoreDashboardSummary(
   storeId: string,
 ) {
@@ -1121,16 +1914,6 @@ export async function updateStoreApplicationStatus(
 
 /**
  * Cria uma loja real a partir de uma candidatura aprovada.
- *
- * Tudo acontece numa única transação:
- *
- * stores
- * +
- * storeMembers
- * +
- * storeApplications.approved
- *
- * themeKey inicia sempre como "nova".
  */
 export async function createStoreFromApplication(
   applicationId: number,

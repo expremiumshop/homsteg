@@ -43,12 +43,19 @@ type StoreData = {
   category?: string | null;
   currency?: string | null;
   status?: string | null;
+  whatsapp?: string | null;
 };
 
 type NovaStorefrontProps = {
   mode?: "demo" | "store";
   storeId?: string;
   storeSlug?: string;
+
+  /**
+   * Repassado ao Header para as pré-visualizações
+   * por dispositivo (ver NovaHeaderProps).
+   */
+  headerVariant?: "auto" | "desktop" | "mobile";
 };
 
 function getInitials(name: string) {
@@ -73,6 +80,7 @@ export default function NovaStorefront({
   mode = "store",
   storeId,
   storeSlug,
+  headerVariant,
 }: NovaStorefrontProps) {
   const isDemo = mode === "demo";
 
@@ -313,6 +321,7 @@ export default function NovaStorefront({
         basePath="/themes/nova"
         currency={store?.currency || "MZN"}
         country="Moçambique"
+        headerVariant={headerVariant}
       />
 
       <main>

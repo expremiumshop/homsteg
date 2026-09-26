@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 
 import DashboardHeader from "@/components/dashboard/layout/DashboardHeader";
 import DashboardSidebar from "@/components/dashboard/layout/DashboardSidebar";
+import PlanSidebarCard from "@/components/dashboard/plan/PlanSidebarCard";
 import OverviewPage from "@/components/dashboard/overview/OverviewPage";
 import ProductsPage from "@/components/dashboard/products/ProductsPage";
 import CategoriesPage from "@/components/dashboard/categories/CategoriesPage";
@@ -224,7 +225,11 @@ export default function Dashboard() {
         <DashboardSidebar
           navigation={mainNav}
           activeSection={section}
-        />
+        >
+          <PlanSidebarCard
+            storeId={selectedStore?.id}
+          />
+        </DashboardSidebar>
       </div>
 
       {/* Mobile sidebar */}
@@ -300,6 +305,12 @@ export default function Dashboard() {
                   );
                 })}
               </nav>
+
+              <div className="mt-6">
+                <PlanSidebarCard
+                  storeId={selectedStore?.id}
+                />
+              </div>
             </div>
           </aside>
         </div>
@@ -311,6 +322,7 @@ export default function Dashboard() {
           section={section}
           title={currentNav.label}
           storeSlug={storeSlug}
+          storeId={selectedStore?.id}
           onOpenMobileMenu={() =>
             setMobileSidebarOpen(true)
           }
