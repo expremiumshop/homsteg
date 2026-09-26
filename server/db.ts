@@ -1,11 +1,13 @@
 import { randomUUID } from "crypto";
+
 import { and, count, desc, eq, ne } from "drizzle-orm";
 
 import {
   addOneMonth,
   isPlanKey,
   isPaidPlan,
-} from "../shared/homsteg";
+} from "../shared/homsteg.js";
+
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
@@ -396,6 +398,7 @@ export async function updateStoreWhatsApp(
  * O plano Free é o único obrigatório para o correto
  * funcionamento do sistema de planos.
  */
+
 export const PLAN_CATALOG = [
   {
     key: "free",
@@ -521,6 +524,7 @@ export async function seedPlans() {
  * Número de produtos não arquivados da loja.
  * É este valor que conta para o limite do plano.
  */
+
 export async function countActiveStoreProducts(
   storeId: string,
 ) {
@@ -532,7 +536,6 @@ export async function countActiveStoreProducts(
 
   const result = await db
     .select({ value: count() })
-  
     .from(products)
     .where(
       and(
@@ -543,7 +546,8 @@ export async function countActiveStoreProducts(
         ne(
           products.status,
           "archived",
-      )),
+        ),
+      ),
     );
 
   return Number(result[0]?.value ?? 0);
@@ -583,7 +587,8 @@ export async function getStoreWithPlanUsage(
   return {
     store,
     productsUsed,
-    latestRequest: latestRequest ?? null,
+    latestRequest:
+      latestRequest ?? null,
   };
 }
 
@@ -647,10 +652,15 @@ export async function getLatestPlanRequestByStoreId(
     .select()
     .from(planRequests)
     .where(
-      eq(planRequests.storeId, storeId),
+      eq(
+        planRequests.storeId,
+        storeId,
+      ),
     )
     .orderBy(
-      desc(planRequests.createdAt),
+      desc(
+        planRequests.createdAt,
+      ),
     )
     .limit(1);
 
@@ -678,7 +688,9 @@ export async function getAdminPlanRequests() {
       ),
     )
     .orderBy(
-      desc(planRequests.createdAt),
+      desc(
+        planRequests.createdAt,
+      ),
     );
 
   return Promise.all(
@@ -725,91 +737,115 @@ export async function getAdminPlanOverview() {
       db
         .select()
         .from(stores)
-        .orderBy(desc(stores.createdAt)),
+        .orderBy(
+          desc(stores.createdAt),
+        ),
     ]);
 
-  const storesWithUsage = await Promise.all(
-    allStores.map(async (store) => {
-      const productsUsed =
-        await countActiveStoreProducts(
-          store.id,
-        );
-
-      const latestRequest =
-        await getLatestPlanRequestByStoreId(
-          store.id,
-        );
-      const plan =
-        allPlans.find(
-          (item) =>
-            item.key === store.planKey,
-        ) ?? allPlans.find(
-          (item) => item.key === "free",
-        );
-      const ownerResult = await db
-        .select({
-          userId: storeMembers.userId,
-        })
-        .from(storeMembers)
-        .where(
-          and(
-            eq(
-              storeMembers.storeId,
+  const storesWithUsage =
+    await Promise.all(
+      allStores.map(
+        async (store) => {
+          const productsUsed =
+            await countActiveStoreProducts(
               store.id,
-            ),
-            eq(
-              storeMembers.role,
-              "owner",
-            ),
-        ))
-        .limit(1);
+            );
 
-      const ownerId =
-        ownerResult[0]?.userId ?? null;
+          const latestRequest =
+            await getLatestPlanRequestByStoreId(
+              store.id,
+            );
 
-      const owner = ownerId
-        ? (
+          const plan =
+            allPlans.find(
+              (item) =>
+                item.key ===
+                store.planKey,
+            ) ??
+            allPlans.find(
+              (item) =>
+                item.key === "free",
+            );
+
+          const ownerResult =
             await db
               .select({
-                id: users.id,
-                name: users.name,
-                email: users.email,
+                userId:
+                  storeMembers.userId,
               })
-              .from(users)
+              .from(storeMembers)
               .where(
-                eq(users.id, ownerId),
+                and(
+                  eq(
+                    storeMembers.storeId,
+                    store.id,
+                  ),
+                  eq(
+                    storeMembers.role,
+                    "owner",
+                  ),
+                ),
               )
-              .limit(1)
-          )[0] ?? null
-        : null;
+              .limit(1);
 
-      return {
-        store: {
-          id: store.id,
-          name: store.name,
-          slug: store.slug,
-          status: store.status,
-          planKey: store.planKey,
-          whatsapp: store.whatsapp,
-          createdAt: store.createdAt,
-          subscriptionPaidUntil:
-            store.subscriptionPaidUntil,
-          subscriptionPaidAt:
-            store.subscriptionPaidAt,
+          const ownerId =
+            ownerResult[0]?.userId ??
+            null;
+
+          const owner = ownerId
+            ? (
+                await db
+                  .select({
+                    id: users.id,
+                    name: users.name,
+                    email: users.email,
+                  })
+                  .from(users)
+                  .where(
+                    eq(
+                      users.id,
+                      ownerId,
+                    ),
+                  )
+                  .limit(1)
+              )[0] ?? null
+            : null;
+
+          return {
+            store: {
+              id: store.id,
+              name: store.name,
+              slug: store.slug,
+              status: store.status,
+              planKey:
+                store.planKey,
+              whatsapp:
+                store.whatsapp,
+              createdAt:
+                store.createdAt,
+              subscriptionPaidUntil:
+                store.subscriptionPaidUntil,
+              subscriptionPaidAt:
+                store.subscriptionPaidAt,
+            },
+
+            plan: plan
+              ? {
+                  key: plan.key,
+                  name: plan.name,
+                  productLimit:
+                    plan.productLimit,
+                }
+              : null,
+
+            productsUsed,
+            owner,
+            latestRequest:
+              latestRequest ?? null,
+          };
         },
-        plan: plan
-          ? {
-              key: plan.key,
-              name: plan.name,
-              productLimit: plan.productLimit,
-            }
-          : null,
-        productsUsed,
-        owner,
-        latestRequest: latestRequest ?? null,
-      };
-    }),
-  );
+      ),
+    );
 
   return {
     plans: allPlans,
@@ -818,10 +854,11 @@ export async function getAdminPlanOverview() {
 }
 
 /**
- * Decide um pedido de plano. approved = atribui o
- * plano (assignedPlanKey ou o pedido) à loja;
+ * Decide um pedido de plano.
+ * approved = atribui o plano à loja;
  * rejected = apenas marca o pedido como rejeitado.
  */
+
 export async function reviewPlanRequest({
   requestId,
   decision,
@@ -844,7 +881,10 @@ export async function reviewPlanRequest({
       .select()
       .from(planRequests)
       .where(
-        eq(planRequests.id, requestId),
+        eq(
+          planRequests.id,
+          requestId,
+        ),
       )
       .limit(1);
 
@@ -866,21 +906,20 @@ export async function reviewPlanRequest({
       decision === "approved"
         ? assignedPlanKey ||
           request.requestedPlanKey
-        : null;    if (decision === "approved") {
+        : null;
+
+    if (decision === "approved") {
       if (
         !PLAN_CATALOG.some(
-          (plan) => plan.key === targetPlanKey,
+          (plan) =>
+            plan.key === targetPlanKey,
         )
       ) {
         throw new Error(
           "INVALID_PLAN_KEY",
-      );
+        );
       }
 
-      /*
-       * O plano aprovado inicia um novo período
-       * mensal de subscrição (planos pagos).
-       */
       await tx
         .update(stores)
         .set({
@@ -890,35 +929,45 @@ export async function reviewPlanRequest({
           ),
           updatedAt: new Date(),
         })
-    
         .where(
-          eq(stores.id, request.storeId),
+          eq(
+            stores.id,
+            request.storeId,
+          ),
         );
     }
 
-    const updatedRequest = await tx
-      .update(planRequests)
-      .set({
-        status: decision,
-        assignedPlanKey:
-          decision === "approved"
-            ? targetPlanKey
-            : null,
-        adminNotes: adminNotes?.trim() || null,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        eq(planRequests.id, requestId),
-      )
-
-      .returning();
+    const updatedRequest =
+      await tx
+        .update(planRequests)
+        .set({
+          status: decision,
+          assignedPlanKey:
+            decision === "approved"
+              ? targetPlanKey
+              : null,
+          adminNotes:
+            adminNotes?.trim() ||
+            null,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          eq(
+            planRequests.id,
+            requestId,
+          ),
+        )
+        .returning();
 
     const storeResult = await tx
       .select()
       .from(stores)
       .where(
-        eq(stores.id, request.storeId),
+        eq(
+          stores.id,
+          request.storeId,
+        ),
       )
       .limit(1);
 
@@ -931,14 +980,19 @@ export async function reviewPlanRequest({
 
 /**
  * Campos de período de subscrição a gravar quando
- * um plano é aplicado à loja. Planos pagos começam
- * um período de um mês; Free não tem cobrança.
+ * um plano é aplicado à loja.
+ * Planos pagos começam um período de um mês;
+ * Free não tem cobrança.
  */
+
 function buildSubscriptionPeriodSet(
   planKey: string,
   from: Date = new Date(),
 ) {
-  if (!isPlanKey(planKey) || !isPaidPlan(planKey)) {
+  if (
+    !isPlanKey(planKey) ||
+    !isPaidPlan(planKey)
+  ) {
     return {
       subscriptionPaidUntil: null,
       subscriptionPaidAt: null,
@@ -946,7 +1000,8 @@ function buildSubscriptionPeriodSet(
   }
 
   return {
-    subscriptionPaidUntil: addOneMonth(from),
+    subscriptionPaidUntil:
+      addOneMonth(from),
     subscriptionPaidAt: from,
   };
 }
@@ -956,6 +1011,7 @@ function buildSubscriptionPeriodSet(
  * mês após confirmação de pagamento pelo admin.
  * Não altera o plano, limites ou outras configurações.
  */
+
 export async function markStoreSubscriptionPaid(
   storeId: string,
 ) {
@@ -969,7 +1025,12 @@ export async function markStoreSubscriptionPaid(
     const storeResult = await tx
       .select()
       .from(stores)
-      .where(eq(stores.id, storeId))
+      .where(
+        eq(
+          stores.id,
+          storeId,
+        ),
+      )
       .limit(1);
 
     const store = storeResult[0];
@@ -987,17 +1048,18 @@ export async function markStoreSubscriptionPaid(
       );
     }
 
-    /*
+    /**
      * Renova a partir do período atual se ainda
-     * válido (evita perder dias pagos), ou de hoje
-     * se já expirou.
+     * válido, ou de hoje se já expirou.
      */
+
     const currentUntil =
       store.subscriptionPaidUntil;
 
     const baseDate =
       currentUntil &&
-      currentUntil.getTime() > Date.now()
+      currentUntil.getTime() >
+        Date.now()
         ? currentUntil
         : new Date();
 
@@ -1007,11 +1069,19 @@ export async function markStoreSubscriptionPaid(
     const updated = await tx
       .update(stores)
       .set({
-        subscriptionPaidUntil: renewedUntil,
-        subscriptionPaidAt: new Date(),
-        updatedAt: new Date(),
+        subscriptionPaidUntil:
+          renewedUntil,
+        subscriptionPaidAt:
+          new Date(),
+        updatedAt:
+          new Date(),
       })
-      .where(eq(stores.id, storeId))
+      .where(
+        eq(
+          stores.id,
+          storeId,
+        ),
+      )
       .returning();
 
     return updated[0];
@@ -1022,6 +1092,7 @@ export async function markStoreSubscriptionPaid(
  * Atribuição direta de plano pelo admin,
  * sem pedido prévio do proprietário.
  */
+
 export async function assignPlanToStore({
   storeId,
   planKey,
@@ -1037,10 +1108,13 @@ export async function assignPlanToStore({
 
   if (
     !PLAN_CATALOG.some(
-      (plan) => plan.key === planKey,
+      (plan) =>
+        plan.key === planKey,
     )
   ) {
-    throw new Error("INVALID_PLAN_KEY");
+    throw new Error(
+      "INVALID_PLAN_KEY",
+    );
   }
 
   const updated = await db
@@ -1052,13 +1126,20 @@ export async function assignPlanToStore({
       ),
       updatedAt: new Date(),
     })
-    .where(eq(stores.id, storeId))
+    .where(
+      eq(
+        stores.id,
+        storeId,
+      ),
+    )
     .returning();
 
   if (!updated[0]) {
-    throw new Error("STORE_NOT_FOUND");
+    throw new Error(
+      "STORE_NOT_FOUND",
+    );
   }
-  
+
   return updated[0];
 }
 
@@ -1081,13 +1162,17 @@ export async function getAdminUsers() {
     db
       .select()
       .from(users)
-      .orderBy(desc(users.createdAt)),
+      .orderBy(
+        desc(users.createdAt),
+      ),
 
     db
       .select()
       .from(storeApplications)
       .orderBy(
-        desc(storeApplications.createdAt),
+        desc(
+          storeApplications.createdAt,
+        ),
       ),
 
     db
@@ -1113,10 +1198,11 @@ export async function getAdminUsers() {
       ),
   ]);
 
-  const latestApplicationByUser = new Map<
-    number,
-    (typeof applications)[number]
-  >();
+  const latestApplicationByUser =
+    new Map<
+      number,
+      (typeof applications)[number]
+    >();
 
   for (const application of applications) {
     if (
@@ -1131,10 +1217,11 @@ export async function getAdminUsers() {
     }
   }
 
-  const storesByUser = new Map<
-    number,
-    typeof memberships
-  >();
+  const storesByUser =
+    new Map<
+      number,
+      typeof memberships
+    >();
 
   for (const membership of memberships) {
     const userStores =
@@ -1142,7 +1229,9 @@ export async function getAdminUsers() {
         membership.membership.userId,
       ) ?? [];
 
-    userStores.push(membership);
+    userStores.push(
+      membership,
+    );
 
     storesByUser.set(
       membership.membership.userId,
@@ -1159,7 +1248,9 @@ export async function getAdminUsers() {
       ) ?? null,
 
     stores: (
-      storesByUser.get(user.id) ?? []
+      storesByUser.get(
+        user.id,
+      ) ?? []
     ).map(
       ({
         membership,
@@ -1181,7 +1272,9 @@ export async function updateStoreStatus(
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   const result = await db
@@ -1190,7 +1283,12 @@ export async function updateStoreStatus(
       status,
       updatedAt: new Date(),
     })
-    .where(eq(stores.id, storeId))
+    .where(
+      eq(
+        stores.id,
+        storeId,
+      ),
+    )
     .returning();
 
   return result[0];
@@ -1202,7 +1300,9 @@ export async function deleteStore(
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   return db.transaction(async (tx) => {
@@ -1227,7 +1327,10 @@ export async function deleteStore(
     const result = await tx
       .delete(stores)
       .where(
-        eq(stores.id, storeId),
+        eq(
+          stores.id,
+          storeId,
+        ),
       )
       .returning();
 
@@ -1247,31 +1350,42 @@ export async function deleteStore(
  *
  * Tudo acontece dentro da mesma transação.
  */
+
 export async function deleteAdminUser(
   userId: number,
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
   }
 
   return db.transaction(async (tx) => {
     const userResult = await tx
       .select()
       .from(users)
-      .where(eq(users.id, userId))
+      .where(
+        eq(
+          users.id,
+          userId,
+        ),
+      )
       .limit(1);
 
     const user = userResult[0];
 
     if (!user) {
-      throw new Error("USER_NOT_FOUND");
+      throw new Error(
+        "USER_NOT_FOUND",
+      );
     }
 
     const memberships = await tx
       .select({
-        storeId: storeMembers.storeId,
+        storeId:
+          storeMembers.storeId,
       })
       .from(storeMembers)
       .where(
@@ -1312,7 +1426,10 @@ export async function deleteAdminUser(
       await tx
         .delete(stores)
         .where(
-          eq(stores.id, storeId),
+          eq(
+            stores.id,
+            storeId,
+          ),
         );
     }
 
@@ -1328,7 +1445,10 @@ export async function deleteAdminUser(
     const deleted = await tx
       .delete(users)
       .where(
-        eq(users.id, userId),
+        eq(
+          users.id,
+          userId,
+        ),
       )
       .returning();
 
@@ -1350,11 +1470,14 @@ export async function getAdminPlans() {
     db
       .select()
       .from(plans)
-      .orderBy(plans.priceMzn),
+      .orderBy(
+        plans.priceMzn,
+      ),
 
     db
       .select({
-        planKey: stores.planKey,
+        planKey:
+          stores.planKey,
       })
       .from(stores),
   ]);
@@ -1375,6 +1498,7 @@ export async function getAdminPlans() {
 
   return allPlans.map((plan) => ({
     plan,
+
     storeCount:
       usageByPlanKey.get(
         plan.key,
@@ -1685,10 +1809,12 @@ export async function getStoreDashboardSummary(
         archivedProducts,
       outOfStock:
         outOfStockProducts,
-      recent: recentProducts,
+      recent:
+        recentProducts,
     },
 
-    updatedAt: new Date(),
+    updatedAt:
+      new Date(),
   };
 }
 
@@ -1915,6 +2041,7 @@ export async function updateStoreApplicationStatus(
 /**
  * Cria uma loja real a partir de uma candidatura aprovada.
  */
+
 export async function createStoreFromApplication(
   applicationId: number,
   adminNotes?: string,
