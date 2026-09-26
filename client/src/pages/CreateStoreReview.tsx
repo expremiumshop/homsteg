@@ -15,15 +15,14 @@ import {
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
+
 import { getStoreUrlLabel } from "@/lib/store-url";
 
 type StoreData = {
   fullName: string;
   storeName: string;
-  username: string;
   phone: string;
   whatsapp: string;
-  alternativePhone: string;
   country: string;
   province: string;
   district: string;
@@ -39,6 +38,7 @@ export default function CreateStoreReview() {
 
   // Verifica se o backend reconhece a sessão atual.
   const meQuery = trpc.auth.me.useQuery();
+
   const utils = trpc.useUtils();
 
   const createStoreMutation =
@@ -47,6 +47,7 @@ export default function CreateStoreReview() {
         toast.success("Loja criada com sucesso!");
 
         const userId = meQuery.data?.id;
+
         if (userId) {
           sessionStorage.removeItem(
             `homsteg_business_types_${userId}`,
@@ -57,11 +58,16 @@ export default function CreateStoreReview() {
           );
         }
 
+        sessionStorage.removeItem("homsteg_business_types");
+        sessionStorage.removeItem("homsteg_store_data");
+
         sessionStorage.setItem(
           "homsteg_active_store_id",
           result.store.id,
         );
+
         await utils.stores.mine.invalidate();
+
         navigate(
           `/app?storeId=${encodeURIComponent(result.store.id)}`,
         );
@@ -84,9 +90,11 @@ export default function CreateStoreReview() {
 
     try {
       const userId = meQuery.data.id;
+
       const saved = sessionStorage.getItem(
         `homsteg_store_data_${userId}`,
       );
+
       const savedBusinessTypes = sessionStorage.getItem(
         `homsteg_business_types_${userId}`,
       );
@@ -97,6 +105,7 @@ export default function CreateStoreReview() {
       }
 
       const parsed = JSON.parse(saved);
+
       const businessTypes = JSON.parse(savedBusinessTypes);
 
       if (
@@ -110,13 +119,33 @@ export default function CreateStoreReview() {
       }
 
       setData({
-        ...parsed,
+        fullName: String(parsed.fullName ?? ""),
+        storeName: String(parsed.storeName ?? ""),
+        phone: String(parsed.phone ?? ""),
+        whatsapp: String(parsed.whatsapp ?? ""),
+        country: String(parsed.country ?? ""),
+        province: String(parsed.province ?? ""),
+        district: String(parsed.district ?? ""),
+        neighborhood: String(parsed.neighborhood ?? ""),
+        notes: String(parsed.notes ?? ""),
         businessTypes,
       });
     } catch {
       navigate("/criar-loja/dados");
     }
   }, [meQuery.data, meQuery.isLoading, navigate]);
+
+  function createStoreSlug(storeName: string) {
+    return storeName
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
 
   function handleSubmit() {
     if (!data) {
@@ -130,49 +159,44 @@ export default function CreateStoreReview() {
       return;
     }
 
-    const username = data.username
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+    const storeName = data.storeName.trim();
 
-    if (username.length < 3) {
+    if (!storeName) {
+      toast.error("O nome da loja é obrigatório.");
+      return;
+    }
+
+    const storeSlug = createStoreSlug(storeName);
+
+    if (storeSlug.length < 3) {
       toast.error(
-        "O nome de utilizador da loja é inválido.",
+        "O nome da loja é demasiado curto para criar o endereço da loja.",
       );
       return;
     }
 
     createStoreMutation.mutate({
       businessTypes: data.businessTypes,
+
       fullName: data.fullName.trim(),
-      username,
-      storeName: data.storeName.trim(),
-      storeSlug: username,
+
+      storeName,
+
+      storeSlug,
 
       phone: data.phone.trim(),
 
-      alternativePhone:
-        data.alternativePhone?.trim() || "",
-
-      whatsapp:
-        data.whatsapp?.trim() || "",
+      whatsapp: data.whatsapp.trim(),
 
       country: data.country.trim(),
 
-      province:
-        data.province?.trim() || "",
+      province: data.province.trim(),
 
-      district:
-        data.district?.trim() || "",
+      district: data.district.trim(),
 
-      neighborhood:
-        data.neighborhood?.trim() || "",
+      neighborhood: data.neighborhood.trim(),
 
-      notes:
-        data.notes?.trim() || "",
+      notes: data.notes.trim(),
     });
   }
 
@@ -185,6 +209,8 @@ export default function CreateStoreReview() {
       </main>
     );
   }
+
+  const storeSlug = createStoreSlug(data.storeName);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -229,6 +255,7 @@ export default function CreateStoreReview() {
             {!meQuery.isLoading && meQuery.data && (
               <div className="text-sm text-green-500">
                 Sessão reconhecida ✓
+
                 <span className="ml-2 text-neutral-500">
                   {meQuery.data.email}
                 </span>
@@ -262,7 +289,7 @@ export default function CreateStoreReview() {
 
             <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
               Verifica se todas as informações estão
-            corretas antes de criar a loja.
+              corretas antes de criar a loja.
             </p>
           </div>
 
@@ -286,13 +313,6 @@ export default function CreateStoreReview() {
                 label="WhatsApp"
                 value={data.whatsapp}
               />
-
-              {data.alternativePhone && (
-                <ReviewItem
-                  label="Telefone alternativo"
-                  value={data.alternativePhone}
-                />
-              )}
             </ReviewSection>
 
             {/* LOJA */}
@@ -307,7 +327,7 @@ export default function CreateStoreReview() {
 
               <ReviewItem
                 label="Endereço da loja"
-                value={getStoreUrlLabel(data.username)}
+                value={getStoreUrlLabel(storeSlug)}
               />
 
               <div className="border-t border-neutral-900 pt-4">
@@ -316,16 +336,14 @@ export default function CreateStoreReview() {
                 </p>
 
                 <div className="flex flex-wrap gap-2">
-                  {data.businessTypes.map(
-                    (type) => (
-                      <span
-                        key={type}
-                        className="rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm text-neutral-300"
-                      >
-                        {type}
-                      </span>
-                    ),
-                  )}
+                  {data.businessTypes.map((type) => (
+                    <span
+                      key={type}
+                      className="rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm text-neutral-300"
+                    >
+                      {type}
+                    </span>
+                  ))}
                 </div>
               </div>
             </ReviewSection>
@@ -385,8 +403,15 @@ export default function CreateStoreReview() {
                   </h2>
 
                   <p className="mt-2 text-sm leading-6 text-neutral-500">
-                    Ao criar a loja, ela será associada à tua
-                    conta e ficará ativa de imediato.
+                    A tua loja será criada com o nome{" "}
+                    <span className="font-medium text-neutral-300">
+                      {data.storeName}
+                    </span>{" "}
+                    e terá o seguinte endereço público:
+                  </p>
+
+                  <p className="mt-3 text-sm font-medium text-white">
+                    {getStoreUrlLabel(storeSlug)}
                   </p>
                 </div>
               </div>

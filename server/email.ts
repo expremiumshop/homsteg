@@ -16,6 +16,56 @@ if (!apiKey) {
 
 const resend = new Resend(apiKey);
 
+/*
+ * Tentativas de envio com backoff simples.
+ * Protege contra falhas transitórias (5xx, timeouts) sem
+ * esconder falhas permanentes (ex.: domínio não verificado).
+ */
+const EMAIL_SEND_ATTEMPTS = 3;
+
+const EMAIL_SEND_BACKOFF_MS = [300, 900];
+
+function sleep(ms: number) {
+  return new Promise((resolve) =>
+    setTimeout(resolve, ms),
+  );
+}
+
+function isTransientResendError(error: {
+  statusCode?: number;
+  message?: string;
+  name?: string;
+} | null | undefined) {
+  if (!error) {
+    return false;
+  }
+
+  const status = error.statusCode;
+
+  if (
+    status !== undefined &&
+    status >= 500
+  ) {
+    return true;
+  }
+
+  if (status === 429) {
+    return true;
+  }
+
+  const message =
+    error.message?.toLowerCase() ?? "";
+
+  return (
+    message.includes("rate limit") ||
+    message.includes("too many requests") ||
+    message.includes("timed out") ||
+    message.includes("timeout") ||
+    message.includes("temporarily") ||
+    message.includes("try again")
+  );
+}
+
 export async function sendLoginOtpEmail(
   email: string,
   otp: string,
@@ -213,7 +263,7 @@ Se não foste tu a tentar entrar, podes ignorar este email.
 © HOMSTEG — Plataforma de lojas online
   `.trim();
 
-  try {
+  const sendOnce = async () => {
     const result = await resend.emails.send({
       from: fromEmail,
       to: [email],
@@ -225,21 +275,34 @@ Se não foste tu a tentar entrar, podes ignorar este email.
       text,
     });
 
-    console.log(
-      "[HOMSTEG EMAIL] RESPOSTA COMPLETA DO RESEND:",
-      result,
-    );
-
     if (result.error) {
       console.error(
         "[HOMSTEG EMAIL] ERRO DEVOLVIDO PELO RESEND:",
         result.error,
       );
 
-      throw new Error(
+      const error = new Error(
         result.error.message ||
           "O Resend recusou o envio do email.",
       );
+
+      (
+        error as Error & {
+          resendStatusCode?: number;
+          resendErrorName?: string;
+        }
+      ).resendStatusCode =
+        result.error.statusCode ?? undefined;
+
+      (
+        error as Error & {
+          resendStatusCode?: number;
+          resendErrorName?: string;
+        }
+      ).resendErrorName =
+        result.error.name;
+
+      throw error;
     }
 
     console.log(
@@ -250,11 +313,53 @@ Se não foste tu a tentar entrar, podes ignorar este email.
       },
     );
 
-    console.log(
-      "[HOMSTEG EMAIL] ========================================",
-    );
-
     return result.data;
+  };
+
+  try {
+    let lastError: unknown;
+
+    for (
+      let attempt = 1;
+      attempt <= EMAIL_SEND_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        return await sendOnce();
+      } catch (error) {
+        lastError = error;
+
+        const isLastAttempt =
+          attempt === EMAIL_SEND_ATTEMPTS;
+
+        const transient = isTransientResendError(
+          error as {
+            resendStatusCode?: number;
+            message?: string;
+          },
+        );
+
+        console.error(
+          `[HOMSTEG EMAIL] Tentativa ${attempt}/${EMAIL_SEND_ATTEMPTS} falhou${transient && !isLastAttempt ? " (transitória, nova tentativa agendada)" : ""}:`,
+          error,
+        );
+
+        if (isLastAttempt || !transient) {
+          throw error;
+        }
+
+        await sleep(
+          EMAIL_SEND_BACKOFF_MS[
+            Math.min(
+              attempt - 1,
+              EMAIL_SEND_BACKOFF_MS.length - 1,
+            )
+          ] ?? 300,
+        );
+      }
+    }
+
+    throw lastError;
   } catch (error) {
     console.error(
       "[HOMSTEG EMAIL] FALHA REAL NO ENVIO:",

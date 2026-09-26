@@ -37,6 +37,8 @@ import {
   userHasStoreAccess,
 } from "./db.js";
 
+import { getBetterAuthUserById } from "./auth.js";
+
 import {
   createStoreDownloadUrl,
   createStoreUploadUrl,
@@ -84,10 +86,7 @@ const whatsappInput = z
 
       const digits = value.replace(/\D/g, "");
 
-      return (
-        digits.length >= 7 &&
-        digits.length <= 15
-      );
+      return digits.length >= 7 && digits.length <= 15;
     },
     "Introduza um número de WhatsApp válido.",
   );
@@ -109,9 +108,7 @@ const planKeyInput = z.enum([
   "business",
   "professional",
   "enterprise",
-]);
-
-function planLimit(planKey: string) {
+]);function planLimit(planKey: string) {
   switch (planKey) {
     case "enterprise":
       return Number.POSITIVE_INFINITY;
@@ -128,12 +125,33 @@ function planLimit(planKey: string) {
 }
 
 /* ============================================================
+   TEMAS
+
+   Regras de acesso:
+   - Qualquer loja pode VER/pré-visualizar todos os temas.
+   - A restrição aplica-se APENAS à seleção/ativação.
+   - Free: apenas o tema "nova".
+   - Qualquer plano pago (starter ou superior): todos os temas.
+   ============================================================ */
+
+const FREE_PLAN_THEMES = new Set(["nova"]);
+
+function canStoreActivateTheme(
+  planKey: string,
+  themeKey: string,
+) {
+  if (planKey !== "free") {
+    return true;
+  }
+
+  return FREE_PLAN_THEMES.has(themeKey);
+}
+
+/* ============================================================
    HELPERS
    ============================================================ */
 
-function requireStoreAccess(
-  hasAccess: boolean,
-) {
+function requireStoreAccess(hasAccess: boolean) {
   if (!hasAccess) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -154,9 +172,7 @@ export const appRouter = router({
      ========================================================== */
 
   auth: router({
-    me: publicProcedure.query(
-      ({ ctx }) => ctx.user,
-    ),
+    me: publicProcedure.query(({ ctx }) => ctx.user),
   }),
 
   /* ==========================================================
@@ -164,12 +180,11 @@ export const appRouter = router({
      ========================================================== */
 
   stores: router({
-    mine: protectedProcedure.query(
-      ({ ctx }) =>
-        getStoresForUser(
-          ctx.user.id,
-          ctx.user.role === "admin",
-        ),
+    mine: protectedProcedure.query(({ ctx }) =>
+      getStoresForUser(
+        ctx.user.id,
+        ctx.user.role === "admin",
+      ),
     ),
 
     bySlug: publicProcedure
@@ -179,10 +194,9 @@ export const appRouter = router({
         }),
       )
       .query(async ({ input }) => {
-        const store =
-          await getPublicStoreBySlug(
-            input.slug,
-          );
+        const store = await getPublicStoreBySlug(
+          input.slug,
+        );
 
         if (!store) {
           throw new TRPCError({
@@ -193,10 +207,9 @@ export const appRouter = router({
 
         return {
           store,
-          products:
-            await listPublicProducts(
-              store.id,
-            ),
+          products: await listPublicProducts(
+            store.id,
+          ),
         };
       }),
 
@@ -215,31 +228,29 @@ export const appRouter = router({
             storeId: storeIdInput,
           }),
         )
-        .query(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
+        .query(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const result =
+            await getStoreWithPlanUsage(
+              input.storeId,
             );
 
-            const result =
-              await getStoreWithPlanUsage(
-                input.storeId,
-              );
+          if (!result) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
 
-            if (!result) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message: "Loja não encontrada.",
-              });
-            }
-
-            return result;
-          },
-        ),
+          return result;
+        }),
 
       /**
        * O proprietário pede um upgrade de plano.
@@ -251,81 +262,83 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
             requestedPlanKey: planKeyInput,
-
             note: optionalText(1000),
           }),
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const latest =
+            await getStoreWithPlanUsage(
+              input.storeId,
             );
 
-            const latest =
-              await getStoreWithPlanUsage(
-                input.storeId,
-              );
+          if (!latest) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
 
-            if (!latest) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message: "Loja não encontrada.",
-              });
-            }
+          if (
+            latest.latestRequest?.status ===
+            "pending"
+          ) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "Já existe um pedido de plano pendente.",
+            });
+          }
 
-            if (
-              latest.latestRequest?.status ===
-              "pending"
-            ) {
-              throw new TRPCError({
-                code: "CONFLICT",
-                message:
-                  "Já existe um pedido de plano pendente.",
-              });
-            }
+          if (
+            latest.latestRequest?.status ===
+              "approved" &&
+            latest.latestRequest.assignedPlanKey ===
+              input.requestedPlanKey
+          ) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "A loja já tem este plano ativo.",
+            });
+          }
 
-            if (
-              latest.latestRequest?.status ===
-                "approved" &&
-              latest.latestRequest.assignedPlanKey ===
-                input.requestedPlanKey
-            ) {
-              throw new TRPCError({
-                code: "CONFLICT",
-                message:
-                  "A loja já tem este plano ativo.",
-              });
-            }
-            if (
-              planLimit(latest.store.planKey) >=
-              planLimit(input.requestedPlanKey)
-            ) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message:
-                  "Escolha um plano superior ao atual.",
-              });
-            }
+          if (
+            planLimit(latest.store.planKey) >=
+            planLimit(input.requestedPlanKey)
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Escolha um plano superior ao atual.",
+            });
+          }
 
-            const request =
-              await createPlanUpgradeRequest({
-                storeId: input.storeId,
-                requestedPlanKey:
-                  input.requestedPlanKey,
-                note: input.note ?? null,
-              });
+          const request =
+            await createPlanUpgradeRequest({
+              storeId: input.storeId,
+              requestedPlanKey:
+                input.requestedPlanKey,
+              note: input.note ?? null,
+            });
 
-            return {
-              success: true,
-              request,
-            };
-          },
-        ),
+          return {
+            success: true,
+            request,
+          };
+        }),
     }),
+
+    /* ========================================================
+       THEMES
+       ======================================================== */
 
     theme: router({
       set: protectedProcedure
@@ -335,37 +348,68 @@ export const appRouter = router({
             themeKey: themeInput,
           }),
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          /*
+           * A restrição de plano aplica-se apenas à
+           * ativação do tema: lojas no plano Free só
+           * podem ativar o tema Nova. Ver/preview
+           * continua livre para todos os temas.
+           */
+          const currentStore =
+            await getStoreWithPlanUsage(
+              input.storeId,
             );
 
-            const store =
-              await updateStoreTheme(
-                input.storeId,
-                input.themeKey,
-              );
+          if (!currentStore) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
+          if (
+            !canStoreActivateTheme(
+              currentStore.store.planKey,
+              input.themeKey,
+            )
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "O tema selecionado requer um plano pago. Faça upgrade do plano para desbloquear.",
+            });
+          }
 
-            return {
-              success: true,
-              store,
-            };
-          },
-        ),
+          const store = await updateStoreTheme(
+            input.storeId,
+            input.themeKey,
+          );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            store,
+          };
+        }),
     }),
+
+    /* ========================================================
+       CHECKOUT
+       ======================================================== */
 
     checkout: router({
       updateWhatsApp: protectedProcedure
@@ -375,34 +419,35 @@ export const appRouter = router({
             whatsapp: whatsappInput,
           }),
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store =
+            await updateStoreWhatsApp(
+              input.storeId,
+              input.whatsapp,
             );
 
-            const store =
-              await updateStoreWhatsApp(
-                input.storeId,
-                input.whatsapp,
-              );
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
-
-            return store;
-          },
-        ),
+          return store;
+        }),
     }),
+
+    /* ========================================================
+       STORE APPLICATION
+       ======================================================== */
 
     application: router({
       create: protectedProcedure
@@ -424,15 +469,13 @@ export const appRouter = router({
               .min(3)
               .max(160),
 
-            username: z
-              .string()
-              .trim()
-              .min(3)
-              .max(80)
-              .regex(
-                /^[a-zA-Z0-9._-]+$/,
-                "O nome de utilizador contém caracteres inválidos.",
-              ),
+            /*
+             * IMPORTANTE:
+             * username foi removido.
+             *
+             * O nome pessoal do utilizador NÃO é usado
+             * como endereço da loja.
+             */
 
             storeName: z
               .string()
@@ -440,6 +483,13 @@ export const appRouter = router({
               .min(2)
               .max(120),
 
+            /*
+             * O endereço público da loja vem do nome da loja.
+             *
+             * Exemplos:
+             * "Moda Fashion" -> "moda-fashion"
+             * "Moda" -> "moda"
+             */
             storeSlug: storeSlugInput,
 
             phone: z
@@ -448,11 +498,11 @@ export const appRouter = router({
               .min(7)
               .max(40),
 
-            alternativePhone:
-              optionalText(40),
+            /*
+             * Telefone alternativo foi removido.
+             */
 
-            whatsapp:
-              optionalText(40),
+            whatsapp: optionalText(40),
 
             country: z
               .string()
@@ -460,53 +510,78 @@ export const appRouter = router({
               .min(2)
               .max(80),
 
-            province:
-              optionalText(100),
+            province: optionalText(100),
 
-            district:
-              optionalText(100),
+            district: optionalText(100),
 
-            neighborhood:
-              optionalText(120),
+            neighborhood: optionalText(120),
 
-            notes:
-              optionalText(5000),
+            notes: optionalText(5000),
           }),
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            try {
-              const store =
-                await createStoreForUser({
-                  userId: ctx.user.id,
-                  name: input.storeName,
-                  slug: input.storeSlug,
-                  whatsapp:
-                    input.whatsapp ||
-                    undefined,
-                });
+        .mutation(async ({ ctx, input }) => {
+          /*
+           * Fluxo HOMSTEG:
+           * a loja só é criada depois de o utilizador
+           * validar o OTP enviado por email.
+           *
+           * O gate é verificado diretamente na tabela do
+           * Better Auth, fonte da verdade para emailVerified.
+           */
 
-              return {
-                success: true,
-                store,
-              };
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "STORE_SLUG_ALREADY_EXISTS"
-              ) {
-                throw new TRPCError({
-                  code: "CONFLICT",
-                  message:
-                    "Já existe uma loja com este endereço.",
-                });
-              }
+          const authUser =
+            await getBetterAuthUserById(
+              ctx.user.openId,
+            );
 
-              throw error;
+          if (!authUser?.emailVerified) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Confirma o teu email com o código enviado antes de continuar.",
+            });
+          }
+
+          try {
+            /*
+             * A loja é criada usando:
+             *
+             * storeName -> nome público da loja
+             * storeSlug -> endereço público da loja
+             *
+             * O fullName pertence ao utilizador e não
+             * participa na criação do domínio/slug.
+             */
+
+            const store =
+              await createStoreForUser({
+                userId: ctx.user.id,
+                name: input.storeName,
+                slug: input.storeSlug,
+                whatsapp:
+                  input.whatsapp || undefined,
+              });
+
+            return {
+              success: true,
+              store,
+            };
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message ===
+                "STORE_SLUG_ALREADY_EXISTS"
+            ) {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "Já existe uma loja com este endereço.",
+              });
             }
-          },
-        ),
+
+            throw error;
+          }
+        }),
     }),
   }),
 
@@ -521,32 +596,29 @@ export const appRouter = router({
           storeId: storeIdInput,
         }),
       )
-      .query(
-        async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
+      .query(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        const summary =
+          await getStoreDashboardSummary(
+            input.storeId,
           );
 
-          const summary =
-            await getStoreDashboardSummary(
-              input.storeId,
-            );
+        if (!summary) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Loja não encontrada.",
+          });
+        }
 
-          if (!summary) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
-            });
-          }
-
-          return summary;
-        },
-      ),
+        return summary;
+      }),
   }),
 
   /* ==========================================================
@@ -573,38 +645,34 @@ export const appRouter = router({
           ]),
         }),
       )
-      .mutation(
-        async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        const upload =
+          await createStoreUploadUrl({
+            storeId: input.storeId,
+            folder: "products",
+            fileName: input.fileName,
+            contentType: input.contentType,
+          });
+
+        const imageUrl =
+          await createStoreDownloadUrl(
+            upload.key,
           );
 
-          const upload =
-            await createStoreUploadUrl({
-              storeId: input.storeId,
-              folder: "products",
-              fileName: input.fileName,
-              contentType:
-                input.contentType,
-            });
-
-          const imageUrl =
-            await createStoreDownloadUrl(
-              upload.key,
-            );
-
-          return {
-            key: upload.key,
-            uploadUrl:
-              upload.uploadUrl,
-            imageUrl,
-          };
-        },
-      ),
+        return {
+          key: upload.key,
+          uploadUrl: upload.uploadUrl,
+          imageUrl,
+        };
+      }),
   }),
 
   /* ==========================================================
@@ -618,21 +686,17 @@ export const appRouter = router({
           storeId: storeIdInput,
         }),
       )
-      .query(
-        async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
-          );
-
-          return listProducts(
+      .query(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
             input.storeId,
-          );
-        },
-      ),
+            ctx.user.role === "admin",
+          ),
+        );
+
+        return listProducts(input.storeId);
+      }),
 
     create: protectedProcedure
       .input(
@@ -721,93 +785,82 @@ export const appRouter = router({
             .default([]),
         }),
       )
-      .mutation(
-        async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        /* ======================================================
+           LIMITE DO PLANO
+
+           O limite do plano é aplicado no servidor:
+           sem aprovação manual do admin, o limite não aumenta.
+           ====================================================== */
+
+        const storePlan =
+          await getStoreWithPlanUsage(
+            input.storeId,
           );
 
-          /* ======================================================
-             LIMITE DO PLANO
-
-             O limite do plano é aplicado no servidor:
-             sem aprovação manual do admin, o limite não
-             aumenta.
-             ====================================================== */
-
-          const storePlan =
-            await getStoreWithPlanUsage(
-              input.storeId,
-            );
-
-          if (!storePlan) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Loja não encontrada.",
-            });
-          }
-
-          const limit = planLimit(
-            storePlan.store.planKey,
-          );
-
-          if (
-            storePlan.productsUsed >=
-            limit
-          ) {
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message:
-                "Limite de produtos do plano atual atingido. Peça um upgrade de plano ao administrador.",
-            });
-          }
-
-          const productImagePrefix =
-            `stores/${input.storeId}/products/`;
-
-          if (
-            input.imageKeys.some(
-              (key) =>
-                !key.startsWith(
-                  productImagePrefix,
-                ),
-            )
-          ) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Imagem não pertence à loja selecionada.",
-            });
-          }
-
-          return insertProduct({
-            storeId: input.storeId,
-            name: input.name,
-            slug: input.slug,
-            description:
-              input.description,
-            priceMzn:
-              input.priceMzn,
-            compareAtPriceMzn:
-              input.compareAtPriceMzn,
-            stock:
-              input.stock,
-            category:
-              input.category,
-            imageUrl:
-              input.imageUrl,
-            imageKeys:
-              input.imageKeys,
-            options:
-              input.options,
-            status: "draft",
+        if (!storePlan) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Loja não encontrada.",
           });
-        },
-      ),
+        }
+
+        const limit = planLimit(
+          storePlan.store.planKey,
+        );
+
+        if (
+          storePlan.productsUsed >= limit
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Limite de produtos do plano atual atingido. Peça um upgrade de plano ao administrador.",
+          });
+        }
+
+        const productImagePrefix =
+          `stores/${input.storeId}/products/`;
+
+        if (
+          input.imageKeys.some(
+            (key) =>
+              !key.startsWith(
+                productImagePrefix,
+              ),
+          )
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Imagem não pertence à loja selecionada.",
+          });
+        }
+
+        return insertProduct({
+          storeId: input.storeId,
+          name: input.name,
+          slug: input.slug,
+          description: input.description,
+          priceMzn: input.priceMzn,
+          compareAtPriceMzn:
+            input.compareAtPriceMzn,
+          stock: input.stock,
+          category: input.category,
+          imageUrl: input.imageUrl,
+          imageKeys: input.imageKeys,
+          options: input.options,
+          status: "draft",
+        });
+      }),
 
     archive: protectedProcedure
       .input(
@@ -820,26 +873,24 @@ export const appRouter = router({
             .positive(),
         }),
       )
-      .mutation(
-        async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
-          );
-
-          await archiveProduct(
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
             input.storeId,
-            input.productId,
-          );
+            ctx.user.role === "admin",
+          ),
+        );
 
-          return {
-            success: true,
-          } as const;
-        },
-      ),
+        await archiveProduct(
+          input.storeId,
+          input.productId,
+        );
+
+        return {
+          success: true,
+        } as const;
+      }),
   }),
 
   /* ==========================================================
@@ -865,43 +916,41 @@ export const appRouter = router({
               .positive(),
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            try {
-              const deleted =
-                await deleteAdminUser(
-                  input.userId,
-                );
+        .mutation(async ({ input }) => {
+          try {
+            const deleted =
+              await deleteAdminUser(
+                input.userId,
+              );
 
-              if (!deleted) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Utilizador não encontrado.",
-                });
-              }
-
-              return {
-                success: true,
-                user: deleted,
-              };
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "USER_NOT_FOUND"
-              ) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Utilizador não encontrado.",
-                });
-              }
-
-              throw error;
+            if (!deleted) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Utilizador não encontrado.",
+              });
             }
-          },
-        ),
+
+            return {
+              success: true,
+              user: deleted,
+            };
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message ===
+                "USER_NOT_FOUND"
+            ) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Utilizador não encontrado.",
+              });
+            }
+
+            throw error;
+          }
+        }),
     }),
 
     /* ========================================================
@@ -914,8 +963,8 @@ export const appRouter = router({
       ),
 
       /**
-       * Visão geral: cada loja, plano atual, limite,
-       * produtos usados, WhatsApp do proprietário,
+       * Visão geral: cada loja, plano atual,
+       * limite, produtos usados, WhatsApp do proprietário,
        * datas e último pedido.
        */
       overview: adminProcedure.query(
@@ -932,7 +981,7 @@ export const appRouter = router({
       /**
        * Aprovar / rejeitar um pedido de upgrade.
        * Ao aprovar, o plano pode ser ajustado pelo admin
-n       * (assignedPlanKey) antes de ser aplicado à loja.
+       * antes de ser aplicado à loja.
        */
       review: adminProcedure
         .input(
@@ -947,68 +996,67 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
               "rejected",
             ]),
 
-            assignedPlanKey: planKeyInput
-              .optional(),
+            assignedPlanKey:
+              planKeyInput.optional(),
 
-            adminNotes: optionalText(2000),
+            adminNotes:
+              optionalText(2000),
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            try {
-              const result =
-                await reviewPlanRequest({
-                  requestId: input.requestId,
-                  decision: input.decision,
-                  assignedPlanKey:
-                    input.assignedPlanKey ?? null,
-                  adminNotes:
-                    input.adminNotes ?? null,
-                });
+        .mutation(async ({ input }) => {
+          try {
+            const result =
+              await reviewPlanRequest({
+                requestId: input.requestId,
+                decision: input.decision,
+                assignedPlanKey:
+                  input.assignedPlanKey ??
+                  null,
+                adminNotes:
+                  input.adminNotes ?? null,
+              });
 
-              if (!result.request) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Pedido não encontrado.",
-                });
-              }
-
-              return {
-                success: true,
-                request:
-                  result.request,
-                store: result.store,
-              };
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "PLAN_REQUEST_NOT_FOUND"
-              ) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Pedido não encontrado.",
-                });
-              }
-
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "PLAN_REQUEST_ALREADY_REVIEWED"
-              ) {
-                throw new TRPCError({
-                  code: "CONFLICT",
-                  message:
-                    "Este pedido já foi avaliado.",
-                });
-              }
-
-              throw error;
+            if (!result.request) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Pedido não encontrado.",
+              });
             }
-          },
-        ),
+
+            return {
+              success: true,
+              request: result.request,
+              store: result.store,
+            };
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message ===
+                "PLAN_REQUEST_NOT_FOUND"
+            ) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Pedido não encontrado.",
+              });
+            }
+
+            if (
+              error instanceof Error &&
+              error.message ===
+                "PLAN_REQUEST_ALREADY_REVIEWED"
+            ) {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "Este pedido já foi avaliado.",
+              });
+            }
+
+            throw error;
+          }
+        }),
 
       /**
        * Atribuição direta de plano pelo admin,
@@ -1021,36 +1069,34 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
             planKey: planKeyInput,
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            try {
-              const store =
-                await assignPlanToStore({
-                  storeId: input.storeId,
-                  planKey: input.planKey,
-                });
+        .mutation(async ({ input }) => {
+          try {
+            const store =
+              await assignPlanToStore({
+                storeId: input.storeId,
+                planKey: input.planKey,
+              });
 
-              return {
-                success: true,
-                store,
-              };
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "STORE_NOT_FOUND"
-              ) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Loja não encontrada.",
-                });
-              }
-
-              throw error;
+            return {
+              success: true,
+              store,
+            };
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message ===
+                "STORE_NOT_FOUND"
+            ) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Loja não encontrada.",
+              });
             }
-          },
-        ),
+
+            throw error;
+          }
+        }),
 
       /**
        * Marca o pagamento mensal como recebido:
@@ -1063,47 +1109,45 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
             storeId: storeIdInput,
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            try {
-              const store =
-                await markStoreSubscriptionPaid(
-                  input.storeId,
-                );
+        .mutation(async ({ input }) => {
+          try {
+            const store =
+              await markStoreSubscriptionPaid(
+                input.storeId,
+              );
 
-              return {
-                success: true,
-                store,
-              };
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "STORE_NOT_FOUND"
-              ) {
-                throw new TRPCError({
-                  code: "NOT_FOUND",
-                  message:
-                    "Loja não encontrada.",
-                });
-              }
-
-              if (
-                error instanceof Error &&
-                error.message ===
-                  "SUBSCRIPTION_NOT_REQUIRED_FOR_FREE_PLAN"
-              ) {
-                throw new TRPCError({
-                  code: "BAD_REQUEST",
-                  message:
-                    "O plano Free não requer pagamento mensal.",
-                });
-              }
-              
-              throw error;
+            return {
+              success: true,
+              store,
+            };
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message ===
+                "STORE_NOT_FOUND"
+            ) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Loja não encontrada.",
+              });
             }
-          },
-        ),
+
+            if (
+              error instanceof Error &&
+              error.message ===
+                "SUBSCRIPTION_NOT_REQUIRED_FOR_FREE_PLAN"
+            ) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "O plano Free não requer pagamento mensal.",
+              });
+            }
+
+            throw error;
+          }
+        }),
     }),
 
     /* ========================================================
@@ -1117,28 +1161,26 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
             storeId: storeIdInput,
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            const store =
-              await updateStoreStatus(
-                input.storeId,
-                "active",
-              );
+        .mutation(async ({ input }) => {
+          const store =
+            await updateStoreStatus(
+              input.storeId,
+              "active",
+            );
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Loja não encontrada.",
+            });
+          }
 
-            return {
-              success: true,
-              store,
-            };
-          },
-        ),
+          return {
+            success: true,
+            store,
+          };
+        }),
 
       suspend: adminProcedure
         .input(
@@ -1146,28 +1188,26 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
             storeId: storeIdInput,
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            const store =
-              await updateStoreStatus(
-                input.storeId,
-                "suspended",
-              );
+        .mutation(async ({ input }) => {
+          const store =
+            await updateStoreStatus(
+              input.storeId,
+              "suspended",
+            );
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Loja não encontrada.",
+            });
+          }
 
-            return {
-              success: true,
-              store,
-            };
-          },
-        ),
+          return {
+            success: true,
+            store,
+          };
+        }),
 
       delete: adminProcedure
         .input(
@@ -1175,27 +1215,25 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
             storeId: storeIdInput,
           }),
         )
-        .mutation(
-          async ({ input }) => {
-            const store =
-              await deleteStore(
-                input.storeId,
-              );
+        .mutation(async ({ input }) => {
+          const store =
+            await deleteStore(
+              input.storeId,
+            );
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Loja não encontrada.",
+            });
+          }
 
-            return {
-              success: true,
-              store,
-            };
-          },
-        ),
+          return {
+            success: true,
+            store,
+          };
+        }),
     }),
   }),
 });
@@ -1204,5 +1242,4 @@ n       * (assignedPlanKey) antes de ser aplicado à loja.
    APP ROUTER TYPE
    ============================================================ */
 
-export type AppRouter =
-  typeof appRouter;
+export type AppRouter = typeof appRouter;

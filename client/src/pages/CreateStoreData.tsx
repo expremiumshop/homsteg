@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
+
 import { useLocation } from "wouter";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,15 +9,14 @@ import {
   MapPin,
   Store,
 } from "lucide-react";
+
 import { trpc } from "@/lib/trpc";
 
 type FormData = {
   fullName: string;
   storeName: string;
-  username: string;
   phone: string;
   whatsapp: string;
-  alternativePhone: string;
   country: string;
   province: string;
   district: string;
@@ -26,10 +27,8 @@ type FormData = {
 const initialForm: FormData = {
   fullName: "",
   storeName: "",
-  username: "",
   phone: "",
   whatsapp: "",
-  alternativePhone: "",
   country: "Moçambique",
   province: "",
   district: "",
@@ -37,477 +36,595 @@ const initialForm: FormData = {
   notes: "",
 };
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  required = false,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-white">
-        {label}
-        {required && <span className="ml-1 text-red-400">*</span>}
-      </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
-        className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/50"
-      />
-    </div>
-  );
-}
-
 export default function CreateStoreData() {
   const [, navigate] = useLocation();
+  const meQuery = trpc.auth.me.useQuery();
 
   const [form, setForm] = useState<FormData>(initialForm);
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
-  const [isReady, setIsReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const meQuery = trpc.auth.me.useQuery();
+  const userId = meQuery.data?.id;
 
   useEffect(() => {
-    if (meQuery.isLoading) {
-      return;
-    }
-
-    if (!meQuery.data) {
-      navigate("/criar-conta");
-      return;
-    }
+    if (!userId) return;
 
     try {
-      const userId = meQuery.data.id;
+      const storedBusinessTypes = sessionStorage.getItem(
+        `homsteg_business_types_${userId}`,
+      );
 
-      const businessKey = `homsteg_business_types_${userId}`;
-      const storeDataKey = `homsteg_store_data_${userId}`;
+      const storedForm = sessionStorage.getItem(
+        `homsteg_store_data_${userId}`,
+      );
 
-      let savedBusinessTypes = sessionStorage.getItem(businessKey);
+      if (storedBusinessTypes) {
+        const parsedBusinessTypes = JSON.parse(storedBusinessTypes);
 
-      // Compatibilidade com a chave antiga
-      if (!savedBusinessTypes) {
-        const oldBusinessTypes = sessionStorage.getItem(
+        if (Array.isArray(parsedBusinessTypes)) {
+          setBusinessTypes(parsedBusinessTypes);
+        }
+      } else {
+        const legacyBusinessTypes = sessionStorage.getItem(
           "homsteg_business_types",
         );
 
-        if (oldBusinessTypes) {
-          savedBusinessTypes = oldBusinessTypes;
+        if (legacyBusinessTypes) {
+          const parsedBusinessTypes =
+            JSON.parse(legacyBusinessTypes);
 
-          sessionStorage.setItem(
-            businessKey,
-            oldBusinessTypes,
-          );
-        }
-      }
-
-      if (savedBusinessTypes) {
-        try {
-          const parsed = JSON.parse(savedBusinessTypes);
-
-          if (Array.isArray(parsed)) {
-            setBusinessTypes(parsed);
+          if (Array.isArray(parsedBusinessTypes)) {
+            setBusinessTypes(parsedBusinessTypes);
           }
-        } catch {
-          setBusinessTypes([]);
         }
       }
 
-      const savedStoreData = sessionStorage.getItem(storeDataKey);
+      if (storedForm) {
+        const parsedForm = JSON.parse(storedForm);
 
-      if (savedStoreData) {
-        try {
-          const parsed = JSON.parse(savedStoreData);
+        if (parsedForm && typeof parsedForm === "object") {
+          setForm((current) => ({
+            ...current,
+            fullName:
+              typeof parsedForm.fullName === "string"
+                ? parsedForm.fullName
+                : current.fullName,
+            storeName:
+              typeof parsedForm.storeName === "string"
+                ? parsedForm.storeName
+                : current.storeName,
+            phone:
+              typeof parsedForm.phone === "string"
+                ? parsedForm.phone
+                : current.phone,
+            whatsapp:
+              typeof parsedForm.whatsapp === "string"
+                ? parsedForm.whatsapp
+                : current.whatsapp,
+            country:
+              typeof parsedForm.country === "string"
+                ? parsedForm.country
+                : current.country,
+            province:
+              typeof parsedForm.province === "string"
+                ? parsedForm.province
+                : current.province,
+            district:
+              typeof parsedForm.district === "string"
+                ? parsedForm.district
+                : current.district,
+            neighborhood:
+              typeof parsedForm.neighborhood === "string"
+                ? parsedForm.neighborhood
+                : current.neighborhood,
+            notes:
+              typeof parsedForm.notes === "string"
+                ? parsedForm.notes
+                : current.notes,
+          }));
+        }
+      } else {
+        const legacyForm = sessionStorage.getItem(
+          "homsteg_store_data",
+        );
 
-          setForm({
-            ...initialForm,
-            ...parsed,
-          });
-        } catch {
-          setForm(initialForm);
+        if (legacyForm) {
+          const parsedForm = JSON.parse(legacyForm);
+
+          if (parsedForm && typeof parsedForm === "object") {
+            setForm((current) => ({
+              ...current,
+              fullName:
+                typeof parsedForm.fullName === "string"
+                  ? parsedForm.fullName
+                  : current.fullName,
+              storeName:
+                typeof parsedForm.storeName === "string"
+                  ? parsedForm.storeName
+                  : current.storeName,
+              phone:
+                typeof parsedForm.phone === "string"
+                  ? parsedForm.phone
+                  : current.phone,
+              whatsapp:
+                typeof parsedForm.whatsapp === "string"
+                  ? parsedForm.whatsapp
+                  : current.whatsapp,
+              country:
+                typeof parsedForm.country === "string"
+                  ? parsedForm.country
+                  : current.country,
+              province:
+                typeof parsedForm.province === "string"
+                  ? parsedForm.province
+                  : current.province,
+              district:
+                typeof parsedForm.district === "string"
+                  ? parsedForm.district
+                  : current.district,
+              neighborhood:
+                typeof parsedForm.neighborhood === "string"
+                  ? parsedForm.neighborhood
+                  : current.neighborhood,
+              notes:
+                typeof parsedForm.notes === "string"
+                  ? parsedForm.notes
+                  : current.notes,
+            }));
+          }
         }
       }
-
-      setIsReady(true);
-    } catch {
-      navigate("/criar-loja/negocio");
+    } catch (error) {
+      console.error(
+        "Erro ao carregar dados da loja:",
+        error,
+      );
     }
-  }, [meQuery.data, meQuery.isLoading, navigate]);
+  }, [userId]);
 
-  function updateField(field: keyof FormData, value: string) {
+  const updateField = <K extends keyof FormData>(
+    field: K,
+    value: FormData[K],
+  ) => {
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
-  }
+  };
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const handleSubmit = (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
-    if (!meQuery.data) {
-      navigate("/criar-conta");
+    if (!userId) {
       return;
     }
 
-    if (
-      !form.fullName.trim() ||
-      !form.storeName.trim() ||
-      !form.username.trim() ||
-      !form.phone.trim() ||
-      !form.whatsapp.trim() ||
-      !form.country.trim() ||
-      !form.province.trim() ||
-      !form.district.trim() ||
-      !form.neighborhood.trim()
-    ) {
+    const requiredFields = [
+      form.fullName,
+      form.storeName,
+      form.phone,
+      form.whatsapp,
+      form.country,
+      form.province,
+      form.district,
+      form.neighborhood,
+    ];
+
+    const hasEmptyField = requiredFields.some(
+      (value) => !String(value).trim(),
+    );
+
+    if (hasEmptyField) {
+      alert("Preencha todos os campos obrigatórios.");
       return;
     }
 
-    const cleanedUsername = form.username
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-_]/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-
-    if (cleanedUsername.length < 3) {
-      return;
-    }
-
-    const userId = meQuery.data.id;
-
-    const storeDataKey = `homsteg_store_data_${userId}`;
-    const businessKey = `homsteg_business_types_${userId}`;
+    setIsSubmitting(true);
 
     const finalForm: FormData = {
-      ...form,
-      username: cleanedUsername,
+      fullName: form.fullName.trim(),
+      storeName: form.storeName.trim(),
+      phone: form.phone.trim(),
+      whatsapp: form.whatsapp.trim(),
+      country: form.country.trim(),
+      province: form.province.trim(),
+      district: form.district.trim(),
+      neighborhood: form.neighborhood.trim(),
+      notes: form.notes.trim(),
     };
 
-    sessionStorage.setItem(
-      storeDataKey,
-      JSON.stringify(finalForm),
-    );
+    try {
+      sessionStorage.setItem(
+        `homsteg_store_data_${userId}`,
+        JSON.stringify(finalForm),
+      );
 
-    sessionStorage.setItem(
-      businessKey,
-      JSON.stringify(businessTypes),
-    );
+      sessionStorage.setItem(
+        `homsteg_business_types_${userId}`,
+        JSON.stringify(businessTypes),
+      );
 
-    // Remove as chaves antigas não associadas ao utilizador.
-    sessionStorage.removeItem("homsteg_store_data");
-    sessionStorage.removeItem("homsteg_business_types");
+      navigate("/criar-loja/revisao");
+    } catch (error) {
+      console.error(
+        "Erro ao guardar os dados da loja:",
+        error,
+      );
 
-    // A candidatura é criada na revisão. Ir diretamente ao painel fazia o
-    // fluxo terminar antes da mutation que a persiste no backend.
-    navigate("/criar-loja/revisao");
-  }
+      alert(
+        "Não foi possível guardar os dados. Tente novamente.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-  if (!isReady || meQuery.isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        <div className="text-sm text-white/60">
-          A carregar...
-        </div>
-      </div>
-    );
-  }
+  const inputClassName =
+    "w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-white placeholder:text-zinc-500 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20";
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => navigate("/criar-loja/negocio")}
-            className="flex items-center gap-2 text-sm font-medium text-white transition hover:text-white/60"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </button>
+      <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={() => navigate("/criar-loja/negocio")}
+          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </button>
 
-          <div className="text-sm font-semibold tracking-tight text-white">
-            HOMSTEG
-          </div>
-
-          <div className="text-xs text-white/50">
-            2 de 3
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-10">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black">
-                <Store className="h-4 w-4" />
-              </div>
-
-              <span className="text-sm font-medium text-white/50">
-                Configuração da loja
-              </span>
+        <div className="mb-8">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Store className="h-5 w-5" />
             </div>
 
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Conta-nos mais sobre a tua loja
-            </h1>
+            <div>
+              <p className="text-sm font-medium text-zinc-400">
+                Criar loja
+              </p>
 
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60 sm:text-base">
-              Preenche os dados abaixo para podermos preparar
-              o teu espaço dentro da HOMSTEG.
-            </p>
+              <h1 className="text-2xl font-bold tracking-tight text-white">
+                Dados da loja
+              </h1>
+            </div>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-8"
-          >
-            {/* Os teus dados */}
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-              <div className="mb-6">
+          <p className="max-w-2xl text-zinc-400">
+            Preencha os seus dados e as informações da sua loja.
+            O nome da loja será usado posteriormente para criar
+            o endereço público da loja.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-8"
+        >
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white">
+                Os teus dados
+              </h2>
+
+              <p className="mt-1 text-sm text-zinc-400">
+                Estes dados pertencem ao proprietário da conta.
+              </p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="fullName"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Nome completo *
+                </label>
+
+                <input
+                  id="fullName"
+                  type="text"
+                  value={form.fullName}
+                  onChange={(event) =>
+                    updateField(
+                      "fullName",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Digite o seu nome completo"
+                  className={inputClassName}
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Número de telefone *
+                </label>
+
+                <input
+                  id="phone"
+                  type="tel"
+                  value={form.phone}
+                  onChange={(event) =>
+                    updateField(
+                      "phone",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="+258 84 000 0000"
+                  className={inputClassName}
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="whatsapp"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Número do WhatsApp *
+                </label>
+
+                <input
+                  id="whatsapp"
+                  type="tel"
+                  value={form.whatsapp}
+                  onChange={(event) =>
+                    updateField(
+                      "whatsapp",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="+258 84 000 0000"
+                  className={inputClassName}
+                  required
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white">
+                A tua loja
+              </h2>
+
+              <p className="mt-1 text-sm text-zinc-400">
+                O nome da loja será a identidade pública da sua
+                loja.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="storeName"
+                className="mb-2 block text-sm font-medium text-white"
+              >
+                Nome da loja *
+              </label>
+
+              <input
+                id="storeName"
+                type="text"
+                value={form.storeName}
+                onChange={(event) =>
+                  updateField(
+                    "storeName",
+                    event.target.value,
+                  )
+                }
+                placeholder="Ex.: Moda Fashion"
+                className={inputClassName}
+                required
+              />
+
+              <p className="mt-2 text-xs text-zinc-500">
+                Este nome será usado para gerar o endereço
+                público da loja.
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+            <div className="mb-6 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MapPin className="h-5 w-5" />
+              </div>
+
+              <div>
                 <h2 className="text-lg font-semibold text-white">
-                  Os teus dados
+                  Localização
                 </h2>
 
-                <p className="mt-1 text-sm text-white/50">
-                  Informações básicas para contacto.
+                <p className="mt-1 text-sm text-zinc-400">
+                  Informe a localização da sua atividade comercial.
                 </p>
               </div>
+            </div>
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field
-                  label="Nome completo"
-                  value={form.fullName}
-                  onChange={(value) =>
-                    updateField("fullName", value)
-                  }
-                  placeholder="Ex.: João Manuel"
-                  required
-                />
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="country"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  País *
+                </label>
 
-                <Field
-                  label="Telefone"
-                  value={form.phone}
-                  onChange={(value) =>
-                    updateField("phone", value)
-                  }
-                  placeholder="Ex.: 84 000 0000"
-                  required
-                  type="tel"
-                />
-
-                <Field
-                  label="WhatsApp"
-                  value={form.whatsapp}
-                  onChange={(value) =>
-                    updateField("whatsapp", value)
-                  }
-                  placeholder="Número do WhatsApp"
-                  required
-                  type="tel"
-                />
-
-                <Field
-                  label="Telefone alternativo"
-                  value={form.alternativePhone}
-                  onChange={(value) =>
-                    updateField("alternativePhone", value)
-                  }
-                  placeholder="Opcional"
-                  type="tel"
-                />
-              </div>
-            </section>
-
-            {/* A tua loja */}
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-              <div className="mb-6">
-                <div className="flex items-center gap-2">
-                  <Store className="h-5 w-5 text-white" />
-
-                  <h2 className="text-lg font-semibold text-white">
-                    A tua loja
-                  </h2>
-                </div>
-
-                <p className="mt-1 text-sm text-white/50">
-                  Define o nome e o endereço da tua loja.
-                </p>
-              </div>
-
-              <div className="space-y-5">
-                <Field
-                  label="Nome da loja"
-                  value={form.storeName}
-                  onChange={(value) =>
-                    updateField("storeName", value)
-                  }
-                  placeholder="Ex.: Minha Loja"
-                  required
-                />
-
-                <div>
-                  <Field
-                    label="Nome de utilizador da loja"
-                    value={form.username}
-                    onChange={(value) =>
-                      updateField("username", value)
-                    }
-                    placeholder="Ex.: minha-loja"
-                    required
-                  />
-
-                  <p className="mt-2 text-xs text-white/40">
-                    Será usado no endereço público da tua loja.
-                    Usa pelo menos 3 caracteres.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Localização */}
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-              <div className="mb-6">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-white" />
-
-                  <h2 className="text-lg font-semibold text-white">
-                    Localização
-                  </h2>
-                </div>
-
-                <p className="mt-1 text-sm text-white/50">
-                  Indica onde a tua loja está localizada.
-                </p>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field
-                  label="País"
+                <input
+                  id="country"
+                  type="text"
                   value={form.country}
-                  onChange={(value) =>
-                    updateField("country", value)
+                  onChange={(event) =>
+                    updateField(
+                      "country",
+                      event.target.value,
+                    )
                   }
+                  className={inputClassName}
                   required
                 />
+              </div>
 
-                <Field
-                  label="Província"
+              <div>
+                <label
+                  htmlFor="province"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Província *
+                </label>
+
+                <input
+                  id="province"
+                  type="text"
                   value={form.province}
-                  onChange={(value) =>
-                    updateField("province", value)
+                  onChange={(event) =>
+                    updateField(
+                      "province",
+                      event.target.value,
+                    )
                   }
                   placeholder="Ex.: Maputo"
-                  required
-                />
-
-                <Field
-                  label="Distrito"
-                  value={form.district}
-                  onChange={(value) =>
-                    updateField("district", value)
-                  }
-                  placeholder="Ex.: KaMpfumo"
-                  required
-                />
-
-                <Field
-                  label="Bairro"
-                  value={form.neighborhood}
-                  onChange={(value) =>
-                    updateField("neighborhood", value)
-                  }
-                  placeholder="Ex.: Central"
+                  className={inputClassName}
                   required
                 />
               </div>
-            </section>
 
-            {/* Observações */}
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-              <div className="mb-6">
+              <div>
+                <label
+                  htmlFor="district"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Distrito *
+                </label>
+
+                <input
+                  id="district"
+                  type="text"
+                  value={form.district}
+                  onChange={(event) =>
+                    updateField(
+                      "district",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Digite o distrito"
+                  className={inputClassName}
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="neighborhood"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Bairro *
+                </label>
+
+                <input
+                  id="neighborhood"
+                  type="text"
+                  value={form.neighborhood}
+                  onChange={(event) =>
+                    updateField(
+                      "neighborhood",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Digite o bairro"
+                  className={inputClassName}
+                  required
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white">
+                Observações
+              </h2>
+
+              <p className="mt-1 text-sm text-zinc-400">
+                Adicione alguma informação adicional, se necessário.
+              </p>
+            </div>
+
+            <textarea
+              id="notes"
+              value={form.notes}
+              onChange={(event) =>
+                updateField(
+                  "notes",
+                  event.target.value,
+                )
+              }
+              placeholder="Escreva alguma observação..."
+              rows={5}
+              className={`${inputClassName} resize-none`}
+            />
+          </section>
+
+          {businessTypes.length > 0 && (
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+              <div className="mb-4">
                 <h2 className="text-lg font-semibold text-white">
-                  Observações
+                  Tipos de negócio selecionados
                 </h2>
 
-                <p className="mt-1 text-sm text-white/50">
-                  Existe alguma informação adicional que
-                  devemos saber?
+                <p className="mt-1 text-sm text-zinc-400">
+                  Estes dados foram selecionados na etapa anterior.
                 </p>
               </div>
 
-              <textarea
-                value={form.notes}
-                onChange={(e) =>
-                  updateField("notes", e.target.value)
-                }
-                placeholder="Escreve aqui alguma observação..."
-                rows={5}
-                className="w-full resize-none rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/50"
-              />
-            </section>
-
-            {/* Resumo */}
-            {businessTypes.length > 0 && (
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-black">
+              <div className="flex flex-wrap gap-2">
+                {businessTypes.map((type) => (
+                  <div
+                    key={type}
+                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
+                  >
                     <Check className="h-4 w-4" />
+                    {type}
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-                  <div>
-                    <h3 className="font-semibold text-white">
-                      Informação recebida
-                    </h3>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/criar-loja/negocio")
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800 px-5 py-3 text-sm font-medium text-white transition hover:bg-zinc-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
 
-                    <p className="mt-1 text-sm leading-6 text-white/60">
-                      As opções que selecionaste anteriormente
-                      foram guardadas.
-                    </p>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "A guardar..." : "Continuar"}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {businessTypes.map((type) => (
-                        <span
-                          key={type}
-                          className="rounded-full border border-white/20 px-3 py-1.5 text-xs text-white/80"
-                        >
-                          {type}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Continuar */}
-            <div className="flex justify-end border-t border-white/10 pt-6">
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-white/85 sm:w-auto"
-              >
-                Continuar
+              {!isSubmitting && (
                 <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

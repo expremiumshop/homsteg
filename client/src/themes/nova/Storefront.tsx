@@ -7,7 +7,6 @@ import Header, {
 } from "./components/Header";
 import BannerCarousel from "./components/BannerCarousel";
 import { TopBenefits } from "./components/TopBenefits";
-import { CategoryMenu } from "./components/CategoryMenu";
 import {
   ProductGrid,
   type NovaProduct,
@@ -16,6 +15,7 @@ import { PromotionBanner } from "./components/PromotionBanner";
 import { BenefitsSection } from "./components/BenefitsSection";
 import { BottomNavigation } from "./components/BottomNavigation";
 import Footer from "./components/Footer";
+
 import {
   novaDemoProducts,
   novaDemoStore,
@@ -50,7 +50,6 @@ type NovaStorefrontProps = {
   mode?: "demo" | "store";
   storeId?: string;
   storeSlug?: string;
-
   /**
    * Repassado ao Header para as pré-visualizações
    * por dispositivo (ver NovaHeaderProps).
@@ -108,7 +107,6 @@ export default function NovaStorefront({
      MODO LOJA REAL
 
      Existem dois cenários:
-
      1. /store/:slug
         → consulta pública pelo slug.
 
@@ -190,7 +188,11 @@ export default function NovaStorefront({
           []) as Product[]);
 
   /* =========================================================
-     CATEGORIAS
+     CATEGORIAS PARA O HEADER
+
+     As categorias continuam disponíveis internamente
+     para o Header. A seção visual CategoryMenu foi removida
+     da página principal.
      ========================================================= */
 
   const categories = isDemo
@@ -205,10 +207,6 @@ export default function NovaStorefront({
           ),
         ),
       ];
-
-  /* =========================================================
-     CATEGORIAS PARA O HEADER
-     ========================================================= */
 
   const headerCategories: NovaHeaderCategory[] =
     categories.map((category, index) => ({
@@ -336,12 +334,6 @@ export default function NovaStorefront({
             ===================================================== */}
 
         <TopBenefits />
-
-        {/* =====================================================
-            CATEGORIAS
-            ===================================================== */}
-
-        <CategoryMenu />
 
         {/* =====================================================
             PRODUTOS

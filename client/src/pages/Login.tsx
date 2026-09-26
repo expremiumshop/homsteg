@@ -262,9 +262,7 @@ export default function Login() {
                   type="button"
                   className="text-sm font-semibold text-slate-600 transition hover:text-black"
                   onClick={() =>
-                    toast.info(
-                      "A recuperação da palavra-passe será adicionada nesta área.",
-                    )
+                    setLocation("/recuperar-palavra-passe")
                   }
                   disabled={isLoading}
                 >

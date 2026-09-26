@@ -1,10 +1,12 @@
 import {
   FormEvent,
+  useEffect,
   useRef,
   useState,
 } from "react";
 
 import {
+  ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,
@@ -25,8 +27,57 @@ import {
   authClient,
 } from "@/lib/auth-client";
 
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+
+type CreateAccountStep = "credentials" | "otp";
+
+const OTP_COOLDOWN_SECONDS = 60;
+
+function isOtpError(
+  error: { code?: string; message?: string } | null | undefined,
+  token: "OTP_EXPIRED" | "INVALID_OTP" | "TOO_MANY_ATTEMPTS",
+) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === token ||
+    error.message === token ||
+    (error.message?.includes(token) ?? false)
+  );
+}
+
+function getOtpErrorMessage(
+  error: { code?: string; message?: string } | null | undefined,
+) {
+  if (isOtpError(error, "OTP_EXPIRED")) {
+    return "O código expirou. Solicita um novo código.";
+  }
+
+  if (isOtpError(error, "TOO_MANY_ATTEMPTS")) {
+    return "Demasiadas tentativas. Solicita um novo código.";
+  }
+
+  if (isOtpError(error, "INVALID_OTP")) {
+    return "Código inválido. Verifica o código e tenta novamente.";
+  }
+
+  return (
+    error?.message ||
+    "Não foi possível validar o código. Tenta novamente."
+  );
+}
+
 export default function CreateAccount() {
   const [, setLocation] = useLocation();
+
+  const [step, setStep] =
+    useState<CreateAccountStep>("credentials");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +90,29 @@ export default function CreateAccount() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  /*
+   * Estado do passo de verificação por OTP.
+   */
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
   const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setResendIn((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendIn]);
 
   function getErrorMessage(error: unknown): string {
     if (
@@ -72,6 +145,129 @@ export default function CreateAccount() {
     }
 
     return "Ocorreu um erro. Tenta novamente.";
+  }
+
+  /*
+   * Envia o OTP para o email indicado (via Resend, no servidor).
+   * Em caso de sucesso entra no passo de verificação.
+   */
+  async function sendOtp(targetEmail: string) {
+    setIsSendingOtp(true);
+
+    try {
+      const result =
+        await authClient.emailOtp.sendVerificationOtp({
+          email: targetEmail,
+          type: "email-verification",
+        });
+
+      if (result.error) {
+        console.error(
+          "[CreateAccount] Erro ao enviar OTP:",
+          result.error,
+        );
+
+        if (result.error.status === 429) {
+          toast.error(
+            "Aguarda um momento antes de pedir outro código.",
+          );
+        } else {
+          toast.error(
+            result.error.message ||
+              "Não foi possível enviar o código. Tenta novamente.",
+          );
+        }
+
+        return false;
+      }
+
+      setOtpEmail(targetEmail);
+      setOtp("");
+      setOtpError(null);
+      setResendIn(OTP_COOLDOWN_SECONDS);
+      setStep("otp");
+
+      toast.success(
+        "Enviamos um código para o teu email.",
+      );
+
+      return true;
+    } catch (error: unknown) {
+      console.error(
+        "[CreateAccount] Erro inesperado ao enviar OTP:",
+        error,
+      );
+
+      toast.error(getErrorMessage(error));
+
+      return false;
+    } finally {
+      setIsSendingOtp(false);
+    }
+  }
+
+  /*
+   * Verifica o OTP. Código correto continua para
+   * /criar-loja/negocio. Código inválido, expirado ou
+   * já utilizado bloqueia a continuação.
+   */
+  async function handleVerifyOtp() {
+    if (isVerifyingOtp || isSendingOtp) {
+      return;
+    }
+
+    if (otp.length !== 6) {
+      setOtpError("Introduz o código de 6 dígitos.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+
+    try {
+      const result = await authClient.emailOtp.verifyEmail({
+        email: otpEmail,
+        otp,
+      });
+
+      if (result.error) {
+        console.error(
+          "[CreateAccount] Erro ao verificar OTP:",
+          result.error,
+        );
+
+        setOtpError(getOtpErrorMessage(result.error));
+        setOtp("");
+
+        return;
+      }
+
+      sessionStorage.removeItem(
+        "homsteg_business_types",
+      );
+
+      sessionStorage.removeItem(
+        "homsteg_store_data",
+      );
+
+      toast.success(
+        "Email verificado com sucesso!",
+      );
+
+      window.location.assign(
+        "/criar-loja/negocio",
+      );
+    } catch (error: unknown) {
+      console.error(
+        "[CreateAccount] Erro inesperado ao verificar OTP:",
+        error,
+      );
+
+      setOtpError(getErrorMessage(error));
+      setOtp("");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   }
 
   async function handleSubmit(
@@ -144,6 +340,32 @@ export default function CreateAccount() {
           result.error.code === "USER_ALREADY_EXISTS" ||
           result.error.status === 422
         ) {
+          /*
+           * A conta pode ter sido criada numa tentativa
+           * anterior sem concluir a verificação do email.
+           * Se existir sessão para este email, continua
+           * o fluxo de verificação em vez de bloquear.
+           */
+          const session =
+            await authClient.getSession();
+
+          const sessionEmail =
+            session.data?.user?.email
+              ?.toLowerCase()
+              .trim();
+
+          if (sessionEmail === cleanEmail) {
+            const sent = await sendOtp(cleanEmail);
+
+            if (!sent) {
+              toast.error(
+                "Não foi possível enviar o código de verificação.",
+              );
+            }
+
+            return;
+          }
+
           toast.error(
             "Este email já está registado. Entra na tua conta.",
           );
@@ -157,21 +379,17 @@ export default function CreateAccount() {
         return;
       }
 
-      sessionStorage.removeItem(
-        "homsteg_business_types",
-      );
+      /*
+       * Conta criada. Enviar o OTP de verificação
+       * antes de permitir continuar.
+       */
+      const sent = await sendOtp(cleanEmail);
 
-      sessionStorage.removeItem(
-        "homsteg_store_data",
-      );
-
-      toast.success(
-        "Conta criada com sucesso!",
-      );
-
-      window.location.assign(
-        "/criar-loja/negocio",
-      );
+      if (!sent) {
+        toast.error(
+          "A conta foi criada, mas não foi possível enviar o código. Tenta novamente.",
+        );
+      }
     } catch (error: unknown) {
       console.error(
         "[CreateAccount] Unexpected error:",
@@ -185,6 +403,158 @@ export default function CreateAccount() {
       setIsLoading(false);
       isSubmittingRef.current = false;
     }
+  }
+
+  if (step === "otp") {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="mx-auto flex min-h-screen w-full max-w-7xl">
+          <div className="hidden flex-1 items-center justify-center px-12 lg:flex">
+            <div className="max-w-lg">
+              <div className="mb-8 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-black">
+                  <Store className="h-6 w-6" />
+                </div>
+
+                <span className="text-2xl font-bold tracking-tight">
+                  HOMSTEG
+                </span>
+              </div>
+
+              <h2 className="text-5xl font-bold leading-tight tracking-tight">
+                Confirma o teu
+                <br />
+                email.
+              </h2>
+
+              <p className="mt-6 max-w-md text-lg leading-8 text-white/50">
+                Enviámos um código de 6 dígitos
+                para o teu email. Introduz o
+                código para continuar.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex w-full items-center justify-center px-6 py-10 lg:w-[520px]">
+            <div className="w-full max-w-md">
+              <div className="mb-8 lg:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+                    <Store className="h-5 w-5" />
+                  </div>
+
+                  <span className="text-xl font-bold tracking-tight">
+                    HOMSTEG
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  Verifica o teu email
+                </h1>
+
+                <p className="mt-2 text-sm text-white/50">
+                  Enviámos um código para{" "}
+                  <span className="font-medium text-white">
+                    {otpEmail}
+                  </span>
+                  .
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Código de verificação
+                  </label>
+
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={(value) => {
+                      setOtp(value);
+                      setOtpError(null);
+                    }}
+                    disabled={isVerifyingOtp || isSendingOtp}
+                    containerClassName="justify-center"
+                    aria-invalid={Boolean(otpError)}
+                  >
+                    <InputOTPGroup className="gap-2">
+                      {Array.from({ length: 6 }).map(
+                        (_, index) => (
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            className="h-13 w-11 rounded-xl border-white/15 bg-white/5 text-lg font-semibold text-white data-[active=true]:border-white/40 data-[active=true]:ring-white/20 aria-invalid:border-red-400/60"
+                          />
+                        ),
+                      )}
+                    </InputOTPGroup>
+                  </InputOTP>
+
+                  {otpError && (
+                    <p className="mt-3 text-center text-sm text-red-400">
+                      {otpError}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  disabled={
+                    isVerifyingOtp ||
+                    isSendingOtp ||
+                    otp.length !== 6
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isVerifyingOtp
+                    ? "A verificar..."
+                    : "Confirmar código"}
+
+                  {!isVerifyingOtp && (
+                    <ArrowRight className="h-5 w-5" />
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("credentials");
+                      setOtp("");
+                      setOtpError(null);
+                    }}
+                    className="flex items-center gap-1.5 text-white/50 transition hover:text-white"
+                    disabled={isVerifyingOtp || isSendingOtp}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => sendOtp(otpEmail)}
+                    disabled={
+                      isVerifyingOtp ||
+                      isSendingOtp ||
+                      resendIn > 0
+                    }
+                    className="font-medium text-white transition hover:text-white/70 disabled:cursor-not-allowed disabled:text-white/35"
+                  >
+                    {resendIn > 0
+                      ? `Reenviar código (${resendIn}s)`
+                      : "Reenviar código"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

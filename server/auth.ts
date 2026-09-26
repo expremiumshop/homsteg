@@ -2,12 +2,16 @@ import "dotenv/config";
 
 import { betterAuth } from "better-auth";
 
+import { emailOTP } from "better-auth/plugins/email-otp";
+
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 
 import * as authSchema from "../drizzle/auth-schema.js";
 import { syncBetterAuthUser } from "./db.js";
+import { sendLoginOtpEmail } from "./email.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -33,6 +37,23 @@ const pool = new Pool({
 
 const authDb = drizzle(pool);
 
+/**
+ * Lê diretamente o utilizador Better Auth (tabela `user`).
+ * É a fonte da verdade para `emailVerified`, usada como gate
+ * do fluxo HOMSTEG (só continua quem validar o OTP).
+ */
+export async function getBetterAuthUserById(
+  userId: string,
+) {
+  const result = await authDb
+    .select()
+    .from(authSchema.user)
+    .where(eq(authSchema.user.id, userId))
+    .limit(1);
+
+  return result[0] ?? null;
+}
+
 export const auth = betterAuth({
   appName: "HOMSTEG",
 
@@ -49,6 +70,31 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+
+  /*
+   * Fluxo HOMSTEG: depois de criar a conta é enviado um OTP
+   * por email (via Resend). Só continua quem o validar.
+   *
+   * - OTP de 6 dígitos, válido durante 5 minutos.
+   * - Máximo de 3 tentativas de verificação.
+   * - A verificação é single-use: um código já utilizado,
+   *   expirado ou esgotado em tentativas é rejeitado.
+   */
+  plugins: [
+    emailOTP({
+      otpLength: 6,
+
+      expiresIn: 5 * 60,
+
+      allowedAttempts: 3,
+
+      storeOTP: "encrypted",
+
+      sendVerificationOTP: async ({ email, otp }) => {
+        await sendLoginOtpEmail(email, otp);
+      },
+    }),
+  ],
 
   session: {
     expiresIn: 60 * 60 * 24 * 30,

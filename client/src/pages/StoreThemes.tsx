@@ -13,9 +13,14 @@ import {
   ExternalLink,
   ArrowLeft,
   Loader2,
+  Lock,
 } from "lucide-react";
 
 import { useLocation } from "wouter";
+import { toast } from "sonner";
+
+import { useStorePlan } from "@/components/dashboard/plan/useStorePlan";
+import UpgradePlanModal from "@/components/dashboard/plan/UpgradePlanModal";
 
 import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
@@ -631,6 +636,25 @@ export default function StoreThemes() {
     getTheme(activeThemeId);
 
   /* ========================================================
+   *     PLANO DA LOJA
+   *
+   *     A restrição de temas aplica-se APENAS à
+   *     seleção/ativação. Ver e pré-visualizar
+   *     qualquer tema é sempre permitido.
+   *     Free: apenas "nova". Plano pago: todos.
+   *     ======================================================== */
+  const { planKey, planQuery } =
+    useStorePlan(clientStore?.id);
+
+  const isFreePlan =
+    !planQuery.isLoading &&
+    planKey === "free";
+
+  const isThemeLockedForStore = (
+    themeId: string,
+  ) => isFreePlan && themeId !== "nova";
+
+  /* ========================================================
    *     DISPOSITIVO DE PRÉ-VISUALIZAÇÃO
    *     ======================================================== */
   const [
@@ -649,6 +673,14 @@ export default function StoreThemes() {
   ] = useState<string | null>(
     null,
   );
+
+  /* ========================================================
+   *     MODAL DE UPGRADE DE PLANO
+   *     ======================================================== */
+  const [
+    upgradeModalOpen,
+    setUpgradeModalOpen,
+  ] = useState(false);
 
   /* ========================================================
    *     FECHA VISUALIZAÇÃO QUANDO O TEMA É APLICADO
@@ -705,6 +737,13 @@ export default function StoreThemes() {
         console.error(
           "Erro ao selecionar o tema:",
           error,
+        );
+
+        toast.error(
+          error instanceof Error &&
+            error.message
+            ? error.message
+            : "Não foi possível aplicar o tema. Tenta novamente.",
         );
       }
     };
@@ -1005,6 +1044,11 @@ export default function StoreThemes() {
                     ?.themeKey ===
                     theme.id;
 
+                const isLocked =
+                  isThemeLockedForStore(
+                    theme.id,
+                  );
+
                 return (
                   <article
                     key={theme.id}
@@ -1066,39 +1110,54 @@ export default function StoreThemes() {
 
                       {/* BOTÕES */}
                       <div className="mt-5 grid grid-cols-2 gap-2">
-                        {/* SELECIONAR TEMA */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleSelectTheme(
-                              theme.id,
-                            )
-                          }
-                          disabled={
-                            isActive ||
-                            setThemeMutation.isPending ||
-                            !clientStore
-                          }
-                          className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                            isActive
-                              ? "cursor-default border border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          }`}
-                        >
-                          {isActive ? (
-                            <>
-                              <Check className="h-4 w-4" />
-                              Selecionado
-                            </>
-                          ) : isApplying ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Aplicando...
-                            </>
-                          ) : (
-                            "Selecionar tema"
-                          )}
-                        </button>
+                        {/* SELECIONAR TEMA / UPGRADE */}
+                        {isLocked ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUpgradeModalOpen(
+                                true,
+                              )
+                            }
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
+                          >
+                            <Lock className="h-4 w-4" />
+                            Upgrade p/ desbloquear
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSelectTheme(
+                                theme.id,
+                              )
+                            }
+                            disabled={
+                              isActive ||
+                              setThemeMutation.isPending ||
+                              !clientStore
+                            }
+                            className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                              isActive
+                                ? "cursor-default border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            }`}
+                          >
+                            {isActive ? (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Selecionado
+                              </>
+                            ) : isApplying ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Aplicando...
+                              </>
+                            ) : (
+                              "Selecionar tema"
+                            )}
+                          </button>
+                        )}
 
                         {/* VER TEMA */}
                         <button
@@ -1169,6 +1228,18 @@ export default function StoreThemes() {
               </div>
             </section>
           )}
+
+          {/* MODAL DE UPGRADE (temas bloqueados) */}
+          {upgradeModalOpen &&
+            clientStore && (
+              <UpgradePlanModal
+                storeId={clientStore.id}
+                currentPlanKey={planKey}
+                onClose={() =>
+                  setUpgradeModalOpen(false)
+                }
+              />
+            )}
       </main>
     </div>
   );

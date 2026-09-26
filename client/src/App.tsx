@@ -17,6 +17,7 @@ import CreateStoreBusiness from "./pages/CreateStoreBusiness";
 import CreateStoreData from "./pages/CreateStoreData";
 import CreateStoreReview from "./pages/CreateStoreReview";
 import Login from "./pages/Login";
+import RecoverPassword from "./pages/RecoverPassword";
 import NotFound from "./pages/NotFound";
 
 import NovaStorefront from "./themes/nova/Storefront";
@@ -133,6 +134,11 @@ function Router() {
       />
 
       <Route path="/login" component={Login} />
+
+      <Route
+        path="/recuperar-palavra-passe"
+        component={RecoverPassword}
+      />
 
       <Route path="/app" component={Dashboard} />
 
