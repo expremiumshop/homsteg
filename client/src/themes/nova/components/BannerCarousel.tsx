@@ -34,11 +34,20 @@ const demoBanners: NovaBanner[] = [
 ];
 
 export default function BannerCarousel({
-  banners = demoBanners,
+  banners,
 }: BannerCarouselProps) {
+  /*
+   * Sem banners reais (loja sem banner ou modo
+   * demo sem dados), usa os banners demo —
+   * identidade visual da Nova intacta.
+   */
+  const effectiveBanners =
+    banners && banners.length > 0
+      ? banners
+      : demoBanners;
   const [current, setCurrent] = useState(0);
 
-  const orderedBanners = [...banners].sort(
+  const orderedBanners = [...effectiveBanners].sort(
     (a, b) => a.position - b.position,
   );
 

@@ -44,6 +44,23 @@ type StoreData = {
   currency?: string | null;
   status?: string | null;
   whatsapp?: string | null;
+  /*
+   * Chaves R2 de branding da loja (não do tema).
+   * Presentes nas respostas de stores.bySlug e
+   * stores.mine (linha store.*).
+   */
+  logoKey?: string | null;
+  bannerKey?: string | null;
+};
+
+/*
+ * Banners reais da loja para o carrossel.
+ * Um único banner real desativa o carrossel demo.
+ */
+type RealBanner = {
+  id: string;
+  image_url: string;
+  position: number;
 };
 
 type NovaStorefrontProps = {
@@ -161,6 +178,60 @@ export default function NovaStorefront({
     : internalStore;
 
   const store = isDemo ? demoStore : realStore;
+
+  /* =========================================================
+     BRANDING DA LOJA (logo + banner)
+
+     Pertencem à loja, não ao tema. Resolvidos via
+     queries assinadas para que a loja autenticada
+     (preview interno) veja os seus assets reais.
+     No modo demo ficam null → visual demo.
+     ========================================================= */
+
+  const activeStoreId = isDemo ? null : store?.id ?? null;
+
+  const brandingGetQuery =
+    trpc.stores.branding.get.useQuery(
+      { storeId: activeStoreId ?? "" },
+      {
+        enabled:
+          !isDemo &&
+          Boolean(activeStoreId) &&
+          Boolean(storeSlug) === false,
+      },
+    );
+
+  /*
+     No modo por slug público a resposta de bySlug
+     já inclui branding (logoUrl/bannerUrl assinadas).
+     ========================================================= */
+
+  const publicBranding = publicStoreQuery.data
+    ?.branding as
+    | { logoUrl: string | null; bannerUrl: string | null }
+    | undefined;
+
+  const logoUrl = isDemo
+    ? null
+    : storeSlug
+      ? (publicBranding?.logoUrl ?? null)
+      : (brandingGetQuery.data?.logoUrl ?? null);
+
+  const realBannerUrl = isDemo
+    ? null
+    : storeSlug
+      ? (publicBranding?.bannerUrl ?? null)
+      : (brandingGetQuery.data?.bannerUrl ?? null);
+
+  const realBanners: RealBanner[] = realBannerUrl
+    ? [
+        {
+          id: "store-banner-1",
+          image_url: realBannerUrl,
+          position: 1,
+        },
+      ]
+    : [];
 
   /* =========================================================
      PRODUTOS
@@ -320,6 +391,7 @@ export default function NovaStorefront({
         currency={store?.currency || "MZN"}
         country="Moçambique"
         headerVariant={headerVariant}
+        logoUrl={logoUrl}
       />
 
       <main>
@@ -327,7 +399,7 @@ export default function NovaStorefront({
             BANNER PRINCIPAL
             ===================================================== */}
 
-        <BannerCarousel />
+        <BannerCarousel banners={realBanners} />
 
         {/* =====================================================
             BENEFÍCIOS SUPERIORES

@@ -24,6 +24,7 @@ import {
   getAdminUsers,
   getPublicStoreBySlug,
   getStoreDashboardSummary,
+  getStoreBrandingUrls,
   getStoreWithPlanUsage,
   getStoresForUser,
   insertProduct,
@@ -31,6 +32,7 @@ import {
   listPublicProducts,
   markStoreSubscriptionPaid,
   reviewPlanRequest,
+  updateStoreBranding,
   updateStoreStatus,
   updateStoreTheme,
   updateStoreWhatsApp,
@@ -91,6 +93,20 @@ const whatsappInput = z
     "Introduza um número de WhatsApp válido.",
   );
 
+const brandingKeyInput = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .regex(
+    /^stores\/[a-zA-Z0-9_-]+\/branding\/[a-zA-Z0-9._-]+$/,
+    "Chave de ficheiro inválida.",
+  );
+
+/*
+ * Chaves R2 de branding: stores/{storeId}/branding/ficheiro.ext
+ * Validadas no formato e revalidadas contra a loja na mutation.
+ */
 const themeInput = z.enum([
   "nova",
   "luxe",
@@ -206,12 +222,219 @@ export const appRouter = router({
         }
 
         return {
-          store,
+          store: {
+            ...store,
+            logoKey: store.logoKey ?? null,
+            bannerKey:
+              store.bannerKey ?? null,
+          },
+          branding:
+            await getStoreBrandingUrls(
+              store,
+            ),
           products: await listPublicProducts(
             store.id,
           ),
         };
       }),
+
+    /* ========================================================
+       BRANDING (logo + banner da loja)
+       ======================================================== */
+
+    branding: router({
+      /*
+       * Configuração atual (chaves R2) — apenas
+       * membros da loja.
+       */
+      get: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+          }),
+        )
+        .query(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const result =
+            await getStoreWithPlanUsage(
+              input.storeId,
+            );
+
+          if (!result) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            logoKey:
+              result.store.logoKey ?? null,
+            bannerKey:
+              result.store.bannerKey ?? null,
+            ...(await getStoreBrandingUrls(
+              result.store,
+            )),
+          };
+        }),
+
+      /*
+       * Gera URL de upload presigned R2 para o
+       * logo ou banner, isolado por loja
+       * (stores/{storeId}/branding/...).
+       */
+      createUploadUrl: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            asset: z.enum(["logo", "banner"]),
+
+            fileName: z
+              .string()
+              .trim()
+              .min(1)
+              .max(255),
+
+            contentType: z.enum([
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "image/svg+xml",
+            ]),
+          }),
+        )
+        .mutation(
+          async ({ ctx, input }) => {
+            requireStoreAccess(
+              await userHasStoreAccess(
+                ctx.user.id,
+                input.storeId,
+                ctx.user.role === "admin",
+              ),
+            );
+
+            const upload =
+              await createStoreUploadUrl({
+                storeId: input.storeId,
+                folder: "branding",
+                fileName: input.fileName,
+                contentType:
+                  input.contentType,
+              });
+
+            const imageUrl =
+              await createStoreDownloadUrl(
+                upload.key,
+              );
+
+            return {
+              key: upload.key,
+              uploadUrl: upload.uploadUrl,
+              imageUrl,
+            };
+          },
+        ),
+
+      /*
+       * Guarda/substitui logo e/ou banner.
+       * null remove o asset atual.
+       */
+      set: protectedProcedure
+        .input(
+          z
+            .object({
+              storeId: storeIdInput,
+
+              logoKey: brandingKeyInput
+                .nullable()
+                .optional(),
+
+              bannerKey: brandingKeyInput
+                .nullable()
+                .optional(),
+            })
+            .refine(
+              (data) =>
+                data.logoKey !== undefined ||
+                data.bannerKey !== undefined,
+              {
+                message:
+                  "Indique o logo, o banner ou ambos.",
+              },
+            ),
+        )
+        .mutation(
+          async ({ ctx, input }) => {
+            requireStoreAccess(
+              await userHasStoreAccess(
+                ctx.user.id,
+                input.storeId,
+                ctx.user.role === "admin",
+              ),
+            );
+
+            /*
+             * Defesa extra: cada chave tem de
+             * pertencer à própria loja
+             * (isolamento total entre lojas).
+             */
+            if (
+              input.logoKey &&
+              !input.logoKey.startsWith(
+                `stores/${input.storeId}/branding/`,
+              )
+            ) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message:
+                  "Ficheiro não pertence à loja selecionada.",
+              });
+            }
+
+            if (
+              input.bannerKey &&
+              !input.bannerKey.startsWith(
+                `stores/${input.storeId}/branding/`,
+              )
+            ) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message:
+                  "Ficheiro não pertence à loja selecionada.",
+              });
+            }
+
+            const store =
+              await updateStoreBranding({
+                storeId: input.storeId,
+                logoKey: input.logoKey,
+                bannerKey: input.bannerKey,
+              });
+
+            if (!store) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Loja não encontrada.",
+              });
+            }
+
+            return {
+              success: true,
+              logoKey: store.logoKey ?? null,
+              bannerKey:
+                store.bannerKey ?? null,
+            };
+          },
+        ),
+    }),
 
     /* ========================================================
        PLANOS DA LOJA (proprietário)
@@ -626,6 +849,48 @@ export const appRouter = router({
      ========================================================== */
 
   storage: router({
+    /*
+     * URL assinada para exibir um asset de branding
+     * (logo/banner) da própria loja. A chave tem de
+     * pertencer à loja — isolamento entre lojas.
+     */
+    createImageUrl: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+
+          key: brandingKeyInput,
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        if (
+          !input.key.startsWith(
+            `stores/${input.storeId}/branding/`,
+          )
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Ficheiro não pertence à loja selecionada.",
+          });
+        }
+
+        const imageUrl =
+          await createStoreDownloadUrl(
+            input.key,
+          );
+
+        return { imageUrl };
+      }),
+
     createUploadUrl: protectedProcedure
       .input(
         z.object({

@@ -1580,6 +1580,149 @@ export async function getPublicStoreBySlug(
 }
 
 /* ============================================================
+   STORE BRANDING (logo + banner)
+   ============================================================ */
+
+const BRANDING_KEY_PREFIX = "stores/";
+const BRANDING_KEY_FOLDER = "/branding/";
+
+/*
+ * Resolve as chaves R2 de branding para URLs
+ * assinadas prontas a exibir. Falha silenciosa:
+ * sem branding (ou R2 indisponível), devolve null.
+ */
+export async function getStoreBrandingUrls(
+  store: {
+    id: string;
+    logoKey: string | null;
+    bannerKey: string | null;
+  },
+): Promise<{
+  logoUrl: string | null;
+  bannerUrl: string | null;
+}> {
+  const [logoUrl, bannerUrl] =
+    await Promise.all([
+      store.logoKey
+        ? createStoreDownloadUrlSafe(
+            store.logoKey,
+          )
+        : Promise.resolve(null),
+
+      store.bannerKey
+        ? createStoreDownloadUrlSafe(
+            store.bannerKey,
+          )
+        : Promise.resolve(null),
+    ]);
+
+  return {
+    logoUrl,
+    bannerUrl,
+  };
+}
+
+async function createStoreDownloadUrlSafe(
+  key: string,
+) {
+  try {
+    return await createStoreDownloadUrl(
+      key,
+    );
+  } catch (error) {
+    console.warn(
+      `[Branding] Falha ao gerar URL para "${key}":`,
+      error instanceof Error
+        ? error.message
+        : error,
+    );
+
+    return null;
+  }
+}
+
+function isBrandingObjectKey(key: string) {
+  if (
+    !key ||
+    key.length > 255 ||
+    key.includes("..") ||
+    key.startsWith("/") ||
+    key.endsWith("/")
+  ) {
+    return false;
+  }
+
+  /*
+   * A chave tem de pertencer à própria loja:
+   * stores/{storeId}/branding/...
+   * Garante isolamento total entre lojas.
+   */
+  return (
+    key.startsWith(BRANDING_KEY_PREFIX) &&
+    key.includes(BRANDING_KEY_FOLDER)
+  );
+}
+
+function assertBrandingKeyForStore(
+  storeId: string,
+  key: string,
+) {
+  if (!isBrandingObjectKey(key)) {
+    throw new Error("BRANDING_KEY_INVALID");
+  }
+
+  if (!key.startsWith(`stores/${storeId}/branding/`)) {
+    throw new Error("BRANDING_KEY_WRONG_STORE");
+  }
+}
+
+export async function updateStoreBranding({
+  storeId,
+  logoKey,
+  bannerKey,
+}: {
+  storeId: string;
+  logoKey?: string | null;
+  bannerKey?: string | null;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updates: {
+    logoKey?: string | null;
+    bannerKey?: string | null;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+
+  if (logoKey !== undefined) {
+    if (logoKey !== null) {
+      assertBrandingKeyForStore(storeId, logoKey);
+    }
+
+    updates.logoKey = logoKey;
+  }
+
+  if (bannerKey !== undefined) {
+    if (bannerKey !== null) {
+      assertBrandingKeyForStore(storeId, bannerKey);
+    }
+
+    updates.bannerKey = bannerKey;
+  }
+
+  const result = await db
+    .update(stores)
+    .set(updates)
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
+
+/* ============================================================
    STORE THEMES
    ============================================================ */
 

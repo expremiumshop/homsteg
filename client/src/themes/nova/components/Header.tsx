@@ -41,6 +41,13 @@ export interface NovaHeaderProps {
   currency?: string;
   country?: string;
 
+  /*
+   * URL assinada do logo REAL da loja.
+   * null/undefined → usa o nome da loja
+   * (comportamento demo atual).
+   */
+  logoUrl?: string | null;
+
   /**
    * Força a variante do cabeçalho, ignorando o
    * viewport. Usado nas pré-visualizações por
@@ -62,6 +69,7 @@ export function Header({
   currency = "MZN",
   country = "Moçambique",
   headerVariant = "auto",
+  logoUrl = null,
 }: NovaHeaderProps) {
   const [, navigate] = useLocation();
 
@@ -310,16 +318,30 @@ export function Header({
                   overflow-hidden
                 "
               >
-                <span
-                  className="
-                    whitespace-nowrap
-                    truncate
-                    text-xl
-                    font-bold
-                  "
-                >
-                  {storeName}
-                </span>
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={storeName}
+                    className="
+                      max-h-12
+                      max-w-[205px]
+                      w-auto
+                      object-contain
+                      object-left
+                    "
+                  />
+                ) : (
+                  <span
+                    className="
+                      whitespace-nowrap
+                      truncate
+                      text-xl
+                      font-bold
+                    "
+                  >
+                    {storeName}
+                  </span>
+                )}
               </div>
 
               {/* PESQUISA */}
@@ -857,7 +879,7 @@ export function Header({
               )}
             </button>
 
-            {/* NOME DA LOJA */}
+            {/* LOGO / NOME DA LOJA */}
 
             <div
               aria-label={storeName}
@@ -870,17 +892,30 @@ export function Header({
                 overflow-hidden
               "
             >
-              <span
-                className="
-                  max-w-full
-                  truncate
-                  whitespace-nowrap
-                  text-sm
-                  font-bold
-                "
-              >
-                {storeName}
-              </span>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={storeName}
+                  className="
+                    max-h-8
+                    max-w-[150px]
+                    w-auto
+                    object-contain
+                  "
+                />
+              ) : (
+                <span
+                  className="
+                    max-w-full
+                    truncate
+                    whitespace-nowrap
+                    text-sm
+                    font-bold
+                  "
+                >
+                  {storeName}
+                </span>
+              )}
             </div>
 
             {/* AÇÕES */}

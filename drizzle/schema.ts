@@ -231,6 +231,21 @@ export const stores = pgTable("stores", {
     length: 32,
   }),
 
+  /*
+   * Identidade visual da loja (não do tema).
+   *
+   * Guardam CHAVES R2 (não URLs assinadas) sob
+n   * stores/{storeId}/branding/.
+   * null = usar o visual demo do tema.
+   */
+  logoKey: varchar("logoKey", {
+    length: 255,
+  }),
+
+  bannerKey: varchar("bannerKey", {
+    length: 255,
+  }),
+
   createdAt: timestamp("createdAt", {
     withTimezone: true,
   })

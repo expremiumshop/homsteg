@@ -2,6 +2,7 @@ import {
   BarChart3,
   Box,
   Globe2,
+  ImagePlus,
   LayoutDashboard,
   Menu,
   Palette,
@@ -25,6 +26,7 @@ import PaymentsPage from "@/components/dashboard/payments/PaymentsPage";
 import ShippingPage from "@/components/dashboard/shipping/ShippingPage";
 import MarketingPage from "@/components/dashboard/Marketing/MarketingPage";
 import SettingsPage from "@/components/dashboard/Settings/SettingsPage";
+import BrandingPage from "@/components/dashboard/branding/BrandingPage";
 import { trpc } from "@/lib/trpc";
 
 export type DashboardSection =
@@ -34,6 +36,7 @@ export type DashboardSection =
   | "orders"
   | "customers"
   | "themes"
+  | "branding"
   | "payments"
   | "shipping"
   | "marketing"
@@ -77,6 +80,12 @@ const mainNav = [
     path: "/store/themes",
   },
   {
+    id: "branding" as DashboardSection,
+    label: "Personalizar loja",
+    icon: ImagePlus,
+    path: "/app/branding",
+  },
+  {
     id: "payments" as DashboardSection,
     label: "Pagamentos",
     icon: BarChart3,
@@ -116,6 +125,8 @@ function getSectionFromPath(path: string): DashboardSection {
       return "customers";
     case "themes":
       return "themes";
+    case "branding":
+      return "branding";
     case "payments":
       return "payments";
     case "shipping":
@@ -159,6 +170,9 @@ function DashboardContent({
 
     case "marketing":
       return <MarketingPage />;
+
+    case "branding":
+      return <BrandingPage storeId={storeId} />;
 
     case "settings":
       return <SettingsPage storeId={storeId} />;

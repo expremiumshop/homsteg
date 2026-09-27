@@ -57,6 +57,13 @@
       "when": 1790320305413,
       "tag": "0007_subscription_period",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790486714951,
+      "tag": "0008_misty_nocturne",
+      "breakpoints": true
     }
   ]
 }
