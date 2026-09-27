@@ -50,6 +50,7 @@ export default function Storefront({
       <UrbanStorefront
         mode="store"
         store={storeQuery.data.store}
+        products={storeQuery.data.products}
       />
     );
   }

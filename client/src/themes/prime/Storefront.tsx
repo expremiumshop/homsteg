@@ -61,11 +61,16 @@ export default function PrimeStorefront({
      ========================================================= */
 
   const realProducts = useMemo<PrimeProduct[]>(() => {
-    if (mode !== "store" || !products?.length) {
+    /*
+     * Modo loja real: apenas os produtos desta loja.
+     * Sem fallback para demo — loja vazia é tratada
+     * pelo estado vazio do ProductSection.
+     */
+    if (mode !== "store") {
       return primeDemoProducts;
     }
 
-    return products.map((product, index) => ({
+    return (products ?? []).map((product, index) => ({
       id:
         typeof product.id === "number"
           ? product.id

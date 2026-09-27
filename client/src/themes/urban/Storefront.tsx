@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Header } from "./components/Header";
 import { MobileMenu } from "./components/MobileMenu";
@@ -15,21 +15,48 @@ import {
   urbanDemoStore,
   urbanDemoProducts,
   type UrbanMode,
+  type UrbanProduct,
   type UrbanStore,
 } from "./demoData";
 
 type UrbanStorefrontProps = {
   mode?: UrbanMode;
   store?: UrbanStore | null;
+  /*
+   * Produtos reais da loja (modo "store").
+   * Em modo demo são ignorados — o preview usa
+   * sempre os produtos fictícios do tema.
+   */
+  products?: UrbanStoreProduct[];
+};
+
+/*
+ * Shape mínimo dos produtos vindos do backend
+ * (products.list / stores.bySlug).
+ */
+export type UrbanStoreProduct = {
+  id: number | string;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+  priceMzn: number;
+  compareAtPriceMzn?: number | null;
+  stock?: number | null;
+  category?: string | null;
+  status?: string | null;
+  imageUrl?: string | null;
 };
 
 export default function UrbanStorefront({
   mode = "demo",
   store,
+  products: storeProducts = [],
 }: UrbanStorefrontProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const isDemo = mode === "demo";
 
   const currentStore = store ?? urbanDemoStore;
 
@@ -37,6 +64,46 @@ export default function UrbanStorefront({
     currentStore.name?.trim() || "Urban";
 
   const storeSlug = currentStore.slug ?? undefined;
+
+  /* =========================================================
+     PRODUTOS
+
+     Demo → produtos fictícios do tema (identidade
+     visual do preview). Loja real → apenas os
+     produtos reais desta loja, sem fallback demo.
+     Sem produtos → estado vazio dedicado.
+     ========================================================= */
+
+  const products = useMemo<UrbanProduct[]>(() => {
+    if (isDemo) {
+      return urbanDemoProducts;
+    }
+
+    return storeProducts
+      .filter(
+        (product) =>
+          product.status !== "archived",
+      )
+      .map((product, index) => ({
+        id: String(product.id ?? index + 1),
+        name: product.name,
+        category: product.category || "Produtos",
+        price: Number(product.priceMzn ?? 0),
+        oldPrice:
+          product.compareAtPriceMzn == null
+            ? undefined
+            : Number(product.compareAtPriceMzn),
+        image:
+          product.imageUrl ||
+          "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=900&q=88",
+        rating: 4.8,
+        badge: undefined,
+        slug: product.slug || undefined,
+        description:
+          product.description ?? null,
+        stock: Number(product.stock ?? 0),
+      }));
+  }, [isDemo, storeProducts]);
 
   return (
     <div
@@ -69,8 +136,9 @@ export default function UrbanStorefront({
         <CategorySection />
 
         <ProductSection
-          products={urbanDemoProducts}
+          products={products}
           storeSlug={storeSlug}
+          showEmptyState={!isDemo}
         />
 
         <PromoSection />
