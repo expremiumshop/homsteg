@@ -25,11 +25,41 @@ if (!secret) {
   throw new Error("BETTER_AUTH_SECRET não está configurada.");
 }
 
+/*
+ * Domínio oficial de produção. Frontend e API são servidos
+ * na mesma origem (https://www.homsteg.com), pelo que o Better
+ * Auth nunca deve receber pedidos de origens cruzadas.
+ */
+const OFFICIAL_PRODUCTION_URL = "https://www.homsteg.com";
+
 const baseURL =
   process.env.BETTER_AUTH_URL ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
+  (process.env.NODE_ENV === "production"
+    ? OFFICIAL_PRODUCTION_URL
     : "http://localhost:3000");
+
+/*
+ * Origens autorizadas a chamar /api/auth/*. A lista é explícita:
+ * nenhum wildcard, nenhum "Access-Control-Allow-Origin: *".
+ * - www.homsteg.com: domínio oficial de produção.
+ * - homsteg.com: apex, caso sirva tráfego diretamente.
+ * - baseURL: o valor efetivamente configurado (env ou VERCEL_URL).
+ */
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      OFFICIAL_PRODUCTION_URL,
+      "https://homsteg.com",
+      baseURL,
+      process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : null,
+      "http://localhost:3000",
+    ].filter(
+      (origin): origin is string => Boolean(origin),
+    ),
+  ),
+);
 
 const pool = new Pool({
   connectionString: databaseUrl,
@@ -60,6 +90,8 @@ export const auth = betterAuth({
   secret,
 
   baseURL,
+
+  trustedOrigins,
 
   database: drizzleAdapter(authDb, {
     provider: "pg",
