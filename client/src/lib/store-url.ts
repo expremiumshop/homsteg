@@ -32,14 +32,7 @@ export function isDevEnvironment() {
     return false;
   }
 
-  const hostname = window.location.hostname;
-
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "[::1]" ||
-    hostname.endsWith(".localhost")
-  );
+  return isDevHostname(window.location.hostname);
 }
 
 /**
@@ -56,6 +49,112 @@ export function getStoreHostname(slug: string) {
  */
 export function getStorePath(slug: string) {
   return `/store/${encodeURIComponent(normalizeSlug(slug))}`;
+}
+
+/**
+ * Extrai o slug da loja a partir de um hostname de subdomínio.
+ *
+ * Regras:
+ * - `fresh1.homsteg.com`        → "fresh1"
+ * - `anotherstore.homsteg.com`  → "anotherstore"
+ * - `www.homsteg.com`           → null (site principal)
+ * - `homsteg.com` (apex)        → null (site principal)
+ * - `localhost` / `127.0.0.1`   → null (desenvolvimento)
+ * - `*.vercel.app`              → null (URLs do projeto Vercel:
+ *                                  o primeiro label é o projeto,
+ *                                  nunca um slug de loja)
+ * - subdomínios profundos
+ *   (`a.b.homsteg.com`)         → null (não identificam loja)
+ *
+ * Devolve null sempre que o hostname NÃO identifica uma loja,
+ * para que o site principal continue a ser servido.
+ */
+export function getStoreSlugFromHostname(
+  hostname: string,
+): string | null {
+  const normalized = hostname.trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  /*
+   * Desenvolvimento: subdomínios não resolvem em localhost.
+   * As lojas continuam a abrir pela rota /store/:slug.
+   */
+  if (isDevHostname(normalized)) {
+    return null;
+  }
+
+  /*
+   * URLs do projeto na Vercel (produção e previews):
+   * o primeiro label é o nome do projeto, não um slug.
+   */
+  if (
+    normalized === "vercel.app" ||
+    normalized.endsWith(".vercel.app")
+  ) {
+    return null;
+  }
+
+  const baseSuffix = `.${STORE_BASE_DOMAIN}`;
+
+  /*
+   * Apenas hostnames do próprio domínio HOMSTEG
+   * publicam lojas por subdomínio.
+   */
+  if (!normalized.endsWith(baseSuffix)) {
+    return null;
+  }
+
+  /*
+   * `homsteg.com` (apex) não tem sufixo ".homsteg.com",
+   * pelo que aqui só chegam subdomínios.
+   */
+  const withoutBase = normalized.slice(
+    0,
+    normalized.length - baseSuffix.length,
+  );
+
+  if (!withoutBase) {
+    return null;
+  }
+
+  /*
+   * `www.homsteg.com` e `www.fresh1.homsteg.com`:
+   * o prefixo "www" nunca faz parte do slug.
+   */
+  const withoutWww =
+    withoutBase === "www"
+      ? ""
+      : withoutBase.startsWith("www.")
+        ? withoutBase.slice(4)
+        : withoutBase;
+
+  if (!withoutWww) {
+    return null;
+  }
+
+  /*
+   * Subdomínios profundos (ex.: "a.b") não identificam
+   * uma loja — o slug é um único label.
+   */
+  if (withoutWww.includes(".")) {
+    return null;
+  }
+
+  const slug = normalizeSlug(withoutWww);
+
+  return slug || null;
+}
+
+function isDevHostname(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".localhost")
+  );
 }
 
 /**

@@ -5,6 +5,9 @@ import { Redirect, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CartProvider } from "./contexts/CartContext";
+import {
+  getStoreSlugFromHostname,
+} from "./lib/store-url";
 
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -76,6 +79,39 @@ import LuxeMessagesPage from "./themes/luxe/LuxeMessagesPage";
 import LuxeAccountPage from "./themes/luxe/LuxeAccountPage";
 import LuxeCheckoutPage from "./themes/luxe/LuxeCheckoutPage";
 
+/**
+ * Hostname-aware root route.
+ *
+ * A Vercel serve a mesma SPA em todos os hostnames
+ * (www.homsteg.com, homsteg.com e <slug>.homsteg.com),
+ * pelo que a rota "/" tem de decidir o que renderizar
+ * a partir do hostname:
+ *
+ * - subdomínio de loja (ex.: fresh1.homsteg.com)
+ *     → Storefront com o slug extraído do hostname,
+ *       usando a MESMA arquitetura de /store/:slug
+ *       (stores.bySlug → Neon → themeKey → tema).
+ *
+ * - raiz/www (ex.: www.homsteg.com)
+ *     → Home, o site principal HOMSTEG, intacto.
+ */
+function RootRoute() {
+  if (typeof window === "undefined") {
+    return <Home />;
+  }
+
+  const storeSlug = getStoreSlugFromHostname(
+    window.location.hostname,
+  );
+
+  if (storeSlug) {
+    return (
+      <Storefront slugOverride={storeSlug} />
+    );
+  }
+  return <Home />;
+}
+
 function UrbanThemePreview() {
   return <UrbanStorefront mode="demo" />;
 }
@@ -111,7 +147,7 @@ function ChazucaThemePreview() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={RootRoute} />
 
       <Route
         path="/criar-conta"

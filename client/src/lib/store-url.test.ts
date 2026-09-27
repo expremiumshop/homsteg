@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getPublicStoreUrl,
+  getStoreSlugFromHostname,
   getStoreHostname,
   getStorePath,
   getStoreUrlLabel,
@@ -81,5 +82,56 @@ describe("store-url", () => {
     expect(getPublicStoreUrl("moda")).toBe(
       "https://moda.homsteg.com",
     );
+  });
+
+  it("extracts the store slug from a store subdomain", () => {
+    expect(getStoreSlugFromHostname("fresh1.homsteg.com")).toBe("fresh1");
+    expect(getStoreSlugFromHostname("anotherstore.homsteg.com")).toBe(
+      "anotherstore",
+    );
+    expect(getStoreSlugFromHostname("moda.homsteg.com")).toBe("moda");
+  });
+
+  it("keeps the main site on apex and www hostnames", () => {
+    expect(getStoreSlugFromHostname("homsteg.com")).toBeNull();
+    expect(getStoreSlugFromHostname("www.homsteg.com")).toBeNull();
+  });
+
+  it("ignores deep subdomains", () => {
+    expect(getStoreSlugFromHostname("a.b.homsteg.com")).toBeNull();
+    expect(getStoreSlugFromHostname("www.fresh1.homsteg.com")).toBe("fresh1");
+  });
+
+  it("never treats development hostnames as stores", () => {
+    expect(getStoreSlugFromHostname("localhost")).toBeNull();
+    expect(getStoreSlugFromHostname("fresh1.localhost")).toBeNull();
+    expect(getStoreSlugFromHostname("127.0.0.1")).toBeNull();
+    expect(getStoreSlugFromHostname("[::1]")).toBeNull();
+  });
+
+  it("never treats vercel project urls as stores", () => {
+    expect(
+      getStoreSlugFromHostname("homsteg-store.vercel.app"),
+    ).toBeNull();
+    expect(
+      getStoreSlugFromHostname("homsteg-git-main.vercel.app"),
+    ).toBeNull();
+    expect(getStoreSlugFromHostname("vercel.app")).toBeNull();
+  });
+
+  it("ignores foreign domains", () => {
+    expect(getStoreSlugFromHostname("fresh1.example.com")).toBeNull();
+    expect(getStoreSlugFromHostname("fresh1homsteg.com")).toBeNull();
+    expect(getStoreSlugFromHostname("evil.homsteg.com.attacker.io")).toBeNull();
+  });
+
+  it("normalizes case and whitespace in the subdomain slug", () => {
+    expect(getStoreSlugFromHostname("FRESH1.HOMSTEG.COM")).toBe("fresh1");
+    expect(getStoreSlugFromHostname("  fresh1.homsteg.com  ")).toBe("fresh1");
+  });
+
+  it("returns null for empty hostnames", () => {
+    expect(getStoreSlugFromHostname("")).toBeNull();
+    expect(getStoreSlugFromHostname("   ")).toBeNull();
   });
 });

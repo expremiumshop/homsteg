@@ -1,4 +1,4 @@
-import { useRoute, type RouteComponentProps } from "wouter";
+import { useRoute } from "wouter";
 
 import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
@@ -10,16 +10,33 @@ import CalizaStorefront from "@/themes/caliza/Storefront";
 import ChazucaStorefront from "@/themes/chazuca/Storefront";
 import { trpc } from "@/lib/trpc";
 
+type StorefrontProps = {
+  /** Route params do wouter (/store/:slug). */
+  params?: { slug?: string };
+
+  /**
+   * Slug explícito, usado quando a loja é aberta por subdomínio
+   * (ex.: fresh1.homsteg.com). Tem prioridade sobre params.slug.
+   */
+  slugOverride?: string;
+};
+
 /**
- * Route component for "/store/:slug". Wouter passes the URL params
- * (params.slug); no other props are provided or needed.
+ * Componente de rota "/store/:slug". Wouter passa os params
+ * (params.slug); nenhum outro prop é fornecido ou necessário.
+ *
+ * Também é montado diretamente pela raiz quando o hostname é um
+ * subdomínio de loja (slugOverride), reutilizando exatamente a
+ * mesma arquitetura: slug → stores.bySlug → Neon → themeKey → tema.
  */
 export default function Storefront({
   params,
-}: RouteComponentProps<{ slug: string }>) {
+  slugOverride,
+}: StorefrontProps) {
   const [, routeParams] = useRoute("/store/:slug");
 
-  const slug = params?.slug ?? routeParams?.slug;
+  const slug =
+    slugOverride ?? params?.slug ?? routeParams?.slug;
 
   // The public storefront is the real store, never a theme preview. Load the
   // store once to select its persisted theme; every theme receives only this
