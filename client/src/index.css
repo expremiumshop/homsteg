@@ -56,6 +56,16 @@ button:active, .button:active { transform: scale(.97); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Animações leves dos banners (tema Nova) — aplicadas ao slide ativo */
+@keyframes novaBannerFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes novaBannerZoom { from { transform: scale(1.045); } to { transform: scale(1); } }
+@keyframes novaBannerSlideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes novaBannerSlideLeft { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+.nova-banner-anim-fade { animation: novaBannerFade .7s ease-out both; }
+.nova-banner-anim-zoom { animation: novaBannerZoom .7s ease-out both; }
+.nova-banner-anim-slide-up { animation: novaBannerSlideUp .6s ease-out both; }
+.nova-banner-anim-slide-left { animation: novaBannerSlideLeft .6s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

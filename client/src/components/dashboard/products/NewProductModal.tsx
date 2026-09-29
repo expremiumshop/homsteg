@@ -189,6 +189,21 @@ export default function NewProductModal({
   const createProduct =
     trpc.products.create.useMutation();
 
+  /*
+   * Categorias reais da loja atual.
+   * Única fonte do selector — nada de demo/hardcoded.
+   */
+  const categoriesQuery =
+    trpc.categories.list.useQuery(
+      { storeId: storeId ?? "" },
+      {
+        enabled: Boolean(storeId),
+      },
+    );
+
+  const storeCategories =
+    categoriesQuery.data ?? [];
+
   const utils = trpc.useUtils();
 
   useEffect(() => {
@@ -615,7 +630,7 @@ export default function NewProductModal({
         ),
         category:
           category.trim() ||
-          "General",
+          undefined,
         imageUrl: uploadedImages[0]?.imageUrl,
         imageKeys: uploadedImages.map((upload) => upload.key),
         options: productOptions,
@@ -1236,21 +1251,16 @@ export default function NewProductModal({
                     Sem categoria
                   </option>
 
-                  <option value="Moda masculina">
-                    Moda masculina
-                  </option>
-
-                  <option value="Moda feminina">
-                    Moda feminina
-                  </option>
-
-                  <option value="Calçados">
-                    Calçados
-                  </option>
-
-                  <option value="Eletrónicos">
-                    Eletrónicos
-                  </option>
+                  {storeCategories.map(
+                    (storeCategory) => (
+                      <option
+                        key={storeCategory.id}
+                        value={storeCategory.name}
+                      >
+                        {storeCategory.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </label>
             </section>

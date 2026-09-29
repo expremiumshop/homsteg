@@ -12,6 +12,11 @@ interface ProductCardProps {
   storeSlug?: string;
 }
 
+/**
+ * Cartão clássico (Modelo 1) — o estilo original do
+ * tema Nova, agora também exportado para ser reutilizado
+ * como uma das variantes do seletor de modelos.
+ */
 export function ProductCard({
   slug,
   name,

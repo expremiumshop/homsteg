@@ -246,6 +246,55 @@ n   * stores/{storeId}/branding/.
     length: 255,
   }),
 
+  /*
+   * Banners adicionais da loja (para além do
+   * bannerKey legado). Guardam CHAVES R2 sob
+   * stores/{storeId}/branding/.
+   * Array vazio = nenhum banner extra.
+   */
+  bannerKeys: text("bannerKeys")
+    .array()
+    .notNull()
+    .default([]),
+
+  /*
+   * Modelo dos cartões de produto no tema Nova.
+   * null = modelo atual (1).
+   * Valores: "1".."5" (ver BrandingPage / ProductCard).
+   */
+  productCardModel: varchar("productCardModel", {
+    length: 8,
+  }),
+
+  /*
+   * Modelo de banner do carrossel (tema Nova).
+   * null = modelo atual (1).
+   * Valores: "1".."5" (ver bannerModels).
+   */
+  bannerModel: varchar("bannerModel", {
+    length: 8,
+  }),
+
+  /*
+   * Título/subtítulo por banner (tema Nova).
+   * Array paralelo a bannerKeys+bannerKey (após
+   * achatamento), por índice de slide.
+   */
+  bannerTexts: jsonb("bannerTexts")
+    .$type<{ title?: string; subtitle?: string }[]>()
+    .notNull()
+    .default([]),
+
+  /*
+   * Elementos opcionais por banner (tema Nova):
+   * mapa keyed por chave R2 do banner → botão, texto,
+   * animação e contagem decrescente independentes.
+   */
+  bannerFeatures: jsonb("bannerFeatures")
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default({}),
+
   createdAt: timestamp("createdAt", {
     withTimezone: true,
   })
@@ -439,6 +488,41 @@ export const planRequests = pgTable("planRequests", {
 });
 
 /* ============================================================
+   STORE CATEGORIES
+   ============================================================ */
+
+/*
+ * Categorias criadas pelo utilizador para a sua loja.
+ * São a única fonte de categorias no selector de produtos:
+ * nada é derivado de produtos nem pré-preenchido.
+ */
+export const storeCategories = pgTable("store_categories", {
+  id: varchar("id", {
+    length: 64,
+  }).primaryKey(),
+
+  storeId: varchar("storeId", {
+    length: 64,
+  }).notNull(),
+
+  name: varchar("name", {
+    length: 80,
+  }).notNull(),
+
+  createdAt: timestamp("createdAt", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updatedAt", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+});
+
+/* ============================================================
    PRODUCTS
    ============================================================ */
 
@@ -472,11 +556,14 @@ export const products = pgTable("products", {
     .notNull()
     .default(0),
 
+  /*
+   * Categoria do produto. null = Sem categoria.
+   * O valor tem de ser o nome de uma categoria da
+   * própria loja (validado no router).
+   */
   category: varchar("category", {
     length: 80,
-  })
-    .notNull()
-    .default("General"),
+  }),
 
   status: productStatusEnum("status")
     .notNull()
@@ -531,6 +618,12 @@ export type Product = typeof products.$inferSelect;
 
 export type InsertProduct =
   typeof products.$inferInsert;
+
+export type StoreCategory =
+  typeof storeCategories.$inferSelect;
+
+export type InsertStoreCategory =
+  typeof storeCategories.$inferInsert;
 
 export type PlanRequest =
   typeof planRequests.$inferSelect;

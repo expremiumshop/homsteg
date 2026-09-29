@@ -29,11 +29,20 @@ export function BottomNavigation({
 
   const ctx = storeQuery(storeSlug);
 
+  /*
+   * "Home" deve levar sempre à homepage da loja atual:
+   * em loja real usa /store/:slug (rota interna); basePath
+   * (/themes/chazuca) fica apenas para os previews de tema.
+   */
+  const homePath = storeSlug
+    ? `/store/${encodeURIComponent(storeSlug)}`
+    : basePath;
+
   const navItems = [
     {
       name: "Home",
       icon: Home,
-      href: basePath,
+      href: homePath,
     },
     {
       name: "Mensagens",

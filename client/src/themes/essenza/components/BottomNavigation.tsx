@@ -24,11 +24,20 @@ export function BottomNavigation({
     ? `?storeSlug=${encodeURIComponent(storeSlug)}`
     : "";
 
+  /*
+   * "Home" deve levar sempre à homepage da loja atual:
+   * em loja real usa /store/:slug (rota interna); basePath
+   * (/themes/essenza) fica apenas para os previews de tema.
+   */
+  const homePath = storeSlug
+    ? `/store/${encodeURIComponent(storeSlug)}`
+    : basePath;
+
   const navItems = [
     {
       name: "Home",
       icon: Home,
-      href: basePath,
+      href: homePath,
     },
     {
       name: "Mensagens",
@@ -48,8 +57,8 @@ export function BottomNavigation({
   ];
 
   function isActive(path: string) {
-    if (path === basePath) {
-      return location === basePath;
+    if (path === homePath) {
+      return location === homePath;
     }
 
     return location === path;

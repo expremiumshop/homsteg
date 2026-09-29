@@ -1,4 +1,4 @@
-import { ProductCard } from "./ProductCard";
+import { ModelProductCard } from "./ModelProductCard";
 
 export interface NovaProduct {
   id: string | number;
@@ -19,6 +19,12 @@ interface ProductGridProps {
   error?: string | null;
   storeName?: string;
   storeSlug?: string;
+
+  /** Modelo de cartão escolhido pela loja (1..5). */
+  productCardModel?: string | null;
+
+  /** WhatsApp para o botão Comprar (modelo 5). */
+  whatsappNumber?: string;
 }
 
 export function ProductGrid({
@@ -27,6 +33,8 @@ export function ProductGrid({
   error = null,
   storeName = "NOVA STORE",
   storeSlug,
+  productCardModel,
+  whatsappNumber,
 }: ProductGridProps) {
   return (
     <section className="w-full bg-background px-3 py-2 sm:px-4 md:py-3">
@@ -76,7 +84,7 @@ export function ProductGrid({
             "
           >
             {products.map((product) => (
-              <ProductCard
+              <ModelProductCard
                 key={product.id}
                 slug={product.slug}
                 name={product.name}
@@ -85,8 +93,10 @@ export function ProductGrid({
                 price={product.price}
                 compare_at_price={product.compare_at_price}
                 featured={product.featured}
+                model={productCardModel}
                 storeName={storeName}
                 storeSlug={storeSlug}
+                whatsappNumber={whatsappNumber}
               />
             ))}
           </div>

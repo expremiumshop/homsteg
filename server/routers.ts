@@ -28,16 +28,24 @@ import {
   getStoreWithPlanUsage,
   getStoresForUser,
   insertProduct,
+  insertStoreCategory,
   listProducts,
+  listStoreCategories,
+  renameStoreCategory,
+  updateProduct,
   listPublicProducts,
   markStoreSubscriptionPaid,
   reviewPlanRequest,
   updateStoreBranding,
+  updateStoreBannerSettings,
+  updateStoreProductCardModel,
   updateStoreStatus,
   updateStoreTheme,
   updateStoreWhatsApp,
   userHasStoreAccess,
 } from "./db.js";
+
+import type { InsertProduct } from "../drizzle/schema.js";
 
 import { getBetterAuthUserById } from "./auth.js";
 
@@ -279,6 +287,16 @@ export const appRouter = router({
               result.store.logoKey ?? null,
             bannerKey:
               result.store.bannerKey ?? null,
+            bannerKeys:
+              result.store.bannerKeys ?? [],
+            productCardModel:
+              result.store.productCardModel ?? null,
+            bannerModel:
+              result.store.bannerModel ?? null,
+            bannerTexts:
+              result.store.bannerTexts ?? [],
+            bannerFeatures:
+              result.store.bannerFeatures ?? {},
             ...(await getStoreBrandingUrls(
               result.store,
             )),
@@ -341,11 +359,9 @@ export const appRouter = router({
               imageUrl,
             };
           },
-        ),
-
-      /*
-       * Guarda/substitui logo e/ou banner.
-       * null remove o asset atual.
+        ),      /*
+       * Guarda/substitui logo, banner e/ou lista de
+       * banners. null remove o asset atual.
        */
       set: protectedProcedure
         .input(
@@ -360,11 +376,18 @@ export const appRouter = router({
               bannerKey: brandingKeyInput
                 .nullable()
                 .optional(),
+
+              bannerKeys: z
+                .array(brandingKeyInput)
+                .max(10, "Máximo de 10 banners.")
+                .nullable()
+                .optional(),
             })
             .refine(
               (data) =>
                 data.logoKey !== undefined ||
-                data.bannerKey !== undefined,
+                data.bannerKey !== undefined ||
+                data.bannerKeys !== undefined,
               {
                 message:
                   "Indique o logo, o banner ou ambos.",
@@ -412,11 +435,31 @@ export const appRouter = router({
               });
             }
 
+            /*
+             * Defesa extra para a lista: cada chave tem de
+             * pertencer à própria loja.
+             */
+            if (
+              input.bannerKeys?.some(
+                (key) =>
+                  !key.startsWith(
+                    `stores/${input.storeId}/branding/`,
+                  ),
+              )
+            ) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message:
+                  "Ficheiro não pertence à loja selecionada.",
+              });
+            }
+
             const store =
               await updateStoreBranding({
                 storeId: input.storeId,
                 logoKey: input.logoKey,
                 bannerKey: input.bannerKey,
+                bannerKeys: input.bannerKeys,
               });
 
             if (!store) {
@@ -431,9 +474,285 @@ export const appRouter = router({
               logoKey: store.logoKey ?? null,
               bannerKey:
                 store.bannerKey ?? null,
+              bannerKeys:
+                store.bannerKeys ?? [],
             };
           },
         ),
+
+      /* ========================================================
+         BANNERS: modelo do carrossel + textos por slide
+         (tema Nova). Um único modelo por loja em cada
+         momento; os textos são guardados por índice de
+         slide e os modelos sem texto simplesmente os
+         ignoram.
+         ======================================================== */
+
+      setBannerModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3", "4", "5"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store =
+            await updateStoreBannerSettings({
+              storeId: input.storeId,
+              bannerModel: input.model,
+            });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            bannerModel: store.bannerModel ?? null,
+          };
+        }),
+
+      setBannerFeatures: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            /*
+             * Mapa chave R2 do banner → elementos.
+             * Cada chave é validada contra a loja.
+             */
+            bannerFeatures: z
+              .record(
+                z.string(),
+                z
+                  .object({
+                  /* Estado de publicação (false = rascunho). */
+                  published: z.boolean().optional(),
+                  button: z
+                    .object({
+                      enabled: z.boolean(),
+                      label: z.string().max(40).optional(),
+                      target: z
+                        .enum(["product", "link"])
+                        .optional(),
+                      destination: z
+                        .string()
+                        .max(600)
+                        .optional(),
+                      position: z
+                        .enum([
+                          "bottom-left",
+                          "bottom-right",
+                          "top-left",
+                          "top-right",
+                          "center",
+                        ])
+                        .optional(),
+                    })
+                    .optional(),
+                  text: z
+                    .object({
+                      enabled: z.boolean(),
+                      text: z.string().max(200).optional(),
+                      position: z
+                        .enum([
+                          "top-left",
+                          "top-center",
+                          "bottom-left",
+                          "bottom-center",
+                          "bottom-right",
+                        ])
+                        .optional(),
+                    })
+                    .optional(),
+                  animation: z
+                    .object({
+                      enabled: z.boolean(),
+                      type: z
+                        .enum([
+                          "none",
+                          "fade",
+                          "zoom",
+                          "slide-up",
+                          "slide-left",
+                        ])
+                        .optional(),
+                    })
+                    .optional(),
+                  countdown: z
+                    .object({
+                      enabled: z.boolean(),
+                      endsAt: z.string().max(40).optional(),
+                    })
+                    .optional(),
+                })
+                  .strip(),
+              )
+              .refine(
+                (features) =>
+                  Object.keys(features).length <= 20,
+                {
+                  message:
+                    "Máximo de 20 banners com elementos.",
+                },
+              )
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          /*
+           * Isolamento por loja: cada chave tem de
+           * apontar para um ficheiro da própria loja.
+           */
+          const featureKeys = Object.keys(
+            input.bannerFeatures ?? {},
+          );
+
+          if (
+            featureKeys.some(
+              (key) =>
+                !key.startsWith(
+                  `stores/${input.storeId}/branding/`,
+                ),
+            )
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Ficheiro não pertence à loja selecionada.",
+            });
+          }
+
+          const store =
+            await updateStoreBannerSettings({
+              storeId: input.storeId,
+              bannerFeatures:
+                input.bannerFeatures ?? {},
+            });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            bannerFeatures:
+              store.bannerFeatures ?? {},
+          };
+        }),
+
+      setBannerTexts: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            bannerTexts: z
+              .array(
+                z.object({
+                  title: z.string().max(120).optional(),
+                  subtitle: z.string().max(200).optional(),
+                }),
+              )
+              .max(10)
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store =
+            await updateStoreBannerSettings({
+              storeId: input.storeId,
+              bannerTexts: input.bannerTexts,
+            });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            bannerTexts: store.bannerTexts ?? [],
+          };
+        }),
+
+      /* ========================================================
+         MODELO DOS CARTÕES DE PRODUTO (tema Nova)
+         "1".."5" — ver BrandingPage / ProductCard.
+         ======================================================== */
+
+      setProductCardModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3", "4", "5"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store =
+            await updateStoreProductCardModel(
+              input.storeId,
+              input.model,
+            );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            productCardModel:
+              store.productCardModel ?? null,
+          };
+        }),
     }),
 
     /* ========================================================
@@ -1002,12 +1321,16 @@ export const appRouter = router({
             .nonnegative()
             .default(0),
 
+          /*
+           * Categoria do produto: deve ser uma das
+           * categorias reais da loja. Vazio/null =
+           * Sem categoria.
+           */
           category: z
             .string()
             .trim()
-            .min(2)
             .max(80)
-            .default("General"),
+            .optional(),
 
           imageUrl: z
             .string()
@@ -1090,12 +1413,9 @@ export const appRouter = router({
             message:
               "Limite de produtos do plano atual atingido. Peça um upgrade de plano ao administrador.",
           });
-        }
-
-        const productImagePrefix =
+        }        const productImagePrefix =
           `stores/${input.storeId}/products/`;
-
-        if (
+        if (
           input.imageKeys.some(
             (key) =>
               !key.startsWith(
@@ -1110,6 +1430,40 @@ export const appRouter = router({
           });
         }
 
+        /*
+         * A categoria tem de existir na loja.
+         * Vazio ou ausente = Sem categoria (null).
+         */
+        let category: string | null = null;
+
+        if (input.category && input.category.trim()) {
+          const requestedCategory = input.category.trim();
+
+          const storeCategoriesList =
+            await listStoreCategories(
+              input.storeId,
+            );
+
+          const match = storeCategoriesList.find(
+            (category) =>
+              category.name.localeCompare(
+                requestedCategory,
+                "pt",
+                { sensitivity: "accent" },
+              ) === 0,
+          );
+
+          if (!match) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Categoria inválida. Cria a categoria na loja antes de a usar.",
+            });
+          }
+
+          category = match.name;
+        }
+
         return insertProduct({
           storeId: input.storeId,
           name: input.name,
@@ -1119,12 +1473,117 @@ export const appRouter = router({
           compareAtPriceMzn:
             input.compareAtPriceMzn,
           stock: input.stock,
-          category: input.category,
+          category,
           imageUrl: input.imageUrl,
           imageKeys: input.imageKeys,
           options: input.options,
           status: "draft",
         });
+      }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+
+          productId: z
+            .number()
+            .int()
+            .positive(),
+
+          name: z.string().trim().min(2).max(180).optional(),
+
+          description: z.string().trim().max(5000).nullable().optional(),
+
+          priceMzn: z.number().int().positive().optional(),
+
+          compareAtPriceMzn: z.number().int().positive().nullable().optional(),
+
+          stock: z.number().int().nonnegative().optional(),
+
+          category: z.string().trim().max(80).nullable().optional(),
+
+          imageUrl: z.string().url().nullable().optional(),
+
+          imageKeys: z
+            .array(z.string().trim().min(1).max(1024))
+            .max(12)
+            .optional(),
+
+          options: z
+            .array(
+              z.object({
+                name: z.string().trim().min(1).max(80),
+                values: z.array(z.string().trim().min(1).max(120)).min(1).max(100),
+              }),
+            )
+            .max(10)
+            .optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        const updates: Partial<InsertProduct> = {};
+
+        if (input.name !== undefined) updates.name = input.name;
+        if (input.description !== undefined) updates.description = input.description;
+        if (input.priceMzn !== undefined) updates.priceMzn = input.priceMzn;
+        if (input.compareAtPriceMzn !== undefined) updates.compareAtPriceMzn = input.compareAtPriceMzn;
+        if (input.stock !== undefined) updates.stock = input.stock;
+        if (input.category !== undefined) updates.category = input.category;
+        if (input.imageUrl !== undefined) updates.imageUrl = input.imageUrl;
+        if (input.imageKeys !== undefined) updates.imageKeys = input.imageKeys;
+        if (input.options !== undefined) updates.options = input.options;
+
+        /*
+         * A categoria, quando definida, tem de existir
+         * nas categorias reais da loja.
+         */
+        if (updates.category) {
+          const storeCategoriesList =
+            await listStoreCategories(input.storeId);
+
+          const match = storeCategoriesList.find(
+            (category) =>
+              category.name.localeCompare(
+                updates.category as string,
+                "pt",
+                { sensitivity: "accent" },
+              ) === 0,
+          );
+
+          if (!match) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Categoria inválida. Cria a categoria na loja antes de a usar.",
+            });
+          }
+
+          updates.category = match.name;
+        }
+
+        const updated = await updateProduct(
+          input.storeId,
+          input.productId,
+          updates,
+        );
+
+        if (!updated) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Produto não encontrado.",
+          });
+        }
+
+        return updated;
       }),
 
     archive: protectedProcedure
@@ -1155,6 +1614,156 @@ export const appRouter = router({
         return {
           success: true,
         } as const;
+      }),
+  }),
+
+  /* ==========================================================
+     STORE CATEGORIES
+
+     Categorias reais criadas pelo utilizador.
+     Única fonte do selector de categoria nos produtos.
+     ========================================================== */
+
+  categories: router({
+    list: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        return listStoreCategories(
+          input.storeId,
+        );
+      }),
+
+    create: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+
+          name: z
+            .string()
+            .trim()
+            .min(1)
+            .max(80),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        const existing =
+          await listStoreCategories(
+            input.storeId,
+          );
+
+        /*
+         * Nome único por loja, case-insensitive.
+         */
+        const duplicate = existing.find(
+          (category) =>
+            category.name.localeCompare(
+              input.name,
+              "pt",
+              { sensitivity: "accent" },
+            ) === 0,
+        );
+
+        if (duplicate) {
+          return duplicate;
+        }
+
+        return insertStoreCategory({
+          storeId: input.storeId,
+          name: input.name,
+        });
+      }),
+
+    rename: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+
+          categoryId: z
+            .string()
+            .trim()
+            .min(1)
+            .max(64),
+
+          name: z
+            .string()
+            .trim()
+            .min(1)
+            .max(80),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin",
+          ),
+        );
+
+        const existing =
+          await listStoreCategories(
+            input.storeId,
+          );
+
+        const duplicate = existing.find(
+          (category) =>
+            category.id !== input.categoryId &&
+            category.name.localeCompare(
+              input.name,
+              "pt",
+              { sensitivity: "accent" },
+            ) === 0,
+        );
+
+        if (duplicate) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Já existe uma categoria com esse nome.",
+          });
+        }
+
+        try {
+          return await renameStoreCategory({
+            storeId: input.storeId,
+            categoryId: input.categoryId,
+            name: input.name,
+          });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message ===
+              "STORE_CATEGORY_NOT_FOUND"
+          ) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Categoria não encontrada.",
+            });
+          }
+
+          throw error;
+        }
       }),
   }),
 

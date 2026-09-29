@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 
 import { and, count, desc, eq, ne } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 
 import {
   addOneMonth,
@@ -19,6 +20,7 @@ import {
   planRequests,
   plans,
   storeApplications,
+  storeCategories,
   stores,
   storeMembers,
   users,
@@ -1591,34 +1593,59 @@ const BRANDING_KEY_FOLDER = "/branding/";
  * assinadas prontas a exibir. Falha silenciosa:
  * sem branding (ou R2 indisponível), devolve null.
  */
-export async function getStoreBrandingUrls(
-  store: {
-    id: string;
-    logoKey: string | null;
-    bannerKey: string | null;
-  },
-): Promise<{
+/**
+ * Normaliza a lista de chaves de banners da loja:
+ * - aceita o array `bannerKeys`;
+ * - inclui a chave legada `bannerKey` à frente (comportamento
+ *   anterior preservado quando só existe 1 banner).
+ */
+function resolveStoreBannerKeys(store: {
+  bannerKey: string | null;
+  bannerKeys?: string[] | null;
+}): string[] {
+  const legacy =
+    store.bannerKey && !store.bannerKeys?.includes(store.bannerKey)
+      ? [store.bannerKey]
+      : [];
+
+  const keys = [...legacy, ...(store.bannerKeys ?? [])].filter(
+    (key): key is string =>
+      Boolean(key) &&
+      key.startsWith(BRANDING_KEY_PREFIX) &&
+      key.includes(BRANDING_KEY_FOLDER),
+  );
+
+  /* Remove duplicados preservando a ordem. */
+  return Array.from(new Set(keys));
+}
+
+export async function getStoreBrandingUrls(store: {
+  id: string;
+  logoKey: string | null;
+  bannerKey: string | null;
+  bannerKeys?: string[] | null;
+}): Promise<{
   logoUrl: string | null;
   bannerUrl: string | null;
+  bannerUrls: string[];
 }> {
-  const [logoUrl, bannerUrl] =
-    await Promise.all([
-      store.logoKey
-        ? createStoreDownloadUrlSafe(
-            store.logoKey,
-          )
-        : Promise.resolve(null),
+  const [logoUrl, bannerUrls] = await Promise.all([
+    store.logoKey
+      ? createStoreDownloadUrlSafe(store.logoKey)
+      : Promise.resolve(null),
 
-      store.bannerKey
-        ? createStoreDownloadUrlSafe(
-            store.bannerKey,
-          )
-        : Promise.resolve(null),
-    ]);
+    /* Todos os banners (legado + novos) como URLs assinadas. */
+    Promise.all(
+      resolveStoreBannerKeys(store).map((key) =>
+        createStoreDownloadUrlSafe(key),
+      ),
+    ).then((urls) => urls.filter((url): url is string => url !== null)),
+  ]);
 
   return {
     logoUrl,
-    bannerUrl,
+    bannerUrl: bannerUrls[0] ?? null,
+    bannerUrls,
   };
 }
 
@@ -1680,10 +1707,12 @@ export async function updateStoreBranding({
   storeId,
   logoKey,
   bannerKey,
+  bannerKeys,
 }: {
   storeId: string;
   logoKey?: string | null;
   bannerKey?: string | null;
+  bannerKeys?: string[] | null;
 }) {
   const db = await getDb();
 
@@ -1694,6 +1723,7 @@ export async function updateStoreBranding({
   const updates: {
     logoKey?: string | null;
     bannerKey?: string | null;
+    bannerKeys?: string[];
     updatedAt: Date;
   } = { updatedAt: new Date() };
 
@@ -1713,9 +1743,109 @@ export async function updateStoreBranding({
     updates.bannerKey = bannerKey;
   }
 
+  if (bannerKeys !== undefined) {
+    /*
+     * Cada chave da lista tem de pertencer à própria loja.
+     * Array vazio é válido (remove todos os banners extra).
+     */
+    for (const key of bannerKeys ?? []) {
+      assertBrandingKeyForStore(storeId, key);
+    }
+
+    /* Sem duplicados, preservando a ordem. */
+    updates.bannerKeys = Array.from(new Set(bannerKeys));
+  }
+
   const result = await db
     .update(stores)
     .set(updates)
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
+
+/* ============================================================
+   STORE BANNER MODEL + TEXTS (tema Nova)
+   ============================================================ */
+
+export async function updateStoreBannerSettings({
+  storeId,
+  bannerModel,
+  bannerTexts,
+  bannerFeatures,
+}: {
+  storeId: string;
+  bannerModel?: string | null;
+  bannerTexts?: { title?: string; subtitle?: string }[] | null;
+  bannerFeatures?: Record<string, unknown> | null;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updates: {
+    bannerModel?: string | null;
+    bannerTexts?: { title?: string; subtitle?: string }[];
+    bannerFeatures?: Record<string, unknown>;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+
+  if (bannerModel !== undefined) {
+    updates.bannerModel = bannerModel;
+  }
+
+  if (bannerTexts !== undefined) {
+    /*
+     * Normaliza: remove entradas totalmente vazias e
+     * campos em branco, preservando a ordem dos slides.
+     */
+    updates.bannerTexts = (bannerTexts ?? []).map((item) => ({
+      title: item.title?.trim() || undefined,
+      subtitle: item.subtitle?.trim() || undefined,
+    }));
+  }
+
+  if (bannerFeatures !== undefined) {
+    /*
+     * Guarda apenas chaves da própria loja
+     * (stores/{storeId}/branding/...) — o router
+     * já as validou; aqui filtra por defeito.
+     */
+    updates.bannerFeatures = bannerFeatures ?? {};
+  }
+
+  const result = await db
+    .update(stores)
+    .set(updates)
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
+
+/* ============================================================
+   STORE PRODUCT CARD MODEL (tema Nova)
+   ============================================================ */
+
+export async function updateStoreProductCardModel(
+  storeId: string,
+  model: string | null,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const result = await db
+    .update(stores)
+    .set({
+      productCardModel: model,
+      updatedAt: new Date(),
+    })
     .where(eq(stores.id, storeId))
     .returning();
 
@@ -2017,10 +2147,167 @@ export async function insertProduct(
   return result[0];
 }
 
-export async function archiveProduct(
+/* ============================================================
+   STORE CATEGORIES
+   ============================================================ */
+
+/**
+ * Categorias criadas pelo utilizador para a loja.
+ * É a única fonte do selector de categoria em produtos.
+ */
+export async function listStoreCategories(
+  storeId: string,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(storeCategories)
+    .where(
+      eq(storeCategories.storeId, storeId),
+    )
+    .orderBy(
+      asc(storeCategories.name),
+    );
+}
+
+export async function insertStoreCategory({
+  storeId,
+  name,
+}: {
+  storeId: string;
+  name: string;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
+  }  const result = await db
+    .insert(storeCategories)
+    .values({
+      id: randomUUID(),
+      storeId,
+      name,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function renameStoreCategory({
+  storeId,
+  categoryId,
+  name,
+}: {
+  storeId: string;
+  categoryId: string;
+  name: string;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
+  }
+
+  const existing = await db
+    .select()
+    .from(storeCategories)
+    .where(
+      and(
+        eq(storeCategories.id, categoryId),
+        eq(storeCategories.storeId, storeId),
+      ),
+    )
+    .limit(1);
+
+  const current = existing[0];
+
+  if (!current) {
+    throw new Error(
+      "STORE_CATEGORY_NOT_FOUND",
+    );
+  }
+
+  const oldName = current.name;
+
+  if (oldName === name) {
+    return current;
+  }
+
+  const result = await db
+    .update(storeCategories)
+    .set({
+      name,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(storeCategories.id, categoryId),
+        eq(storeCategories.storeId, storeId),
+      ),
+    )
+    .returning();
+
+  /*
+   * O nome da categoria vive nos produtos;
+   * renomear atualiza os produtos da mesma loja
+   * que apontavam para o nome antigo.
+   */
+  await db
+    .update(products)
+    .set({
+      category: name,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(products.storeId, storeId),
+        eq(products.category, oldName),
+      ),
+    );
+
+  return result[0];
+}
+
+export async function updateProduct(
   storeId: string,
   productId: number,
+  updates: Partial<InsertProduct>,
 ) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error(
+      "DATABASE_UNAVAILABLE",
+    );
+  }
+
+  const result = await db
+    .update(products)
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(products.id, productId),
+        eq(products.storeId, storeId),
+      ),
+    )
+    .returning();
+
+  return result[0] ?? null;
+}
+
+export async function archiveProduct(  storeId: string,  productId: number,) {
   const db = await getDb();
 
   if (!db) {

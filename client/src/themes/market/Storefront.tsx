@@ -264,15 +264,16 @@ export default function MarketStorefront({
     : false;
 
   if (!isDemo && isStoreLoading) {
+    /*
+     * Spinner neutro SEM texto: o visitante não deve ler
+     * estados de carregamento ao abrir a loja.
+     */
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
-
-          <p className="text-sm text-slate-500">
-            A carregar o tema...
-          </p>
-        </div>
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-slate-50"
+      >
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
       </div>
     );
   }
@@ -379,7 +380,7 @@ export default function MarketStorefront({
 
       <BottomNavigation
         cartCount={totalItems}
-        storeSlug={store?.slug}
+        storeSlug={storeSlug}
       />
     </div>
   );

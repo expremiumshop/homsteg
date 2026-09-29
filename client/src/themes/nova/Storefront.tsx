@@ -23,6 +23,12 @@ import {
   type NovaDemoProduct,
 } from "./demoData";
 
+import {
+  isBannerPublished,
+  type BannerFeatureMap,
+  type BannerText,
+} from "./bannerModels";
+
 type Product = {
   id: number;
   name: string;
@@ -51,6 +57,15 @@ type StoreData = {
    */
   logoKey?: string | null;
   bannerKey?: string | null;
+
+  /* Modelo de cartão de produto (1..5), ver productCardModels. */
+  productCardModel?: string | null;
+
+  /* Modelo de banner do carrossel (1..5). */
+  bannerModel?: string | null;
+
+  /* Textos por slide (título/subtítulo). */
+  bannerTexts?: BannerText[];
 };
 
 /*
@@ -61,6 +76,10 @@ type RealBanner = {
   id: string;
   image_url: string;
   position: number;
+  title?: string;
+  subtitle?: string;
+  features?: BannerFeatureMap[string];
+  buttonHref?: string;
 };
 
 type NovaStorefrontProps = {
@@ -208,7 +227,19 @@ export default function NovaStorefront({
 
   const publicBranding = publicStoreQuery.data
     ?.branding as
-    | { logoUrl: string | null; bannerUrl: string | null }
+    | {
+        logoUrl: string | null;
+        bannerUrl: string | null;
+        bannerUrls?: string[];
+      }
+    | undefined;
+
+  const internalBranding = brandingGetQuery.data as
+    | {
+        logoUrl: string | null;
+        bannerUrl: string | null;
+        bannerUrls?: string[];
+      }
     | undefined;
 
   const logoUrl = isDemo
@@ -217,21 +248,105 @@ export default function NovaStorefront({
       ? (publicBranding?.logoUrl ?? null)
       : (brandingGetQuery.data?.logoUrl ?? null);
 
-  const realBannerUrl = isDemo
-    ? null
+  /*
+   * Todos os banners reais da loja (legado + extra).
+   * A lista bannerUrls do servidor já vem ordenada
+   * (legado primeiro) e com URLs assinadas.
+   * Os textos (título/subtítulo) são guardados por
+   * índice de slide em bannerTexts.
+   */
+  const realBannerUrls: string[] = isDemo
+    ? []
     : storeSlug
-      ? (publicBranding?.bannerUrl ?? null)
-      : (brandingGetQuery.data?.bannerUrl ?? null);
+      ? (publicBranding?.bannerUrls ?? [])
+      : (internalBranding?.bannerUrls ?? []);
 
-  const realBanners: RealBanner[] = realBannerUrl
-    ? [
-        {
-          id: "store-banner-1",
-          image_url: realBannerUrl,
-          position: 1,
-        },
-      ]
-    : [];
+  const bannerTexts =
+    (store as { bannerTexts?: BannerText[] } | undefined)
+      ?.bannerTexts ?? [];
+
+  /*
+   * Chaves R2 na mesma ordem dos URLs:
+   * [bannerKey (legado), ...bannerKeys].
+   */
+  const realBannerKeys: string[] = isDemo
+    ? []
+    : [
+        ...((store as { bannerKey?: string | null } | undefined)
+          ?.bannerKey
+          ? [
+              (store as { bannerKey?: string | null })
+                .bannerKey as string,
+            ]
+          : []),
+        ...((store as { bannerKeys?: string[] | null } | undefined)
+          ?.bannerKeys ?? []),
+      ];
+
+  /*
+   * Elementos opcionais por banner, guardados por
+   * chave R2 do banner (bannerFeatures).
+   */
+  const bannerFeatureMap =
+    (store as
+      | { bannerFeatures?: BannerFeatureMap }
+      | undefined)?.bannerFeatures ?? {};
+
+  const realBanners: RealBanner[] = realBannerUrls.map(
+    (url, index) => {
+      const key = realBannerKeys[index] ?? url;
+
+      const features = bannerFeatureMap[key];
+
+      /*
+       * Destino do botão: página de produto da loja
+       * (slug) ou link externo/interno.
+       */
+      let buttonHref: string | undefined;
+
+      if (features?.button?.enabled && features.button.target) {
+        const destination = features.button.destination?.trim();
+
+        if (
+          features.button.target === "product" &&
+          destination
+        ) {
+          const ctx = store?.slug
+            ? `?storeSlug=${encodeURIComponent(store.slug)}`
+            : "";
+
+          buttonHref = `/themes/nova/produto/${encodeURIComponent(destination)}${ctx}`;
+        } else if (
+          features.button.target === "link" &&
+          destination
+        ) {
+          buttonHref = destination;
+        }
+      }
+
+      return {
+        id: `store-banner-${index + 1}`,
+        image_url: url,
+        position: index + 1,
+        title: bannerTexts[index]?.title,
+        subtitle: bannerTexts[index]?.subtitle,
+        features,
+        buttonHref,
+      };
+    },
+  );
+
+  /*
+   * NOVO FLUXO DE PUBLICAÇÃO: só banners publicados
+   * aparecem na loja. Ausência de estado guardado =
+   * publicado (banners antigos mantêm-se visíveis).
+   */
+  const publishedBanners = realBanners.filter(
+    (banner, index) =>
+      isBannerPublished(
+        bannerFeatureMap[realBannerKeys[index] ?? ""],
+      ),
+  );
 
   /* =========================================================
      PRODUTOS
@@ -327,15 +442,16 @@ export default function NovaStorefront({
       : internalProductsQuery.isLoading;
 
   if (!isDemo && isStoreLoading) {
+    /*
+     * Spinner neutro SEM texto: o visitante não deve ler
+     * estados de carregamento ao abrir a loja.
+     */
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
-
-          <p className="text-sm text-slate-500">
-            A carregar o tema...
-          </p>
-        </div>
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-slate-50"
+      >
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
       </div>
     );
   }
@@ -399,7 +515,10 @@ export default function NovaStorefront({
             BANNER PRINCIPAL
             ===================================================== */}
 
-        <BannerCarousel banners={realBanners} />
+        <BannerCarousel
+        banners={publishedBanners}
+        model={store?.bannerModel}
+      />
 
         {/* =====================================================
             BENEFÍCIOS SUPERIORES
@@ -431,6 +550,8 @@ export default function NovaStorefront({
             storeSlug ??
             ""
           }
+          productCardModel={store?.productCardModel}
+          whatsappNumber={store?.whatsapp ?? ""}
         />
 
         {/* =====================================================
@@ -514,7 +635,7 @@ export default function NovaStorefront({
         cartCount={0}
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
-        storeSlug={store?.slug}
+        storeSlug={storeSlug}
       />
     </div>
   );

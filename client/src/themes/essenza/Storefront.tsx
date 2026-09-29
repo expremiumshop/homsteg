@@ -269,15 +269,16 @@ export default function EssenzaStorefront({
     : false;
 
   if (!isDemo && isStoreLoading) {
+    /*
+     * Spinner neutro SEM texto: o visitante não deve ler
+     * estados de carregamento ao abrir a loja.
+     */
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border border-neutral-200 border-t-neutral-950" />
-
-          <p className="text-xs uppercase tracking-[0.16em] text-neutral-400">
-            A carregar
-          </p>
-        </div>
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-white"
+      >
+        <div className="h-10 w-10 animate-spin rounded-full border border-neutral-200 border-t-neutral-950" />
       </div>
     );
   }
@@ -401,7 +402,7 @@ export default function EssenzaStorefront({
 
       <BottomNavigation
         cartCount={totalItems}
-        storeSlug={store?.slug}
+        storeSlug={storeSlug}
       />
     </div>
   );

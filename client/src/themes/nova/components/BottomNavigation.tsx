@@ -22,7 +22,14 @@ export function BottomNavigation({
 }: BottomNavigationProps) {
   const [location] = useLocation();
 
-  const homePath = basePath;
+  /*
+   * "Home" deve levar sempre à homepage da loja atual:
+   * em loja real usa /store/:slug (rota interna); basePath
+   * (/themes/nova) fica apenas para os previews de tema.
+   */
+  const homePath = storeSlug
+    ? `/store/${encodeURIComponent(storeSlug)}`
+    : basePath;
   const storeContext = storeSlug
     ? `?storeSlug=${encodeURIComponent(storeSlug)}`
     : "";

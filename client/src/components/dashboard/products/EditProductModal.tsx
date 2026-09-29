@@ -1,4 +1,5 @@
 import { ChangeEvent, useEffect, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import {
   ImagePlus,
   Upload,
@@ -39,11 +40,13 @@ type Product = {
   imageUrl?: string | null;
   featured?: boolean;
   images?: string[];
+  imageKeys?: string[];
   options?: ProductOption[];
 };
 
 type EditProductModalProps = {
   product?: Product;
+  storeId?: string;
   onClose?: () => void;
 };
 
@@ -149,8 +152,31 @@ function slugify(value: string) {
 
 export default function EditProductModal({
   product,
+  storeId,
   onClose,
 }: EditProductModalProps) {
+  /*
+   * Categorias reais da loja do produto.
+   * Sem storeId, mostra apenas "Sem categoria".
+   */
+  const categoriesQuery =
+    trpc.categories.list.useQuery(
+      { storeId: storeId ?? "" },
+      {
+        enabled: Boolean(storeId),
+      },
+    );
+
+  const storeCategories =
+    categoriesQuery.data ?? [];
+
+  const storageUpload =
+    trpc.storage.createUploadUrl.useMutation();
+
+  const updateProductMutation =
+    trpc.products.update.useMutation();
+
+  const utils = trpc.useUtils();
   const [name, setName] = useState(product?.name || "");
 
   const [description, setDescription] = useState(
@@ -469,7 +495,7 @@ export default function EditProductModal({
     setQuickValues([]);
   }
 
-  function handleSave() {
+  async function handleSave() {
     setError("");
     setMessage("");
 
@@ -497,12 +523,172 @@ export default function EditProductModal({
       return;
     }
 
-    setMessage(
-      "Alterações prontas. A ligação com o Neon será feita no próximo passo.",
-    );
+    if (!storeId || !product?.id) {
+      setError(
+        "Não foi possível identificar o produto.",
+      );
+      return;
+    }
+
+    try {
+      /*
+       * Imagens: mantém as existentes e envia apenas
+       * as novas via URL pré-assinada (mesmo fluxo do
+       * NewProductModal).
+       */
+      const mainImage =
+        images.find(
+          (image) => image.id === mainImageId,
+        ) ?? images[0];
+
+      const orderedImages = mainImage
+        ? [
+            mainImage,
+            ...images.filter(
+              (image) => image.id !== mainImage.id,
+            ),
+          ]
+        : [];
+
+      const keysByExistingUrl = new Map(
+        (product.imageKeys ?? []).map(
+          (key, index) => [`existing-${index}`, key],
+        ),
+      );
+
+      const uploadedKeys: string[] = [];
+      let firstImageUrl: string | undefined;
+
+      for (const image of orderedImages) {
+        if (image.isExisting) {
+          const key = keysByExistingUrl.get(image.id);
+
+          if (key) {
+            uploadedKeys.push(key);
+          }
+
+          if (!firstImageUrl) {
+            firstImageUrl = image.preview;
+          }
+
+          continue;
+        }
+
+        if (!image.file) {
+          continue;
+        }
+
+        if (image.file.size > MAX_IMAGE_SIZE) {
+          throw new Error(
+            `A imagem "${image.file.name}" ultrapassa o limite de 1 MB.`,
+          );
+        }
+
+        const contentType = image.file.type;
+
+        if (
+          contentType !== "image/jpeg" &&
+          contentType !== "image/png" &&
+          contentType !== "image/webp" &&
+          contentType !== "image/gif"
+        ) {
+          throw new Error(
+            `A imagem "${image.file.name}" não está num formato suportado.`,
+          );
+        }
+
+        const upload =
+          await storageUpload.mutateAsync({
+            storeId,
+            fileName: image.file.name,
+            contentType,
+          });
+
+        const uploadResponse =
+          await fetch(upload.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": contentType },
+            body: image.file,
+          });
+
+        if (!uploadResponse.ok) {
+          throw new Error(
+            `Falha no upload da imagem para o Cloudflare R2. HTTP ${uploadResponse.status}.`,
+          );
+        }
+
+        uploadedKeys.push(upload.key);
+
+        if (!firstImageUrl) {
+          firstImageUrl = upload.imageUrl;
+        }
+      }
+
+      const productOptions = options
+        .map((option) => ({
+          name: option.name.trim(),
+          values: option.values
+            .map((value) => value.trim())
+            .filter(Boolean),
+        }))
+        .filter(
+          (option) =>
+            Boolean(option.name) &&
+            option.values.length > 0,
+        );
+
+      await updateProductMutation.mutateAsync({
+        storeId,
+        productId: product.id,
+        name: name.trim(),
+        description: description.trim() || null,
+        priceMzn: Math.round(Number(price)),
+        compareAtPriceMzn: compareAtPrice
+          ? Math.round(Number(compareAtPrice))
+          : null,
+        stock: Math.max(
+          0,
+          Number.parseInt(stock || "0", 10) || 0,
+        ),
+        category: category.trim() || null,
+        imageKeys: uploadedKeys,
+        imageUrl:
+          uploadedKeys.length
+            ? (firstImageUrl ?? null)
+            : null,
+        options: productOptions,
+      });
+
+      await utils.products.list.invalidate({
+        storeId,
+      });
+
+      await utils.dashboard.summary.invalidate({
+        storeId,
+      });
+
+      setMessage(
+        "Alterações guardadas com sucesso.",
+      );
+
+      setTimeout(() => {
+        onClose?.();
+      }, 700);
+    } catch (saveError) {
+      console.error(
+        "ERRO AO GUARDAR PRODUTO:",
+        saveError,
+      );
+
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Não foi possível guardar as alterações.",
+      );
+    }
   }
 
-  const selectedQuickOption =
+const selectedQuickOption =
     QUICK_OPTIONS.find(
       (item) => item.id === quickOption,
     );
@@ -1063,21 +1249,16 @@ export default function EditProductModal({
                     Sem categoria
                   </option>
 
-                  <option value="Moda masculina">
-                    Moda masculina
-                  </option>
-
-                  <option value="Moda feminina">
-                    Moda feminina
-                  </option>
-
-                  <option value="Calçados">
-                    Calçados
-                  </option>
-
-                  <option value="Eletrónicos">
-                    Eletrónicos
-                  </option>
+                  {storeCategories.map(
+                    (storeCategory) => (
+                      <option
+                        key={storeCategory.id}
+                        value={storeCategory.name}
+                      >
+                        {storeCategory.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </label>
             </section>

@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import EditProductModal from "./EditProductModal";
 import NewProductModal from "./NewProductModal";
 import { trpc } from "@/lib/trpc";
 
@@ -17,7 +18,7 @@ type ProductStatus = "active" | "draft" | "archived";
 type Product = {
   id: number;
   name: string;
-  category: string;
+  category: string | null;
   priceMzn: number;
   stock: number;
   status: ProductStatus;
@@ -164,6 +165,10 @@ export default function ProductsPage({
 
   const [showNewProduct, setShowNewProduct] = useState(false);
 
+  const [editingProduct, setEditingProduct] = useState<Product | null>(
+    null,
+  );
+
   useEffect(() => {
     setSelectedIds((current) =>
       current.filter((id) =>
@@ -179,7 +184,9 @@ export default function ProductsPage({
       const matchesSearch =
         !term ||
         product.name.toLowerCase().includes(term) ||
-        product.category.toLowerCase().includes(term);
+        (product.category ?? "")
+          .toLowerCase()
+          .includes(term);
 
       const matchesStatus =
         statusFilter === "all" ||
@@ -468,7 +475,8 @@ export default function ProductsPage({
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-600">
-                        {product.category}
+                        {product.category ||
+                          "Sem categoria"}
                       </td>
 
                       <td className="px-5 py-4 text-sm font-semibold text-slate-900">
@@ -486,6 +494,11 @@ export default function ProductsPage({
                       <td className="px-5 py-4 text-right">
                         <button
                           type="button"
+                          onClick={() =>
+                            setEditingProduct(
+                              product,
+                            )
+                          }
                           className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                         >
                           Editar
@@ -531,7 +544,8 @@ export default function ProductsPage({
                         </div>
 
                         <div className="mt-0.5 truncate text-xs text-slate-400">
-                          {product.category}
+                          {product.category ||
+                            "Sem categoria"}
                         </div>
                       </div>
                     </div>
@@ -567,13 +581,19 @@ export default function ProductsPage({
                     </div>
 
                     <div className="mt-1 text-sm text-slate-600">
-                      {product.category}
+                      {product.category ||
+                        "Sem categoria"}
                     </div>
                   </div>
 
                   <div className="flex items-end justify-end">
                     <button
                       type="button"
+                      onClick={() =>
+                        setEditingProduct(
+                          product,
+                        )
+                      }
                       className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                     >
                       Editar
@@ -608,6 +628,14 @@ export default function ProductsPage({
           )}
         </div>
       </div>
+
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          storeId={storeId}
+          onClose={() => setEditingProduct(null)}
+        />
+      )}
 
       {showNewProduct && (
         <NewProductModal

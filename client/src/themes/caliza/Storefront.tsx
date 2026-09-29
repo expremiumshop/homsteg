@@ -275,34 +275,27 @@ export default function CalizaStorefront({
     : false;
 
   if (!isDemo && isStoreLoading) {
+    /*
+     * Spinner neutro SEM texto: o visitante não deve ler
+     * estados de carregamento ao abrir a loja.
+     */
     return (
       <div
+        aria-busy="true"
         className="flex min-h-screen items-center justify-center"
         style={{
           background: calizaColors.bg,
         }}
       >
-        <div className="text-center">
-          <div
-            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2"
-            style={{
-              borderColor:
-                calizaColors.border,
-              borderTopColor:
-                calizaColors.primary,
-            }}
-          />
-
-          <p
-            className="text-xs uppercase tracking-[0.16em]"
-            style={{
-              color:
-                calizaColors.textMuted,
-            }}
-          >
-            A carregar
-          </p>
-        </div>
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2"
+          style={{
+            borderColor:
+              calizaColors.border,
+            borderTopColor:
+              calizaColors.primary,
+          }}
+        />
       </div>
     );
   }
@@ -494,7 +487,7 @@ export default function CalizaStorefront({
 
       <BottomNavigation
         cartCount={totalItems}
-        storeSlug={store?.slug}
+        storeSlug={storeSlug}
       />
     </div>
   );

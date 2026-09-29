@@ -64,6 +64,41 @@
       "when": 1790486714951,
       "tag": "0008_misty_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790544451107,
+      "tag": "0009_store_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790631000000,
+      "tag": "0010_store_banners",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790717400000,
+      "tag": "0011_store_product_card_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790803800000,
+      "tag": "0012_store_banner_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790890200000,
+      "tag": "0013_store_banner_features",
+      "breakpoints": true
     }
   ]
 }

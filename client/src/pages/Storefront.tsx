@@ -46,8 +46,23 @@ export default function Storefront({
     { enabled: Boolean(slug) },
   );
 
+  /*
+   * Carregamento inicial: enquanto stores.bySlug decide o tema
+   * da loja, mostramos apenas um spinner neutro, SEM nenhum
+   * texto de carregamento. Montar o storefront Nova aqui faria
+   * o visitante ver primeiro um tema/branding errado e depois
+   * um flash quando o tema real monta. Nenhum storefront é
+   * renderizado nesta fase.
+   */
   if (storeQuery.isLoading) {
-    return <NovaStorefront storeSlug={slug} />;
+    return (
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-white"
+      >
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-500" />
+      </div>
+    );
   }
 
   const themeKey = storeQuery.data?.store.themeKey ?? "nova";
