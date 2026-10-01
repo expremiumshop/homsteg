@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowRight,
@@ -538,110 +538,6 @@ export default function Home() {
   const goCreate = () => navigate("/criar-conta");
   const goLogin = () => navigate("/login");
 
-  /*
-   * VÍDEO DE FUNDO — arranque garantido no MOBILE.
-   *
-   * CAUSA RAIZ do vídeo invisível no celular: o React
-   * NÃO serializa o atributo "muted" para o DOM
-   * (bug conhecido, React #10389). Os browsers móveis
-   * avaliam a política de autoplay pelo ATRIBUTO no
-   * momento do load — sem ele, o autoplay é negado
-   * silenciosamente e o elemento nunca decodifica o
-   * primeiro frame (fica transparente: só se vê o
-   * fundo escuro/grid). No desktop os browsers são
-   * mais tolerantes, por isso funcionava só no PC.
-   *
-   * CORREÇÃO CANÓNICA: definir muted como propriedade
-   * E atributo, e reavaliar o elemento com load()
-   * antes de chamar play().
-   *
-   * FALLBACK DE PRIMEIRO TOQUE: o iOS em Modo de
-   * Pouca Energia bloqueia autoplay MESMO muted.
-   * Nesse caso o primeiro toque em qualquer lugar
-   * da página arranca o vídeo.
-   */
-  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    const video = heroVideoRef.current;
-
-    if (!video) {
-      return;
-    }
-
-    /*
-     * 1. muted como PROPRIEDADE e como ATRIBUTO
-     *    (o atributo é o que o mobile consulta).
-     */
-    video.muted = true;
-    video.setAttribute("muted", "");
-
-    /* 2. playsinline nos dois formatos (iOS antigo). */
-    video.playsInline = true;
-    video.setAttribute("playsinline", "");
-    video.setAttribute("webkit-playsinline", "");
-
-    /*
-     * 3. load() reavalia o elemento com muted já
-     *    presente — sem isto, o Safari móvel mantém
-     *    a decisão negativa de autoplay tomada antes.
-     */
-    video.load();
-
-    const tryPlay = () => {
-      /* play() devolve Promise; ignora abort/NotSupported silenciosamente. */
-      const playback = video.play();
-
-      if (playback && typeof playback.catch === "function") {
-        playback.catch(() => undefined);
-      }
-    };
-
-    video.addEventListener("loadeddata", tryPlay);
-    video.addEventListener("canplay", tryPlay);
-    video.addEventListener("loadedmetadata", tryPlay);
-
-    /*
-     * Fallback de interação: cobre iOS Modo de Pouca
-     * Energia / poupança de dados, onde o autoplay
-     * é bloqueado até haver um gesto do utilizador.
-     */
-    const handleFirstInteraction = () => {
-      if (video.paused) {
-        tryPlay();
-      }
-    };
-
-    /*
-     * Redeescada extra: alguns browsers móveis pausam
-     * ao voltar do background do sistema; retoma ao
-     * ficar visível de novo.
-     */
-    const handleVisibility = () => {
-      if (
-        document.visibilityState === "visible" &&
-        video.paused
-      ) {
-        tryPlay();
-      }
-    };
-
-    document.addEventListener("touchstart", handleFirstInteraction, {
-      passive: true,
-    });
-    document.addEventListener("pointerdown", handleFirstInteraction);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      video.removeEventListener("loadeddata", tryPlay);
-      video.removeEventListener("canplay", tryPlay);
-      video.removeEventListener("loadedmetadata", tryPlay);
-      document.removeEventListener("touchstart", handleFirstInteraction);
-      document.removeEventListener("pointerdown", handleFirstInteraction);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f6fa] text-slate-950">
       <style>{`
@@ -653,11 +549,6 @@ export default function Home() {
         @keyframes floatB {
           0%,100% { transform: translate3d(0,0,0); }
           50% { transform: translate3d(0,10px,0); }
-        }
-
-        @keyframes pulseGlow {
-          0%,100% { opacity:.45; transform:scale(1); }
-          50% { opacity:.75; transform:scale(1.08); }
         }
 
         @keyframes shine {
@@ -682,19 +573,9 @@ export default function Home() {
 
         .homsteg-float-a { animation:floatA 6s ease-in-out infinite; }
         .homsteg-float-b { animation:floatB 5s ease-in-out infinite; }
-        .homsteg-glow { animation:pulseGlow 4s ease-in-out infinite; }
         .homsteg-reveal { animation:reveal .8s cubic-bezier(.22,1,.36,1) both; }
         .homsteg-marquee { animation:marquee 25s linear infinite; }
         .homsteg-shine { animation:shine 2.8s ease-in-out infinite; }
-
-        /*
-         * Hero em vídeo: utilizadores que preferem
-         * menos movimento veem o fundo estático
-         * (poster + gradientes) em vez do vídeo.
-         */
-        @media (prefers-reduced-motion: reduce) {
-          .homsteg-hero-video { display: none; }
-        }
 
         html { scroll-behavior:smooth; }
       `}</style>
@@ -790,57 +671,18 @@ export default function Home() {
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-[#080b18] pb-24 pt-36 text-white sm:pt-40">
-        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Sem poster a azul: sem rede, fica o fundo escuro neutro da seção. */}
-        <video
-          ref={heroVideoRef}
-          className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          aria-hidden="true"
-          tabIndex={-1}
-        >
-          {/* SD primeiro: arranca mais depressa no mobile (4G) com máxima compatibilidade. */}
-          <source
-            src="https://videos.pexels.com/video-files/8937981/8937981-sd_960_540_30fps.mp4"
-            type="video/mp4"
-          />
-
-          {/* HD para desktop. */}
-          <source
-            src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4"
-            type="video/mp4"
-          />
-
-          {/* Fallback: navegação de loja em tablet. */}
-          <source
-            src="https://videos.pexels.com/video-files/6238179/6238179-sd_960_540_25fps.mp4"
-            type="video/mp4"
-          />
-        </video>
-
-        {/* Overlay MUITO sutil sobre o vídeo: apenas escurece o suficiente para o texto manter contraste — o vídeo permanece claramente visível. */}
-        <div className="absolute inset-0 bg-[#080b18]/30" />
-
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[.05]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
+      <section className="relative overflow-hidden pb-24 pt-36 text-white sm:pt-40">
+        {/* FUNDO DO HERO — imagem estática única, sem vídeo nem animação. Overlay escuro fixo para legibilidade do texto branco. */}
+        <img
+          src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=80"
+          alt=""
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
-
-        <div className="pointer-events-none homsteg-glow absolute -left-24 top-32 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl" />
-        <div className="pointer-events-none homsteg-glow absolute -right-24 top-72 h-80 w-80 rounded-full bg-violet-600/5 blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/65 to-slate-950/85" />
 
         <div className="relative mx-auto max-w-7xl px-5">
           <div className="grid items-center gap-14 lg:grid-cols-[.85fr_1.15fr]">
-            <div className="homsteg-reveal">
+            <div>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1.5 text-[11px] font-semibold text-white/80 ring-1 ring-white/10">
                 <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
                 A nova forma de criar uma loja online
@@ -888,10 +730,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div
-              className="homsteg-reveal relative"
-              style={{ animationDelay: "180ms" }}
-            >
+            <div className="relative">
               <StorePreview />
             </div>
           </div>
