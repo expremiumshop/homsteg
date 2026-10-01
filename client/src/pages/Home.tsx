@@ -541,11 +541,19 @@ export default function Home() {
   /*
    * VÍDEO DE FUNDO — arranque garantido no MOBILE.
    *
-   * Browsers móveis (iOS/Android) frequentemente
-   * não iniciam o autoplay só com o atributo
-   * autoPlay. A correção é chamar video.play()
-   * explicitamente quando o elemento está pronto —
-   * muted+playsInline tornam isso permitido.
+   * CAUSA RAIZ do vídeo invisível no celular: o React
+   * NÃO serializa o atributo "muted" para o DOM
+   * (bug conhecido, React #10389). Os browsers móveis
+   * avaliam a política de autoplay pelo ATRIBUTO no
+   * momento do load — sem ele, o autoplay é negado
+   * silenciosamente e o elemento nunca decodifica o
+   * primeiro frame (fica transparente: só se vê o
+   * fundo escuro/grid). No desktop os browsers são
+   * mais tolerantes, por isso funcionava só no PC.
+   *
+   * CORREÇÃO CANÓNICA: definir muted como propriedade
+   * E atributo, e reavaliar o elemento com load()
+   * antes de chamar play().
    *
    * FALLBACK DE PRIMEIRO TOQUE: o iOS em Modo de
    * Pouca Energia bloqueia autoplay MESMO muted.
@@ -561,6 +569,25 @@ export default function Home() {
       return;
     }
 
+    /*
+     * 1. muted como PROPRIEDADE e como ATRIBUTO
+     *    (o atributo é o que o mobile consulta).
+     */
+    video.muted = true;
+    video.setAttribute("muted", "");
+
+    /* 2. playsinline nos dois formatos (iOS antigo). */
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
+    /*
+     * 3. load() reavalia o elemento com muted já
+     *    presente — sem isto, o Safari móvel mantém
+     *    a decisão negativa de autoplay tomada antes.
+     */
+    video.load();
+
     const tryPlay = () => {
       /* play() devolve Promise; ignora abort/NotSupported silenciosamente. */
       const playback = video.play();
@@ -570,12 +597,9 @@ export default function Home() {
       }
     };
 
-    if (video.readyState >= 2) {
-      tryPlay();
-    } else {
-      video.addEventListener("loadeddata", tryPlay, { once: true });
-      video.addEventListener("canplay", tryPlay, { once: true });
-    }
+    video.addEventListener("loadeddata", tryPlay);
+    video.addEventListener("canplay", tryPlay);
+    video.addEventListener("loadedmetadata", tryPlay);
 
     /*
      * Fallback de interação: cobre iOS Modo de Pouca
@@ -604,16 +628,14 @@ export default function Home() {
 
     document.addEventListener("touchstart", handleFirstInteraction, {
       passive: true,
-      once: true,
     });
-    document.addEventListener("pointerdown", handleFirstInteraction, {
-      once: true,
-    });
+    document.addEventListener("pointerdown", handleFirstInteraction);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       video.removeEventListener("loadeddata", tryPlay);
       video.removeEventListener("canplay", tryPlay);
+      video.removeEventListener("loadedmetadata", tryPlay);
       document.removeEventListener("touchstart", handleFirstInteraction);
       document.removeEventListener("pointerdown", handleFirstInteraction);
       document.removeEventListener("visibilitychange", handleVisibility);
