@@ -411,6 +411,7 @@ export const marketCategoryEnum = pgEnum(
     "product_card",
     "nav_button",
     "footer",
+    "stock",
   ],
 );
 

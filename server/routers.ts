@@ -46,6 +46,7 @@ import {
   ensureMarketFeaturesSeeded,
   setStoreCreditMzn,
   addStoreCreditMzn,
+  getStoreStockCapacity,
 } from "./db.js";
 
 import type { InsertProduct } from "../drizzle/schema.js";
@@ -917,7 +918,15 @@ export const appRouter = router({
             });
           }
 
-          return result;
+          const stockCapacity =
+            await getStoreStockCapacity(
+              input.storeId,
+            );
+
+          return {
+            ...result,
+            stockCapacity,
+          };
         }),
     }),
 
@@ -1395,10 +1404,29 @@ export const appRouter = router({
         );
 
         /* ======================================================
-           A plataforma é 100% gratuita: sem limites de
-           produtos por plano. Qualquer loja cria
-           quantos produtos quiser.
+           CAPACIDADE DE ESTOQUE: toda loja começa com
+           50 produtos grátis; pacotes comprados no
+           Market (categoria "stock") somam capacidade
+           extra. Produtos arquivados não contam.
            ====================================================== */
+
+        const [stockCapacity, productsUsed] =
+          await Promise.all([
+            getStoreStockCapacity(
+              input.storeId,
+            ),
+            countActiveStoreProducts(
+              input.storeId,
+            ),
+          ]);
+
+        if (productsUsed >= stockCapacity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              `Capacidade de estoque cheia (${productsUsed}/${stockCapacity} produtos). Compra mais capacidade no Market (Estoque).`,
+          });
+        }
 
         const productImagePrefix =
           `stores/${input.storeId}/products/`;
@@ -1859,6 +1887,7 @@ export const appRouter = router({
                 "category_card",
                 "product_card",
                 "footer",
+                "stock",
               ]),
               priceCredits: z
                 .number()

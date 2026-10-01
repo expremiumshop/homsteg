@@ -9,6 +9,7 @@ import {
   Palette,
   PanelBottom,
   Store,
+  Warehouse,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -121,6 +122,14 @@ const MARKET_HOME_CARDS: MarketHomeCard[] = [
     description: "Rodapés do fundo da loja.",
     icon: PanelBottom,
   },
+  {
+    type: "category",
+    kind: "stock",
+    title: "Estoque",
+    description:
+      "Capacidade extra de produtos: toda loja começa com 50 grátis.",
+    icon: Warehouse,
+  },
 ];
 
 /* Rota existente do dashboard (Design e temas). */
@@ -171,6 +180,28 @@ export default function MarketPage({
       new Set(purchasesQuery.data?.featureKeys ?? []),
     [purchasesQuery.data],
   );
+
+  /*
+   * Capacidade de estoque da loja (50 grátis +
+   * pacotes comprados). Produtos arquivados não
+   * contam para o uso.
+   */
+  const usageQuery = trpc.stores.usage.current.useQuery(
+    { storeId: storeId ?? "" },
+    {
+      enabled: Boolean(storeId),
+    },
+  );
+
+  const productsUsed =
+    usageQuery.data?.productsUsed ?? 0;
+
+  const stockCapacity =
+    usageQuery.data?.stockCapacity ?? 0;
+
+  const stockFull =
+    stockCapacity > 0 &&
+    productsUsed >= stockCapacity;
 
   const utils = trpc.useUtils();
 
@@ -403,6 +434,56 @@ export default function MarketPage({
                     : "modelos disponíveis."}
                 </p>
               </div>
+
+              {/* Estoque: uso atual da capacidade */}
+              {activeCard.kind === "stock" &&
+                storeId && (
+                  <div className="mb-4 rounded-xl border border-gray-200 bg-[#f6f8f4] px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-[#111713]">
+                        A tua loja usa {productsUsed} de{" "}
+                        {stockCapacity || "…"} produtos
+                      </p>
+
+                      <span className="text-[10px] font-semibold text-gray-500">
+                        Toda loja começa com 50 produtos
+                        grátis.
+                      </span>
+                    </div>
+
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className={`h-full rounded-full ${
+                          stockFull
+                            ? "bg-amber-500"
+                            : "bg-emerald-600"
+                        }`}
+                        style={{
+                          width: stockCapacity
+                            ? `${Math.min(
+                                100,
+                                (productsUsed /
+                                  stockCapacity) *
+                                  100,
+                              )}%`
+                            : "0%",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+              {/* Estoque cheio: aviso amigável antes dos pacotes */}
+              {activeCard.kind === "stock" &&
+                storeId &&
+                stockFull && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                    Estoque cheio ({productsUsed}/
+                    {stockCapacity} produtos). Compra um
+                    pacote abaixo para aumentar a capacidade
+                    da tua loja.
+                  </div>
+                )}
 
               {/* Todos os modelos existentes, por ordem numérica */}
               <div

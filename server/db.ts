@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 
-import { MARKET_CATALOG } from "../shared/market-catalog.js";
+import {
+  MARKET_CATALOG,
+  computeStockCapacity,
+  getStockPackExtra,
+} from "../shared/market-catalog.js";
 
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import { asc } from "drizzle-orm";
@@ -2267,6 +2271,95 @@ export async function ensureMarketFeaturesSeeded() {
     existing.map((row) => row.featureKey),
   );
 
+  /*
+   * Identidade dos pacotes de estoque: nomes e
+   * descrições corretos desde o seed. O PREÇO não
+   * vive aqui — é definido exclusivamente no painel
+   * Admin, pela mesma negociação dos outros
+   * produtos do Market.
+   */
+  const STOCK_FEATURE_DEFAULTS: Record<
+    string,
+    { name: string; description: string }
+  > = {
+    "1stock": {
+      name: "Estoque +60",
+      description:
+        "Adiciona 60 produtos à capacidade de estoque da tua loja.",
+    },
+    "2stock": {
+      name: "Estoque +100",
+      description:
+        "Adiciona 100 produtos à capacidade de estoque da tua loja.",
+    },
+    "3stock": {
+      name: "Estoque +200",
+      description:
+        "Adiciona 200 produtos à capacidade de estoque da tua loja.",
+    },
+    "4stock": {
+      name: "Estoque +300",
+      description:
+        "Adiciona 300 produtos à capacidade de estoque da tua loja.",
+    },
+    "5stock": {
+      name: "Estoque +500",
+      description:
+        "Adiciona 500 produtos à capacidade de estoque da tua loja.",
+    },
+    "6stock": {
+      name: "Estoque +1.000",
+      description:
+        "Adiciona 1.000 produtos à capacidade de estoque da tua loja.",
+    },
+    "7stock": {
+      name: "Estoque +5.000",
+      description:
+        "Adiciona 5.000 produtos à capacidade de estoque da tua loja.",
+    },
+    "8stock": {
+      name: "Estoque +15.000",
+      description:
+        "Adiciona 15.000 produtos à capacidade de estoque da tua loja.",
+    },
+  };
+
+  /*
+   * Reparação idempotente: linhas de estoque que
+   * tenham nascido com nome placeholder (ex.:
+   * "1stock") recebem o nome/descrição corretos.
+   * Se o Admin já editou, não há correspondência
+   * e nada é alterado.
+   */
+  for (const entry of MARKET_CATALOG) {
+    const stockDefaults =
+      STOCK_FEATURE_DEFAULTS[entry.featureKey];
+
+    if (
+      !stockDefaults ||
+      !existingKeys.has(entry.featureKey)
+    ) {
+      continue;
+    }
+
+    await db
+      .update(marketFeatures)
+      .set({
+        name: stockDefaults.name,
+        description: stockDefaults.description,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(
+            marketFeatures.featureKey,
+            entry.featureKey,
+          ),
+          eq(marketFeatures.name, entry.featureKey),
+        ),
+      );
+  }
+
   const missing = MARKET_CATALOG.filter(
     (entry) => !existingKeys.has(entry.featureKey),
   );
@@ -2275,21 +2368,108 @@ export async function ensureMarketFeaturesSeeded() {
     return;
   }
 
-  await db
-    .insert(marketFeatures)
-    .values(
-      missing.map((entry) => ({
-        id: entry.featureKey,
-        featureKey: entry.featureKey,
-        category: entry.category,
-        sortOrder: entry.sortOrder,
-        /* Defaults comerciais — editáveis no Admin. */
-        name: entry.featureKey,
-        description:
-          "Funcionalidade de personalização do Market.",
-        priceCredits: 0,
-        status: "active" as const,
-      })),
-    )
-    .onConflictDoNothing();
+  try {
+    await db
+      .insert(marketFeatures)
+      .values(
+        missing.map((entry) => {
+          const stockDefaults =
+            STOCK_FEATURE_DEFAULTS[
+              entry.featureKey
+            ];
+
+          return {
+            id: entry.featureKey,
+            featureKey: entry.featureKey,
+            category: entry.category,
+            sortOrder: entry.sortOrder,
+            /*
+             * Nome e descrição corretos desde o
+             * seed; o preço nasce a 0 e é definido
+             * exclusivamente no painel Admin —
+             * nenhuma segunda lógica de preços.
+             * Status igual ao de todas as outras
+             * funcionalidades: active.
+             */
+            name:
+              stockDefaults?.name ??
+              entry.featureKey,
+            description:
+              stockDefaults?.description ??
+              "Funcionalidade de personalização do Market.",
+            priceCredits: 0,
+            status: "active" as const,
+          };
+        }),
+      )
+      .onConflictDoNothing();
+  } catch (error) {
+    /*
+     * O seed NUNCA pode derrubar o carregamento do
+     * Market (ex.: migração do enum ainda não
+     * aplicada na base de dados). Os modelos
+     * continuam visíveis e o Admin pode corrigir.
+     */
+    console.warn(
+      "[Market] Seed de market_features falhou (o Market continua a carregar):",
+      error,
+    );
+  }
+}
+
+/* ============================================================
+   STOCK CAPACITY (capacidade de estoque da loja)
+
+   Toda loja começa com 50 produtos grátis. Capacidade
+   extra vive exclusivamente no Market (categoria
+   "stock"): cada pacote comprado soma os seus
+   produtos extras à capacidade total da loja. A
+   fonte de verdade é a mesma das outras compras do
+   Market: a tabela store_market_features.
+   ============================================================ */
+
+/**
+ * Devolve os featureKeys comprados por uma loja
+ * apenas na categoria "stock" (pacotes de estoque).
+ */
+export async function listStoreStockPackKeys({
+  storeId,
+}: {
+  storeId: string;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const rows = await db
+    .select({
+      featureKey: storeMarketFeatures.featureKey,
+    })
+    .from(storeMarketFeatures)
+    .where(
+      eq(storeMarketFeatures.storeId, storeId),
+    );
+
+  /* Filtra só pacotes de estoque (compartilha a tabela com o resto do Market). */
+  return rows
+    .map((row) => row.featureKey)
+    .filter(
+      (featureKey) =>
+        getStockPackExtra(featureKey) !== null,
+    );
+}
+
+/**
+ * Capacidade total de produtos da loja:
+ * 50 grátis + soma dos pacotes de estoque comprados.
+ */
+export async function getStoreStockCapacity(
+  storeId: string,
+): Promise<number> {
+  const stockPackKeys =
+    await listStoreStockPackKeys({ storeId });
+
+  return computeStockCapacity(stockPackKeys);
 }

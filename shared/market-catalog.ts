@@ -26,6 +26,7 @@ export const MARKET_CATEGORIES = [
   "product_card",
   "nav_button",
   "footer",
+  "stock",
 ] as const;
 
 export type MarketCatalogCategory =
@@ -42,7 +43,79 @@ export const MARKET_CATEGORY_LABELS: Record<
   product_card: "Product Card",
   nav_button: "Botões de Navegação",
   footer: "Footer",
+  stock: "Estoque",
 };
+
+/* ============================================================
+   CAPACIDADE DE ESTOQUE (produtos por loja)
+
+   Toda loja nova começa com 50 produtos grátis.
+   Capacidade adicional vive exclusivamente no Market,
+   na categoria "stock": cada pacote comprado
+   (store_market_features) soma os seus produtos extras
+   à capacidade total da loja.
+
+   Os preços dos pacotes vivem na base de dados
+   (market_features), administráveis pelo Admin —
+   nunca hardcoded no cliente.
+   ============================================================ */
+
+/** Produtos grátis de toda loja nova. */
+export const FREE_STOCK_CAPACITY = 50;
+
+/**
+ * Pacotes de capacidade extra do Market:
+ * featureKey → produtos adicionais.
+ */
+export const STOCK_PACKS: Record<string, number> = {
+  "1stock": 60,
+  "2stock": 100,
+  "3stock": 200,
+  "4stock": 300,
+  "5stock": 500,
+  "6stock": 1_000,
+  "7stock": 5_000,
+  "8stock": 15_000,
+};
+
+/**
+ * Produtos extra de um pacote de estoque
+ * (null se o featureKey não for um pacote).
+ */
+export function getStockPackExtra(
+  featureKey: string,
+): number | null {
+  return STOCK_PACKS[featureKey] ?? null;
+}
+
+/**
+ * Capacidade total de produtos de uma loja:
+ * 50 grátis + soma dos pacotes comprados.
+ * (Função pura — partilhada entre server e cliente.)
+ */
+export function computeStockCapacity(
+  purchasedFeatureKeys: string[],
+): number {
+  let capacity = FREE_STOCK_CAPACITY;
+
+  for (const featureKey of purchasedFeatureKeys) {
+    capacity += getStockPackExtra(featureKey) ?? 0;
+  }
+
+  return capacity;
+}
+
+/**
+ * Verifica se a loja pode adicionar mais produtos.
+ * (Função pura — testada em server/stock-capacity.logic.test.ts.)
+ */
+export function canAddProducts(
+  capacity: number,
+  used: number,
+  count = 1,
+): boolean {
+  return used + count <= capacity;
+}
 
 /**
  * Uma funcionalidade estrutural do Market
@@ -145,6 +218,21 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
   { featureKey: "1footer", category: "footer", sortOrder: 1 },
   { featureKey: "2footer", category: "footer", sortOrder: 2 },
   { featureKey: "3footer", category: "footer", sortOrder: 3 },
+
+  /*
+   * ESTOQUE — pacotes de capacidade extra de produtos.
+   * Toda loja começa com 50 produtos grátis (ver
+   * FREE_STOCK_CAPACITY); cada pacote comprado soma
+   * os seus produtos extras (STOCK_PACKS).
+   */
+  { featureKey: "1stock", category: "stock", sortOrder: 1 },
+  { featureKey: "2stock", category: "stock", sortOrder: 2 },
+  { featureKey: "3stock", category: "stock", sortOrder: 3 },
+  { featureKey: "4stock", category: "stock", sortOrder: 4 },
+  { featureKey: "5stock", category: "stock", sortOrder: 5 },
+  { featureKey: "6stock", category: "stock", sortOrder: 6 },
+  { featureKey: "7stock", category: "stock", sortOrder: 7 },
+  { featureKey: "8stock", category: "stock", sortOrder: 8 },
 ];
 
 /** Procura uma entrada estrutural pelo featureKey. */

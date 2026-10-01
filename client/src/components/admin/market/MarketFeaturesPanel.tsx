@@ -1,10 +1,22 @@
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import {
+  Compass,
+  Images,
+  LayoutGrid,
+  Loader2,
+  MousePointerClick,
+  Package,
+  PanelBottom,
+  Warehouse,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
 
-import type { MarketFeature } from "@/components/dashboard/market/registry";
+import type {
+  MarketFeature,
+  MarketSectionKind,
+} from "@/components/dashboard/market/registry";
 import {
   MARKET_SECTION_LABELS,
   MARKET_SECTION_ORDER,
@@ -45,6 +57,25 @@ type FeatureMap = Record<
   string,
   AdminMarketFeatureRow | undefined
 >;
+
+/*
+ * Ícone de cada categoria — os MESMOS usados nos
+ * cartões da página principal do Market, para que
+ * o agrupamento visual seja idêntico nos dois sítios.
+ * Apenas apresentação; nenhuma lógica.
+ */
+const SECTION_ICONS: Record<
+  MarketSectionKind,
+  typeof Compass
+> = {
+  header: Compass,
+  banner: Images,
+  category_card: LayoutGrid,
+  product_card: Package,
+  nav_button: MousePointerClick,
+  footer: PanelBottom,
+  stock: Warehouse,
+};
 
 export default function MarketFeaturesPanel() {
   const listQuery =
@@ -155,11 +186,13 @@ export default function MarketFeaturesPanel() {
         </p>
       </div>
 
-      {/* Secções — mesma ordem do Market */}
-      <div className="space-y-5">
+      {/* Secções — uma por categoria, mesma ordem do Market */}
+      <div className="space-y-6">
         {MARKET_SECTION_ORDER.map((kind) => {
           const variants =
             getMarketVariants(kind);
+
+          const SectionIcon = SECTION_ICONS[kind];
 
           /*
            * Cada funcionalidade ocupa o MESMO espaço
@@ -177,26 +210,36 @@ export default function MarketFeaturesPanel() {
           return (
             <div
               key={kind}
-              className="rounded-[14px] border border-[#e1e9df] bg-white"
+              className="overflow-hidden rounded-[14px] border border-[#e1e9df] bg-white"
             >
-              {/* Cabeçalho da secção */}
-              <div className="flex items-center justify-between gap-3 border-b border-[#edf1eb] px-5 py-3">
-                <div>
-                  <h3 className="text-[11px] font-bold text-[#141714]">
-                    {MARKET_SECTION_LABELS[kind]}
-                  </h3>
+              {/* Cabeçalho da secção — mesma identidade
+                  visual dos cartões de categoria do Market */}
+              <div className="flex items-center justify-between gap-3 border-b border-[#edf1eb] bg-[#f7faf5] px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e9f2e5]">
+                    <SectionIcon className="h-[18px] w-[18px] text-[#465346]" />
+                  </span>
 
-                  <p className="mt-0.5 text-[9px] text-[#8e998e]">
-                    Modelos existentes no código do
-                    Market.
-                  </p>
+                  <div>
+                    <h3 className="text-[12px] font-bold uppercase tracking-[.08em] text-[#141714]">
+                      {MARKET_SECTION_LABELS[kind]}
+                    </h3>
+
+                    <p className="mt-0.5 text-[9px] text-[#8e998e]">
+                      Produtos desta categoria
+                    </p>
+                  </div>
                 </div>
 
                 <span className="rounded-full bg-[#e9f2e5] px-2 py-1 text-[9px] font-bold text-[#58754c]">
                   {variants.length}{" "}
                   {variants.length === 1
-                    ? "modelo"
-                    : "modelos"}
+                    ? kind === "stock"
+                      ? "pacote"
+                      : "modelo"
+                    : kind === "stock"
+                      ? "pacotes"
+                      : "modelos"}
                 </span>
               </div>
 

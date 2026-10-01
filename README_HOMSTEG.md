@@ -13,7 +13,7 @@ O HOMSTEG é uma plataforma de criação de lojas online **100% GRATUITA**, mult
 
 A aplicação inclui uma landing page que comunica "Crie sua loja online 100% grátis", explica que não existem planos nem mensalidades e clarifica que os créditos servem apenas para recursos específicos do Market. O fluxo público inclui storefronts em `/store/:slug` com pesquisa de produtos, carrinho, favoritos, checkout e páginas de produto.
 
-A área merchant em `/app` inclui Início, Market, Produtos, Categorias, Encomendas, Clientes, Design/Temas, Personalização, Pagamentos, Entrega, Marketing e Configurações. Todos os temas estão disponíveis gratuitamente para todas as lojas — não existem temas bloqueados. Não há limite de produtos. O painel central em `/admin` gere utilizadores, lojas, créditos e o catálogo comercial do Market.
+A área merchant em `/app` inclui Início, Market, Produtos, Categorias, Encomendas, Clientes, Design/Temas, Personalização, Pagamentos, Entrega, Marketing e Configurações. Todos os temas estão disponíveis gratuitamente para todas as lojas — não existem temas bloqueados. Não há limite de produtos por plano: toda loja começa com 50 produtos grátis e pode comprar capacidade extra de Estoque no Market (+60, +100, +200 ou +300 produtos). O painel central em `/admin` gere utilizadores, lojas, créditos e o catálogo comercial do Market.
 
 A camada server inclui autenticação (Better Auth), schema Drizzle para utilizadores, lojas, membros, produtos, categorias, features do Market e compras do Market, além de procedimentos tRPC protegidos com validação de acesso por tenant antes de qualquer operação.
 

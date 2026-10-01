@@ -48,6 +48,15 @@ import Footer1 from "./components/footer/1footer/page";
 import Footer2 from "./components/footer/2footer/page";
 import Footer3 from "./components/footer/3footer/page";
 
+import Stock1 from "./components/stock/1stock/page";
+import Stock2 from "./components/stock/2stock/page";
+import Stock3 from "./components/stock/3stock/page";
+import Stock4 from "./components/stock/4stock/page";
+import Stock5 from "./components/stock/5stock/page";
+import Stock6 from "./components/stock/6stock/page";
+import Stock7 from "./components/stock/7stock/page";
+import Stock8 from "./components/stock/8stock/page";
+
 /* =========================================================
    Tipos partilhados do módulo MARKET (isolado)
    ========================================================= */
@@ -142,6 +151,15 @@ const MARKET_COMPONENTS: Record<
   "1footer": Footer1,
   "2footer": Footer2,
   "3footer": Footer3,
+
+  "1stock": Stock1 as unknown as ComponentType<MarketVariantProps>,
+  "2stock": Stock2 as unknown as ComponentType<MarketVariantProps>,
+  "3stock": Stock3 as unknown as ComponentType<MarketVariantProps>,
+  "4stock": Stock4 as unknown as ComponentType<MarketVariantProps>,
+  "5stock": Stock5 as unknown as ComponentType<MarketVariantProps>,
+  "6stock": Stock6 as unknown as ComponentType<MarketVariantProps>,
+  "7stock": Stock7 as unknown as ComponentType<MarketVariantProps>,
+  "8stock": Stock8 as unknown as ComponentType<MarketVariantProps>,
 };
 
 /**
@@ -197,6 +215,7 @@ export const MARKET_SECTION_ORDER: MarketSectionKind[] = [
   "product_card",
   "nav_button",
   "footer",
+  "stock",
 ];
 
 export function getMarketVariants(
