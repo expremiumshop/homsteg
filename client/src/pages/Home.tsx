@@ -543,11 +543,14 @@ export default function Home() {
    *
    * Browsers móveis (iOS/Android) frequentemente
    * não iniciam o autoplay só com o atributo
-   * autoPlay: o vídeo fica parado no poster
-   * (aparece o "fundo antigo"). A correção é
-   * chamar video.play() explicitamente quando o
-   * elemento está pronto — muted+playsInline tornam
-   * isso permitido em todos os browsers móveis.
+   * autoPlay. A correção é chamar video.play()
+   * explicitamente quando o elemento está pronto —
+   * muted+playsInline tornam isso permitido.
+   *
+   * FALLBACK DE PRIMEIRO TOQUE: o iOS em Modo de
+   * Pouca Energia bloqueia autoplay MESMO muted.
+   * Nesse caso o primeiro toque em qualquer lugar
+   * da página arranca o vídeo.
    */
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -575,21 +578,44 @@ export default function Home() {
     }
 
     /*
+     * Fallback de interação: cobre iOS Modo de Pouca
+     * Energia / poupança de dados, onde o autoplay
+     * é bloqueado até haver um gesto do utilizador.
+     */
+    const handleFirstInteraction = () => {
+      if (video.paused) {
+        tryPlay();
+      }
+    };
+
+    /*
      * Redeescada extra: alguns browsers móveis pausam
      * ao voltar do background do sistema; retoma ao
      * ficar visível de novo.
      */
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
+      if (
+        document.visibilityState === "visible" &&
+        video.paused
+      ) {
         tryPlay();
       }
     };
 
+    document.addEventListener("touchstart", handleFirstInteraction, {
+      passive: true,
+      once: true,
+    });
+    document.addEventListener("pointerdown", handleFirstInteraction, {
+      once: true,
+    });
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       video.removeEventListener("loadeddata", tryPlay);
       video.removeEventListener("canplay", tryPlay);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("pointerdown", handleFirstInteraction);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
@@ -743,7 +769,7 @@ export default function Home() {
 
       {/* HERO */}
       <section className="relative overflow-hidden bg-[#080b18] pb-24 pt-36 text-white sm:pt-40">
-        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Sem rede, o poster + gradientes mantêm o hero intacto. */}
+        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Sem poster a azul: sem rede, fica o fundo escuro neutro da seção. */}
         <video
           ref={heroVideoRef}
           className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
@@ -753,7 +779,6 @@ export default function Home() {
           playsInline
           preload="auto"
           disablePictureInPicture
-          poster="https://images.pexels.com/videos/8937981/achievement-adult-architect-big-sale-8937981.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=1"
           aria-hidden="true"
           tabIndex={-1}
         >
@@ -788,8 +813,8 @@ export default function Home() {
           }}
         />
 
-        <div className="pointer-events-none homsteg-glow absolute -left-24 top-32 h-72 w-72 rounded-full bg-violet-600/20 blur-3xl" />
-        <div className="pointer-events-none homsteg-glow absolute -right-24 top-72 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="pointer-events-none homsteg-glow absolute -left-24 top-32 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl" />
+        <div className="pointer-events-none homsteg-glow absolute -right-24 top-72 h-80 w-80 rounded-full bg-violet-600/5 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl px-5">
           <div className="grid items-center gap-14 lg:grid-cols-[.85fr_1.15fr]">
