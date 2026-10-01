@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowRight,
@@ -538,6 +538,62 @@ export default function Home() {
   const goCreate = () => navigate("/criar-conta");
   const goLogin = () => navigate("/login");
 
+  /*
+   * VÍDEO DE FUNDO — arranque garantido no MOBILE.
+   *
+   * Browsers móveis (iOS/Android) frequentemente
+   * não iniciam o autoplay só com o atributo
+   * autoPlay: o vídeo fica parado no poster
+   * (aparece o "fundo antigo"). A correção é
+   * chamar video.play() explicitamente quando o
+   * elemento está pronto — muted+playsInline tornam
+   * isso permitido em todos os browsers móveis.
+   */
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    const tryPlay = () => {
+      /* play() devolve Promise; ignora abort/NotSupported silenciosamente. */
+      const playback = video.play();
+
+      if (playback && typeof playback.catch === "function") {
+        playback.catch(() => undefined);
+      }
+    };
+
+    if (video.readyState >= 2) {
+      tryPlay();
+    } else {
+      video.addEventListener("loadeddata", tryPlay, { once: true });
+      video.addEventListener("canplay", tryPlay, { once: true });
+    }
+
+    /*
+     * Redeescada extra: alguns browsers móveis pausam
+     * ao voltar do background do sistema; retoma ao
+     * ficar visível de novo.
+     */
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        tryPlay();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      video.removeEventListener("loadeddata", tryPlay);
+      video.removeEventListener("canplay", tryPlay);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f6fa] text-slate-950">
       <style>{`
@@ -689,24 +745,33 @@ export default function Home() {
       <section className="relative overflow-hidden bg-[#080b18] pb-24 pt-36 text-white sm:pt-40">
         {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Sem rede, o poster + gradientes mantêm o hero intacto. */}
         <video
+          ref={heroVideoRef}
           className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
           autoPlay
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           disablePictureInPicture
           poster="https://images.pexels.com/videos/8937981/achievement-adult-architect-big-sale-8937981.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=1"
           aria-hidden="true"
           tabIndex={-1}
         >
+          {/* SD primeiro: arranca mais depressa no mobile (4G) com máxima compatibilidade. */}
+          <source
+            src="https://videos.pexels.com/video-files/8937981/8937981-sd_960_540_30fps.mp4"
+            type="video/mp4"
+          />
+
+          {/* HD para desktop. */}
           <source
             src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4"
             type="video/mp4"
           />
 
+          {/* Fallback: navegação de loja em tablet. */}
           <source
-            src="https://videos.pexels.com/video-files/6238179/6238179-hd_1920_1080_25fps.mp4"
+            src="https://videos.pexels.com/video-files/6238179/6238179-sd_960_540_25fps.mp4"
             type="video/mp4"
           />
         </video>
