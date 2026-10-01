@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowRight,
@@ -19,7 +19,6 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Store,
   TrendingUp,
   Truck,
@@ -210,6 +209,265 @@ function ProductMini({
           {name}
         </p>
         <p className="mt-0.5 text-[11px] font-bold text-violet-600">{price}</p>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * SHOWCASE DE HERO — vitrine animada "loja premium".
+ *
+ * Sequência em loop (CSS only, sem JS de timing):
+ *   STORE → HOMSTEG (logotipo como sinal da loja, ao centro)
+ *        → STORE ABRE (portas corredicas) → CONTEÚDO APARECE
+ *        → STORE FECHA → PRÓXIMA CENA (novos produtos/título).
+ *
+ * O HOMSTEG vive DENTRO da fachada (faixa central da loja),
+ * como o letreiro real de uma loja — nunca flutuando acima.
+ */
+const showcaseScenes = [
+  {
+    id: "fashion",
+    kicker: "NOVA COLEÇÃO",
+    title: "Estilo que acompanha",
+    title2: "o teu ritmo",
+    image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=700&q=80",
+    product: "Sneaker Urban",
+    price: "MT 2.490",
+    productImage: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80",
+  },
+  {
+    id: "tech",
+    kicker: "LANÇAMENTO",
+    title: "Tecnologia que trabalha",
+    title2: "por ti",
+    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=700&q=80",
+    product: "Watch Classic",
+    price: "MT 3.890",
+    productImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=500&q=80",
+  },
+  {
+    id: "coffee",
+    kicker: "CAFÉS ESPECIAIS",
+    title: "Sabores feitos à mão",
+    title2: "com identidade",
+    image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=700&q=80",
+    product: "Blend da Casa",
+    price: "MT 1.250",
+    productImage: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=500&q=80",
+  },
+] as const;
+
+function HeroShowcase() {
+  const [scene, setScene] = useState(0);
+
+  /* Troca de cena a cada 4.8s — sincronizado com a duração das animações CSS. */
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setScene((current) => (current + 1) % showcaseScenes.length),
+      4800,
+    );
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const active = showcaseScenes[scene];
+
+  return (
+    <div className="relative mx-auto w-full max-w-[720px]">
+      <style>{`
+        @keyframes signCycle {
+          0% { opacity:0; transform:scale(.82); }
+          7% { opacity:1; transform:scale(1); }
+          86% { opacity:1; transform:scale(1); }
+          95%,100% { opacity:0; transform:scale(.92); }
+        }
+
+        @keyframes doorLeft {
+          0%,7% { transform:translateX(0); }
+          17%,78% { transform:translateX(-104%); }
+          88%,100% { transform:translateX(0); }
+        }
+
+        @keyframes doorRight {
+          0%,7% { transform:translateX(0); }
+          17%,78% { transform:translateX(104%); }
+          88%,100% { transform:translateX(0); }
+        }
+
+        @keyframes interiorGlow {
+          0%,7% { opacity:.25; }
+          17%,78% { opacity:1; }
+          88%,100% { opacity:.25; }
+        }
+
+        @keyframes contentIn {
+          0% { opacity:0; transform:translateY(18px); }
+          100% { opacity:1; transform:translateY(0); }
+        }
+
+        @keyframes productIn {
+          0% { opacity:0; transform:translateY(14px) scale(.94); }
+          100% { opacity:1; transform:translateY(0) scale(1); }
+        }
+
+        @keyframes neonPulse {
+          0%,100% { opacity:.35; }
+          50% { opacity:1; }
+        }
+      `}</style>
+
+      {/* Glow de palco atrás da loja */}
+      <div className="absolute -inset-10 rounded-[48px] bg-gradient-to-br from-violet-500/25 via-fuchsia-500/15 to-cyan-400/20 blur-3xl" />
+
+      <div className="relative">
+        {/* Remontada a cada cena (key) para reiniciar as animações CSS. */}
+        <div
+          key={active.id}
+          className="relative aspect-[16/10] overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-[0_40px_120px_rgba(0,0,0,.45)]"
+        >
+          {/* FUNDO DA CENA — céu noturno */}
+          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-slate-950 to-black" />
+          <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-violet-600/25 blur-3xl" />
+          <div className="absolute -right-16 top-10 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
+
+          {/* A LOJA — fachada completa, ocupa a cena */}
+          <div className="absolute inset-x-8 bottom-6 top-8 sm:inset-x-14">
+            {/* FACHADA — letreiro HOMSTEG integrado na faixa da loja */}
+            <div className="relative h-[26%] overflow-hidden rounded-t-[22px] border-x border-t border-white/15 bg-gradient-to-b from-slate-900 to-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 via-transparent to-cyan-500/20" />
+
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span
+                  className="flex items-center gap-2.5 rounded-xl bg-white/[.06] px-5 py-2 ring-1 ring-white/15 backdrop-blur"
+                  style={{ animation: "signCycle 4.8s ease-in-out both" }}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-950 shadow-lg">
+                    <Store className="h-4 w-4" strokeWidth={2.4} />
+                  </span>
+                  <span className="text-[15px] font-black tracking-[-0.04em] text-white sm:text-lg">
+                    HOMSTEG
+                  </span>
+                </span>
+              </div>
+
+              {/* Neon do letreiro */}
+              <div
+                className="absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent"
+                style={{ animation: "neonPulse 2.4s ease-in-out infinite" }}
+              />
+            </div>
+
+            {/* INTERIOR + PORTAS CORREDIÇAS */}
+            <div className="relative h-[74%]">
+              {/* Interior da loja (atrás das portas) */}
+              <div className="absolute inset-0 overflow-hidden rounded-b-[22px] border-x border-b border-white/10 bg-gradient-to-b from-slate-900/95 via-slate-950 to-black">
+                {/* Ambiente da cena — imagem de fundo do interior */}
+                <img
+                  src={active.image}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-20"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
+
+                {/* Luz interior acende quando as portas abrem */}
+                <div
+                  className="absolute inset-0 bg-gradient-to-b from-violet-500/25 via-transparent to-cyan-400/15"
+                  style={{ animation: "interiorGlow 4.8s ease-in-out both" }}
+                />
+
+                {/* CONTEÚDO — entra depois da abertura */}
+                <div className="absolute inset-0 flex items-center gap-4 px-6 sm:gap-6 sm:px-8">
+                  <div
+                    className="flex-1"
+                    style={{
+                      animation:
+                        "contentIn .7s cubic-bezier(.22,1,.36,1) 1.15s both",
+                    }}
+                  >
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[8px] font-bold tracking-[.14em] text-cyan-200 ring-1 ring-white/15 sm:text-[9px]">
+                      {active.kicker}
+                    </span>
+                    <h3 className="mt-3 text-xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-3xl">
+                      {active.title}
+                      <span className="block bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
+                        {active.title2}
+                      </span>
+                    </h3>
+                  </div>
+
+                  <div
+                    className="hidden w-[38%] max-w-[190px] shrink-0 sm:block"
+                    style={{
+                      animation:
+                        "productIn .8s cubic-bezier(.22,1,.36,1) 1.35s both",
+                    }}
+                  >
+                    <div className="overflow-hidden rounded-2xl bg-white/95 shadow-[0_20px_50px_rgba(0,0,0,.5)] ring-1 ring-white/20">
+                      <div className="relative h-24 sm:h-28">
+                        <img
+                          src={active.productImage}
+                          alt={active.product}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-[10px] font-bold text-slate-900">
+                            {active.product}
+                          </p>
+                          <p className="text-[9px] font-bold text-violet-600">
+                            {active.price}
+                          </p>
+                        </div>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-white">
+                          <ShoppingBag className="h-3 w-3" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PORTA ESQUERDA */}
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/2 overflow-hidden border border-white/15 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950"
+                style={{ animation: "doorLeft 4.8s ease-in-out both" }}
+              >
+                <div className="absolute right-2 top-1/2 h-10 w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-white/40 to-transparent" />
+                <div className="absolute left-3 top-3 h-1.5 w-1.5 rounded-full bg-white/20" />
+                <div className="absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full bg-white/20" />
+                <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+              </div>
+
+              {/* PORTA DIREITA */}
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-1/2 overflow-hidden border border-white/15 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950"
+                style={{ animation: "doorRight 4.8s ease-in-out both" }}
+              >
+                <div className="absolute left-2 top-1/2 h-10 w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-white/40 to-transparent" />
+                <div className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-white/20" />
+                <div className="absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full bg-white/20" />
+                <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+              </div>
+            </div>
+          </div>
+
+          {/* Reflexo no chão da cena */}
+          <div className="absolute inset-x-16 bottom-0 h-10 bg-gradient-to-t from-cyan-300/10 to-transparent blur-md" />
+        </div>
+
+        {/* Indicador de cenas */}
+        <div className="mt-5 flex items-center justify-center gap-2">
+          {showcaseScenes.map((item, index) => (
+            <span
+              key={item.id}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                index === scene ? "w-7 bg-white" : "w-1.5 bg-white/25"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -538,6 +796,110 @@ export default function Home() {
   const goCreate = () => navigate("/criar-conta");
   const goLogin = () => navigate("/login");
 
+  /*
+   * VÍDEO DE FUNDO — arranque garantido no MOBILE.
+   *
+   * CAUSA RAIZ do vídeo invisível no celular: o React
+   * NÃO serializa o atributo "muted" para o DOM
+   * (bug conhecido, React #10389). Os browsers móveis
+   * avaliam a política de autoplay pelo ATRIBUTO no
+   * momento do load — sem ele, o autoplay é negado
+   * silenciosamente e o elemento nunca decodifica o
+   * primeiro frame (fica transparente: só se vê o
+   * fundo escuro/grid). No desktop os browsers são
+   * mais tolerantes, por isso funcionava só no PC.
+   *
+   * CORREÇÃO CANÓNICA: definir muted como propriedade
+   * E atributo, e reavaliar o elemento com load()
+   * antes de chamar play().
+   *
+   * FALLBACK DE PRIMEIRO TOQUE: o iOS em Modo de
+   * Pouca Energia bloqueia autoplay MESMO muted.
+   * Nesse caso o primeiro toque em qualquer lugar
+   * da página arranca o vídeo.
+   */
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    /*
+     * 1. muted como PROPRIEDADE e como ATRIBUTO
+     *    (o atributo é o que o mobile consulta).
+     */
+    video.muted = true;
+    video.setAttribute("muted", "");
+
+    /* 2. playsinline nos dois formatos (iOS antigo). */
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
+    /*
+     * 3. load() reavalia o elemento com muted já
+     *    presente — sem isto, o Safari móvel mantém
+     *    a decisão negativa de autoplay tomada antes.
+     */
+    video.load();
+
+    const tryPlay = () => {
+      /* play() devolve Promise; ignora abort/NotSupported silenciosamente. */
+      const playback = video.play();
+
+      if (playback && typeof playback.catch === "function") {
+        playback.catch(() => undefined);
+      }
+    };
+
+    video.addEventListener("loadeddata", tryPlay);
+    video.addEventListener("canplay", tryPlay);
+    video.addEventListener("loadedmetadata", tryPlay);
+
+    /*
+     * Fallback de interação: cobre iOS Modo de Pouca
+     * Energia / poupança de dados, onde o autoplay
+     * é bloqueado até haver um gesto do utilizador.
+     */
+    const handleFirstInteraction = () => {
+      if (video.paused) {
+        tryPlay();
+      }
+    };
+
+    /*
+     * Redeescada extra: alguns browsers móveis pausam
+     * ao voltar do background do sistema; retoma ao
+     * ficar visível de novo.
+     */
+    const handleVisibility = () => {
+      if (
+        document.visibilityState === "visible" &&
+        video.paused
+      ) {
+        tryPlay();
+      }
+    };
+
+    document.addEventListener("touchstart", handleFirstInteraction, {
+      passive: true,
+    });
+    document.addEventListener("pointerdown", handleFirstInteraction);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      video.removeEventListener("loadeddata", tryPlay);
+      video.removeEventListener("canplay", tryPlay);
+      video.removeEventListener("loadedmetadata", tryPlay);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("pointerdown", handleFirstInteraction);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f6fa] text-slate-950">
       <style>{`
@@ -672,26 +1034,45 @@ export default function Home() {
 
       {/* HERO */}
       <section className="relative overflow-hidden pb-24 pt-36 text-white sm:pt-40">
-        {/* FUNDO DO HERO — imagem estática única, sem vídeo nem animação. Overlay escuro fixo para legibilidade do texto branco. */}
-        <img
-          src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=80"
-          alt=""
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/65 to-slate-950/85" />
+        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Único elemento visual da área: sem overlay, grid, glows ou fundo. */}
+        <video
+          ref={heroVideoRef}
+          className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          {/* SD primeiro: arranca mais depressa no mobile (4G) com máxima compatibilidade. */}
+          <source
+            src="https://videos.pexels.com/video-files/8937981/8937981-sd_960_540_30fps.mp4"
+            type="video/mp4"
+          />
+
+          {/* HD para desktop. */}
+          <source
+            src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4"
+            type="video/mp4"
+          />
+
+          {/* Fallback: navegação de loja em tablet. */}
+          <source
+            src="https://videos.pexels.com/video-files/6238179/6238179-sd_960_540_25fps.mp4"
+            type="video/mp4"
+          />
+        </video>
 
         <div className="relative mx-auto max-w-7xl px-5">
           <div className="grid items-center gap-14 lg:grid-cols-[.85fr_1.15fr]">
             <div>
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1.5 text-[11px] font-semibold text-white/80 ring-1 ring-white/10">
-                <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
-                A nova forma de criar uma loja online
-              </div>
-
               <h1 className="max-w-2xl text-[clamp(3rem,6vw,5.8rem)] font-black leading-[.91] tracking-[-0.07em]">
                 Crie a sua loja online
                 <span className="block bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
-                  100% grátis.
+                  100% grátis
                 </span>
               </h1>
 
@@ -731,7 +1112,7 @@ export default function Home() {
             </div>
 
             <div className="relative">
-              <StorePreview />
+              <HeroShowcase />
             </div>
           </div>
 
