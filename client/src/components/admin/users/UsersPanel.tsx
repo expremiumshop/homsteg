@@ -389,12 +389,7 @@ export default function UsersPanel({
                     </div>
 
                     <div className="mt-0.5 truncate text-[8px] text-[#a0a9a0]">
-                      {primaryStore
-                        .plan
-                        ?.name ??
-                        primaryStore
-                          .store
-                          .planKey}
+                      Loja gratuita
                     </div>
                   </>
                 ) : (
@@ -587,14 +582,11 @@ export default function UsersPanel({
                           />
 
                           <DetailRow
-                            label="Plano"
+                            label="Crédito (MZN)"
                             value={
                               primaryStore
-                                .plan
-                                ?.name ??
-                              primaryStore
                                 .store
-                                .planKey
+                                .creditMzn ?? 0
                             }
                           />
 

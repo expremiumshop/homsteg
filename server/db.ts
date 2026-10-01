@@ -1,13 +1,9 @@
 import { randomUUID } from "crypto";
 
+import { MARKET_CATALOG } from "../shared/market-catalog.js";
+
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import { asc } from "drizzle-orm";
-
-import {
-  addOneMonth,
-  isPlanKey,
-  isPaidPlan,
-} from "../shared/homsteg.js";
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -17,13 +13,13 @@ import {
   InsertStoreApplication,
   InsertUser,
   products,
-  planRequests,
-  plans,
   storeApplications,
   storeCategories,
   stores,
   storeMembers,
   users,
+  marketFeatures,
+  storeMarketFeatures,
 } from "../drizzle/schema.js";
 
 import { createStoreDownloadUrl } from "./r2.js";
@@ -346,7 +342,6 @@ export async function createStoreForUser({
         name,
         slug,
         category: "General",
-        planKey: "free",
         status: "active",
         currency: "MZN",
         whatsapp: whatsapp?.trim() || null,
@@ -389,143 +384,8 @@ export async function updateStoreWhatsApp(
 }
 
 /* ============================================================
-   SUBSCRIPTION PLANS
+   PRODUCTS
    ============================================================ */
-
-/**
- * Garante que os planos HOMSTEG existem na base de dados
- * com os limites corretos. Chamado no arranque do servidor
- * e antes de leituras de planos.
- *
- * O plano Free é o único obrigatório para o correto
- * funcionamento do sistema de planos.
- */
-
-export const PLAN_CATALOG = [
-  {
-    key: "free",
-    name: "Free",
-    priceMzn: 0,
-    productLimit: 50,
-    features: [
-      "Loja online",
-      "50 produtos",
-      "Tema base",
-      "Gestão de stock",
-      "Gestão de pedidos",
-      "Painel administrativo",
-      "Banner da loja",
-      "Logo e informações da loja",
-      "Link para WhatsApp",
-    ],
-  },
-  {
-    key: "starter",
-    name: "Starter",
-    priceMzn: 480,
-    productLimit: 580,
-    features: [
-      "Tudo do Free",
-      "580 produtos",
-      "Todos os temas disponíveis",
-      "Variantes de produtos",
-      "Galeria de imagens",
-      "Promoções",
-      "Cupons",
-      "Relatórios básicos",
-      "Mais personalização",
-    ],
-  },
-  {
-    key: "business",
-    name: "Business",
-    priceMzn: 1590,
-    productLimit: 2450,
-    features: [
-      "Tudo do Starter",
-      "2.450 produtos",
-      "Domínio personalizado",
-      "Relatórios avançados",
-      "Gestão avançada de pedidos",
-      "Marketing e promoções",
-      "Mais membros da equipa",
-      "Permissões de equipa",
-      "Personalização avançada",
-    ],
-  },
-  {
-    key: "professional",
-    name: "Professional",
-    priceMzn: 2150,
-    productLimit: 5850,
-    features: [
-      "Tudo do Business",
-      "5.850 produtos",
-      "Maior capacidade",
-      "Prioridade de suporte",
-      "Integrações avançadas",
-      "Equipas maiores",
-    ],
-  },
-  {
-    key: "enterprise",
-    name: "Enterprise",
-    priceMzn: 8900,
-    productLimit: -1,
-    features: [
-      "Tudo do Professional",
-      "Produtos ilimitados",
-      "Variantes ilimitadas",
-      "Equipas maiores",
-      "Permissões avançadas",
-      "Domínio personalizado",
-      "Integrações personalizadas",
-      "Maior capacidade",
-      "Suporte prioritário",
-    ],
-  },
-] as const;
-
-export async function seedPlans() {
-  const db = await getDb();
-
-  if (!db) {
-    return;
-  }
-
-  for (const plan of PLAN_CATALOG) {
-    await db
-      .insert(plans)
-      .values({
-        key: plan.key,
-        name: plan.name,
-        priceMzn: plan.priceMzn,
-        productLimit:
-          plan.productLimit === -1
-            ? 2147483647
-            : plan.productLimit,
-        features: plan.features.join("\n"),
-      })
-      .onConflictDoUpdate({
-        target: plans.key,
-        set: {
-          name: plan.name,
-          priceMzn: plan.priceMzn,
-          productLimit:
-            plan.productLimit === -1
-              ? 2147483647
-              : plan.productLimit,
-          features: plan.features.join("\n"),
-          status: "active",
-        },
-      });
-  }
-}
-
-/**
- * Número de produtos não arquivados da loja.
- * É este valor que conta para o limite do plano.
- */
 
 export async function countActiveStoreProducts(
   storeId: string,
@@ -555,7 +415,7 @@ export async function countActiveStoreProducts(
   return Number(result[0]?.value ?? 0);
 }
 
-export async function getStoreWithPlanUsage(
+export async function getStoreWithUsage(
   storeId: string,
 ) {
   const db = await getDb();
@@ -578,30 +438,63 @@ export async function getStoreWithPlanUsage(
 
   const productsUsed =
     await countActiveStoreProducts(
-      store.id,
-    );
-
-  const latestRequest =
-    await getLatestPlanRequestByStoreId(
       store.id,
     );
 
   return {
     store,
     productsUsed,
-    latestRequest:
-      latestRequest ?? null,
   };
 }
 
-export async function createPlanUpgradeRequest({
+/* ============================================================
+   STORE CREDIT (crédito da loja)
+
+   O crédito vive na própria loja (stores.creditMzn),
+   nunca no utilizador. NULL = sem crédito definido
+   (tratado como 0 no dashboard). É o único sistema
+   pago da HOMSTEG e serve apenas para o Market.
+   ============================================================ */
+
+/**
+ * Define o saldo de crédito da loja (set absoluto).
+ */
+export async function setStoreCreditMzn({
   storeId,
-  requestedPlanKey,
-  note,
+  creditMzn,
 }: {
   storeId: string;
-  requestedPlanKey: string;
-  note?: string | null;
+  creditMzn: number;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updated = await db
+    .update(stores)
+    .set({
+      creditMzn,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return updated[0] ?? null;
+}
+
+/**
+ * Acrescenta (ou subtrai, com valor negativo) crédito
+ * ao saldo atual da loja. O resultado nunca fica
+ * abaixo de 0.
+ */
+export async function addStoreCreditMzn({
+  storeId,
+  amountMzn,
+}: {
+  storeId: string;
+  amountMzn: number;
 }) {
   const db = await getDb();
 
@@ -610,7 +503,7 @@ export async function createPlanUpgradeRequest({
   }
 
   const storeResult = await db
-    .select()
+    .select({ creditMzn: stores.creditMzn })
     .from(stores)
     .where(eq(stores.id, storeId))
     .limit(1);
@@ -618,259 +511,75 @@ export async function createPlanUpgradeRequest({
   const store = storeResult[0];
 
   if (!store) {
-    throw new Error("STORE_NOT_FOUND");
+    return null;
   }
 
-  const productsUsed =
-    await countActiveStoreProducts(
-      storeId,
-    );
+  const current = store.creditMzn ?? 0;
 
-  const result = await db
-    .insert(planRequests)
-    .values({
-      storeId,
-      requestedPlanKey,
-      currentPlanKey: store.planKey,
-      productsUsed,
-      status: "pending",
-      note: note?.trim() || null,
+  const next = Math.max(
+    0,
+    current + amountMzn,
+  );
+
+  const updated = await db
+    .update(stores)
+    .set({
+      creditMzn: next,
+      updatedAt: new Date(),
     })
+    .where(eq(stores.id, storeId))
     .returning();
 
-  return result[0];
+  return updated[0] ?? null;
 }
 
-export async function getLatestPlanRequestByStoreId(
-  storeId: string,
-) {
+/* ============================================================
+   STORE MARKET FEATURES (compras do Market por loja)
+
+   Registo permanente de compra/desbloqueio de
+   funcionalidades do Market por loja. Fonte de verdade:
+   base de dados (tabela store_market_features) — nunca
+   localStorage. A compra debita o crédito da loja
+   (stores.creditMzn) de forma transacional.
+   ============================================================ */
+
+/**
+ * Lista os featureKeys comprados/desbloqueados por
+ * uma loja (ex.: ["4product", "8product"]).
+ */
+export async function listStoreMarketFeatureKeys({
+  storeId,
+}: {
+  storeId: string;
+}) {
   const db = await getDb();
 
   if (!db) {
-    return undefined;
-  }
-
-  const result = await db
-    .select()
-    .from(planRequests)
-    .where(
-      eq(
-        planRequests.storeId,
-        storeId,
-      ),
-    )
-    .orderBy(
-      desc(
-        planRequests.createdAt,
-      ),
-    )
-    .limit(1);
-
-  return result[0];
-}
-
-export async function getAdminPlanRequests() {
-  const db = await getDb();
-
-  if (!db) {
-    return [];
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const rows = await db
-    .select({
-      request: planRequests,
-      store: stores,
-    })
-    .from(planRequests)
-    .innerJoin(
-      stores,
-      eq(
-        planRequests.storeId,
-        stores.id,
-      ),
-    )
-    .orderBy(
-      desc(
-        planRequests.createdAt,
-      ),
-    );
+    .select({ featureKey: storeMarketFeatures.featureKey })
+    .from(storeMarketFeatures)
+    .where(eq(storeMarketFeatures.storeId, storeId));
 
-  return Promise.all(
-    rows.map(async ({ request, store }) => {
-      const productsUsed =
-        await countActiveStoreProducts(
-          store.id,
-        );
-
-      return {
-        request,
-        store: {
-          id: store.id,
-          name: store.name,
-          slug: store.slug,
-          planKey: store.planKey,
-          whatsapp: store.whatsapp,
-        },
-        productsUsed,
-      };
-    }),
-  );
-}
-
-export async function getAdminPlanOverview() {
-  const db = await getDb();
-
-  if (!db) {
-    return {
-      plans: [],
-      stores: [],
-    };
-  }
-
-  await seedPlans();
-
-  const [allPlans, allStores] =
-    await Promise.all([
-      db
-        .select()
-        .from(plans)
-        .orderBy(plans.priceMzn),
-
-      db
-        .select()
-        .from(stores)
-        .orderBy(
-          desc(stores.createdAt),
-        ),
-    ]);
-
-  const storesWithUsage =
-    await Promise.all(
-      allStores.map(
-        async (store) => {
-          const productsUsed =
-            await countActiveStoreProducts(
-              store.id,
-            );
-
-          const latestRequest =
-            await getLatestPlanRequestByStoreId(
-              store.id,
-            );
-
-          const plan =
-            allPlans.find(
-              (item) =>
-                item.key ===
-                store.planKey,
-            ) ??
-            allPlans.find(
-              (item) =>
-                item.key === "free",
-            );
-
-          const ownerResult =
-            await db
-              .select({
-                userId:
-                  storeMembers.userId,
-              })
-              .from(storeMembers)
-              .where(
-                and(
-                  eq(
-                    storeMembers.storeId,
-                    store.id,
-                  ),
-                  eq(
-                    storeMembers.role,
-                    "owner",
-                  ),
-                ),
-              )
-              .limit(1);
-
-          const ownerId =
-            ownerResult[0]?.userId ??
-            null;
-
-          const owner = ownerId
-            ? (
-                await db
-                  .select({
-                    id: users.id,
-                    name: users.name,
-                    email: users.email,
-                  })
-                  .from(users)
-                  .where(
-                    eq(
-                      users.id,
-                      ownerId,
-                    ),
-                  )
-                  .limit(1)
-              )[0] ?? null
-            : null;
-
-          return {
-            store: {
-              id: store.id,
-              name: store.name,
-              slug: store.slug,
-              status: store.status,
-              planKey:
-                store.planKey,
-              whatsapp:
-                store.whatsapp,
-              createdAt:
-                store.createdAt,
-              subscriptionPaidUntil:
-                store.subscriptionPaidUntil,
-              subscriptionPaidAt:
-                store.subscriptionPaidAt,
-            },
-
-            plan: plan
-              ? {
-                  key: plan.key,
-                  name: plan.name,
-                  productLimit:
-                    plan.productLimit,
-                }
-              : null,
-
-            productsUsed,
-            owner,
-            latestRequest:
-              latestRequest ?? null,
-          };
-        },
-      ),
-    );
-
-  return {
-    plans: allPlans,
-    stores: storesWithUsage,
-  };
+  return rows.map((row) => row.featureKey);
 }
 
 /**
- * Decide um pedido de plano.
- * approved = atribui o plano à loja;
- * rejected = apenas marca o pedido como rejeitado.
+ * Compra (com desbloqueio permanente) de uma
+ * funcionalidade do Market usando o crédito da loja.
+ *
+ * Transacional: verifica catálogo ativo, compra
+ * duplicada, saldo suficiente — e só então debita
+ * stores.creditMzn e insere store_market_features.
  */
-
-export async function reviewPlanRequest({
-  requestId,
-  decision,
-  assignedPlanKey,
-  adminNotes,
+export async function purchaseMarketFeature({
+  storeId,
+  featureKey,
 }: {
-  requestId: number;
-  decision: "approved" | "rejected";
-  assignedPlanKey?: string | null;
-  adminNotes?: string | null;
+  storeId: string;
+  featureKey: string;
 }) {
   const db = await getDb();
 
@@ -879,270 +588,95 @@ export async function reviewPlanRequest({
   }
 
   return db.transaction(async (tx) => {
-    const requestResult = await tx
-      .select()
-      .from(planRequests)
+    /* 1. A funcionalidade tem de existir e estar ativa. */
+    const featureResult = await tx
+      .select({
+        name: marketFeatures.name,
+        priceCredits: marketFeatures.priceCredits,
+        status: marketFeatures.status,
+      })
+      .from(marketFeatures)
+      .where(eq(marketFeatures.featureKey, featureKey))
+      .limit(1);
+
+    const feature = featureResult[0];
+
+    if (!feature || feature.status !== "active") {
+      return {
+        ok: false as const,
+        reason: "FEATURE_NOT_FOUND" as const,
+      };
+    }
+
+    /* 2. Já comprada? Idempotente. */
+    const existing = await tx
+      .select({ id: storeMarketFeatures.id })
+      .from(storeMarketFeatures)
       .where(
-        eq(
-          planRequests.id,
-          requestId,
+        and(
+          eq(storeMarketFeatures.storeId, storeId),
+          eq(storeMarketFeatures.featureKey, featureKey),
         ),
       )
       .limit(1);
 
-    const request = requestResult[0];
-
-    if (!request) {
-      throw new Error(
-        "PLAN_REQUEST_NOT_FOUND",
-      );
+    if (existing.length > 0) {
+      return {
+        ok: false as const,
+        reason: "ALREADY_OWNED" as const,
+      };
     }
 
-    if (request.status !== "pending") {
-      throw new Error(
-        "PLAN_REQUEST_ALREADY_REVIEWED",
-      );
-    }
-
-    const targetPlanKey =
-      decision === "approved"
-        ? assignedPlanKey ||
-          request.requestedPlanKey
-        : null;
-
-    if (decision === "approved") {
-      if (
-        !PLAN_CATALOG.some(
-          (plan) =>
-            plan.key === targetPlanKey,
-        )
-      ) {
-        throw new Error(
-          "INVALID_PLAN_KEY",
-        );
-      }
-
-      await tx
-        .update(stores)
-        .set({
-          planKey: targetPlanKey!,
-          ...buildSubscriptionPeriodSet(
-            targetPlanKey!,
-          ),
-          updatedAt: new Date(),
-        })
-        .where(
-          eq(
-            stores.id,
-            request.storeId,
-          ),
-        );
-    }
-
-    const updatedRequest =
-      await tx
-        .update(planRequests)
-        .set({
-          status: decision,
-          assignedPlanKey:
-            decision === "approved"
-              ? targetPlanKey
-              : null,
-          adminNotes:
-            adminNotes?.trim() ||
-            null,
-          reviewedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(
-          eq(
-            planRequests.id,
-            requestId,
-          ),
-        )
-        .returning();
-
+    /* 3. A loja tem de existir e ter saldo suficiente. */
     const storeResult = await tx
-      .select()
+      .select({ creditMzn: stores.creditMzn })
       .from(stores)
-      .where(
-        eq(
-          stores.id,
-          request.storeId,
-        ),
-      )
-      .limit(1);
-
-    return {
-      request: updatedRequest[0],
-      store: storeResult[0],
-    };
-  });
-}
-
-/**
- * Campos de período de subscrição a gravar quando
- * um plano é aplicado à loja.
- * Planos pagos começam um período de um mês;
- * Free não tem cobrança.
- */
-
-function buildSubscriptionPeriodSet(
-  planKey: string,
-  from: Date = new Date(),
-) {
-  if (
-    !isPlanKey(planKey) ||
-    !isPaidPlan(planKey)
-  ) {
-    return {
-      subscriptionPaidUntil: null,
-      subscriptionPaidAt: null,
-    };
-  }
-
-  return {
-    subscriptionPaidUntil:
-      addOneMonth(from),
-    subscriptionPaidAt: from,
-  };
-}
-
-/**
- * Renova a subscrição mensal da loja por mais um
- * mês após confirmação de pagamento pelo admin.
- * Não altera o plano, limites ou outras configurações.
- */
-
-export async function markStoreSubscriptionPaid(
-  storeId: string,
-) {
-  const db = await getDb();
-
-  if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
-  }
-
-  return db.transaction(async (tx) => {
-    const storeResult = await tx
-      .select()
-      .from(stores)
-      .where(
-        eq(
-          stores.id,
-          storeId,
-        ),
-      )
+      .where(eq(stores.id, storeId))
       .limit(1);
 
     const store = storeResult[0];
 
     if (!store) {
-      throw new Error("STORE_NOT_FOUND");
+      return {
+        ok: false as const,
+        reason: "STORE_NOT_FOUND" as const,
+      };
     }
 
-    if (
-      !isPlanKey(store.planKey) ||
-      !isPaidPlan(store.planKey)
-    ) {
-      throw new Error(
-        "SUBSCRIPTION_NOT_REQUIRED_FOR_FREE_PLAN",
-      );
+    const currentCredit = store.creditMzn ?? 0;
+
+    if (currentCredit < feature.priceCredits) {
+      return {
+        ok: false as const,
+        reason: "INSUFFICIENT_CREDIT" as const,
+      };
     }
 
-    /**
-     * Renova a partir do período atual se ainda
-     * válido, ou de hoje se já expirou.
-     */
-
-    const currentUntil =
-      store.subscriptionPaidUntil;
-
-    const baseDate =
-      currentUntil &&
-      currentUntil.getTime() >
-        Date.now()
-        ? currentUntil
-        : new Date();
-
-    const renewedUntil =
-      addOneMonth(baseDate);
-
-    const updated = await tx
+    /* 4. Debita o crédito e regista a compra. */
+    await tx
       .update(stores)
       .set({
-        subscriptionPaidUntil:
-          renewedUntil,
-        subscriptionPaidAt:
-          new Date(),
-        updatedAt:
-          new Date(),
+        creditMzn: currentCredit - feature.priceCredits,
+        updatedAt: new Date(),
       })
-      .where(
-        eq(
-          stores.id,
-          storeId,
-        ),
-      )
-      .returning();
+      .where(eq(stores.id, storeId));
 
-    return updated[0];
+    await tx.insert(storeMarketFeatures).values({
+      id: randomUUID(),
+      storeId,
+      featureKey,
+      priceCredits: feature.priceCredits,
+    });
+
+    return {
+      ok: true as const,
+      purchase: {
+        featureKey,
+        name: feature.name,
+        priceCredits: feature.priceCredits,
+      },
+    };
   });
-}
-
-/**
- * Atribuição direta de plano pelo admin,
- * sem pedido prévio do proprietário.
- */
-
-export async function assignPlanToStore({
-  storeId,
-  planKey,
-}: {
-  storeId: string;
-  planKey: string;
-}) {
-  const db = await getDb();
-
-  if (!db) {
-    throw new Error("DATABASE_UNAVAILABLE");
-  }
-
-  if (
-    !PLAN_CATALOG.some(
-      (plan) =>
-        plan.key === planKey,
-    )
-  ) {
-    throw new Error(
-      "INVALID_PLAN_KEY",
-    );
-  }
-
-  const updated = await db
-    .update(stores)
-    .set({
-      planKey,
-      ...buildSubscriptionPeriodSet(
-        planKey,
-      ),
-      updatedAt: new Date(),
-    })
-    .where(
-      eq(
-        stores.id,
-        storeId,
-      ),
-    )
-    .returning();
-
-  if (!updated[0]) {
-    throw new Error(
-      "STORE_NOT_FOUND",
-    );
-  }
-
-  return updated[0];
 }
 
 /* ============================================================
@@ -1181,7 +715,6 @@ export async function getAdminUsers() {
       .select({
         membership: storeMembers,
         store: stores,
-        plan: plans,
       })
       .from(storeMembers)
       .innerJoin(
@@ -1189,13 +722,6 @@ export async function getAdminUsers() {
         eq(
           storeMembers.storeId,
           stores.id,
-        ),
-      )
-      .leftJoin(
-        plans,
-        eq(
-          stores.planKey,
-          plans.key,
         ),
       ),
   ]);
@@ -1257,11 +783,9 @@ export async function getAdminUsers() {
       ({
         membership,
         store,
-        plan,
       }) => ({
         store,
         role: membership.role,
-        plan,
       }),
     ),
   }));
@@ -1456,56 +980,6 @@ export async function deleteAdminUser(
 
     return deleted[0];
   });
-}
-
-export async function getAdminPlans() {
-  const db = await getDb();
-
-  if (!db) {
-    return [];
-  }
-
-  const [
-    allPlans,
-    allStores,
-  ] = await Promise.all([
-    db
-      .select()
-      .from(plans)
-      .orderBy(
-        plans.priceMzn,
-      ),
-
-    db
-      .select({
-        planKey:
-          stores.planKey,
-      })
-      .from(stores),
-  ]);
-
-  const usageByPlanKey =
-    new Map<string, number>();
-
-  for (const store of allStores) {
-    usageByPlanKey.set(
-      store.planKey,
-      (
-        usageByPlanKey.get(
-          store.planKey,
-        ) ?? 0
-      ) + 1,
-    );
-  }
-
-  return allPlans.map((plan) => ({
-    plan,
-
-    storeCount:
-      usageByPlanKey.get(
-        plan.key,
-      ) ?? 0,
-  }));
 }
 
 export async function userHasStoreAccess(
@@ -1853,6 +1327,32 @@ export async function updateStoreProductCardModel(
 }
 
 /* ============================================================
+   STORE NAV BUTTON MODEL (tema Nova)
+   ============================================================ */
+
+export async function updateStoreNavButtonModel(
+  storeId: string,
+  model: string | null,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const result = await db
+    .update(stores)
+    .set({
+      navButtonModel: model,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
+
+/* ============================================================
    STORE THEMES
    ============================================================ */
 
@@ -2064,7 +1564,6 @@ export async function getStoreDashboardSummary(
       name: store.name,
       slug: store.slug,
       category: store.category,
-      planKey: store.planKey,
       status: store.status,
       currency: store.currency,
       themeKey: store.themeKey,
@@ -2608,7 +2107,6 @@ export async function createStoreFromApplication(
           slug:
             application.storeSlug,
           category: "General",
-          planKey: "free",
           status: "active",
           currency: "MZN",
           themeKey: "nova",
@@ -2644,4 +2142,154 @@ export async function createStoreFromApplication(
 
     return createdStoreResult[0];
   });
+}
+
+/* ============================================================
+   MARKET FEATURES
+   ============================================================ */
+
+/*
+ * Catálogo comercial do módulo MARKET.
+ *
+ * O que se vende são FUNCIONALIDADES de personalização
+ * (não produtos físicos). O conteúdo comercial (nome,
+ * descrição, categoria, preço em créditos e status) vive
+ * APENAS aqui (banco de dados). A estrutura de código
+ * continua isolada em
+ * client/src/components/dashboard/market/components/*.
+ */
+
+/** Lista todas as funcionalidades do Market (Admin). */
+export async function listMarketFeatures() {
+  const db = await getDb();
+
+  if (!db) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(marketFeatures)
+    .orderBy(
+      asc(marketFeatures.category),
+      asc(marketFeatures.sortOrder),
+    );
+}
+
+/**
+ * Lista apenas as funcionalidades Market ativas.
+ * É o que o Market (cliente) consome para
+ * mostrar nomes, descrições e preços em créditos.
+ */
+export async function listActiveMarketFeatures() {
+  const db = await getDb();
+
+  if (!db) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(marketFeatures)
+    .where(eq(marketFeatures.status, "active"))
+    .orderBy(
+      asc(marketFeatures.category),
+      asc(marketFeatures.sortOrder),
+    );
+}
+
+/** Cria uma funcionalidade Market. */
+export async function insertMarketFeature(
+  values: typeof marketFeatures.$inferInsert,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const result = await db
+    .insert(marketFeatures)
+    .values(values)
+    .returning();
+
+  return result[0];
+}
+
+/** Atualiza campos comerciais de uma funcionalidade Market. */
+export async function updateMarketFeature(
+  id: string,
+  patch: Partial<typeof marketFeatures.$inferInsert>,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const result = await db
+    .update(marketFeatures)
+    .set({
+      ...patch,
+      updatedAt: new Date(),
+    })
+    .where(eq(marketFeatures.id, id))
+    .returning();
+
+  return result[0] ?? null;
+}
+
+/**
+ * Garante que cada entrada estrutural do catálogo
+ * (shared/market-catalog.ts) tem a sua linha comercial
+ * na tabela market_features.
+ *
+ * É assim que o Admin "cria as funcionalidades através do
+ * código/estrutura definida": ao publicar uma nova
+ * funcionalidade no catálogo partilhado, a linha comercial
+ * nasce automaticamente aqui, pronta a ser precificada.
+ *
+ * Cria apenas o que falta; nunca sobrescreve preços nem
+ * descrições já editados pelo Admin.
+ */
+export async function ensureMarketFeaturesSeeded() {
+  const db = await getDb();
+
+  if (!db) {
+    return;
+  }
+
+  const existing = await db
+    .select({ featureKey: marketFeatures.featureKey })
+    .from(marketFeatures);
+
+  const existingKeys = new Set(
+    existing.map((row) => row.featureKey),
+  );
+
+  const missing = MARKET_CATALOG.filter(
+    (entry) => !existingKeys.has(entry.featureKey),
+  );
+
+  if (missing.length === 0) {
+    return;
+  }
+
+  await db
+    .insert(marketFeatures)
+    .values(
+      missing.map((entry) => ({
+        id: entry.featureKey,
+        featureKey: entry.featureKey,
+        category: entry.category,
+        sortOrder: entry.sortOrder,
+        /* Defaults comerciais — editáveis no Admin. */
+        name: entry.featureKey,
+        description:
+          "Funcionalidade de personalização do Market.",
+        priceCredits: 0,
+        status: "active" as const,
+      })),
+    )
+    .onConflictDoNothing();
 }

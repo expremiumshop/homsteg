@@ -100,24 +100,20 @@ export default function DashboardSidebar({
         </div>
       </div>
 
-      {/* Plano */}
+      {/* Crédito */}
       <div className="border-t border-gray-100 p-3">
         {children ?? (
           <div className="rounded-2xl bg-[#111713] p-4 text-white">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-300">
-                Plano atual
-              </span>
-
-              <span className="rounded-full bg-lime-300 px-2 py-0.5 text-[10px] font-bold text-[#111713]">
-                FREE
+                Crédito
               </span>
             </div>
 
-            <p className="text-sm font-semibold">Comece a sua loja</p>
+            <p className="text-sm font-semibold">Crédito: 0</p>
 
             <p className="mt-1 text-xs leading-5 text-gray-400">
-              Evolua o seu plano quando a sua loja crescer.
+              O saldo de crédito é gerido pelo Admin.
             </p>
           </div>
         )}

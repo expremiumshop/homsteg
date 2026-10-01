@@ -12,40 +12,45 @@ import {
 
 import {
   archiveProduct,
-  assignPlanToStore,
-  createPlanUpgradeRequest,
   createStoreForUser,
   deleteAdminUser,
   deleteStore,
   countActiveStoreProducts,
-  getAdminPlanOverview,
-  getAdminPlanRequests,
-  getAdminPlans,
   getAdminUsers,
   getPublicStoreBySlug,
   getStoreDashboardSummary,
   getStoreBrandingUrls,
-  getStoreWithPlanUsage,
+  getStoreWithUsage,
   getStoresForUser,
   insertProduct,
   insertStoreCategory,
   listProducts,
   listStoreCategories,
+  listStoreMarketFeatureKeys,
   renameStoreCategory,
   updateProduct,
   listPublicProducts,
-  markStoreSubscriptionPaid,
-  reviewPlanRequest,
+  purchaseMarketFeature,
   updateStoreBranding,
   updateStoreBannerSettings,
   updateStoreProductCardModel,
+  updateStoreNavButtonModel,
   updateStoreStatus,
   updateStoreTheme,
   updateStoreWhatsApp,
   userHasStoreAccess,
+  listMarketFeatures,
+  listActiveMarketFeatures,
+  insertMarketFeature,
+  updateMarketFeature,
+  ensureMarketFeaturesSeeded,
+  setStoreCreditMzn,
+  addStoreCreditMzn,
 } from "./db.js";
 
 import type { InsertProduct } from "../drizzle/schema.js";
+
+import { findMarketCatalogEntry } from "../shared/market-catalog.js";
 
 import { getBetterAuthUserById } from "./auth.js";
 
@@ -126,51 +131,6 @@ const themeInput = z.enum([
   "chazuca",
 ]);
 
-const planKeyInput = z.enum([
-  "free",
-  "starter",
-  "business",
-  "professional",
-  "enterprise",
-]);function planLimit(planKey: string) {
-  switch (planKey) {
-    case "enterprise":
-      return Number.POSITIVE_INFINITY;
-    case "professional":
-      return 5850;
-    case "business":
-      return 2450;
-    case "starter":
-      return 580;
-    case "free":
-    default:
-      return 50;
-  }
-}
-
-/* ============================================================
-   TEMAS
-
-   Regras de acesso:
-   - Qualquer loja pode VER/pré-visualizar todos os temas.
-   - A restrição aplica-se APENAS à seleção/ativação.
-   - Free: apenas o tema "nova".
-   - Qualquer plano pago (starter ou superior): todos os temas.
-   ============================================================ */
-
-const FREE_PLAN_THEMES = new Set(["nova"]);
-
-function canStoreActivateTheme(
-  planKey: string,
-  themeKey: string,
-) {
-  if (planKey !== "free") {
-    return true;
-  }
-
-  return FREE_PLAN_THEMES.has(themeKey);
-}
-
 /* ============================================================
    HELPERS
    ============================================================ */
@@ -190,6 +150,124 @@ function requireStoreAccess(hasAccess: boolean) {
 
 export const appRouter = router({
   system: systemRouter,
+
+  /* ==========================================================
+     MARKET
+     Funcionalidades de personalização vendidas no Market.
+     Os preços e conteúdos vêm SEMPRE da base de dados —
+     nunca de constantes no cliente.
+     ========================================================== */
+
+  market: router({
+    /**
+     * Funcionalidades Market ativas, para consumo no
+     * Market (público). Garante o seed estrutural antes
+     * de devolver a lista.
+     */
+    features: publicProcedure.query(async () => {
+      await ensureMarketFeaturesSeeded();
+
+      return listActiveMarketFeatures();
+    }),
+
+    /* ========================================================
+       PURCHASES (compras/desbloqueios por loja)
+       O desbloqueio vive na base de dados
+       (store_market_features) — permanente, por loja.
+       ======================================================== */
+
+    purchases: router({
+      /**
+       * FeatureKeys comprados/desbloqueados pela loja.
+       * Apenas membros da loja — o desbloqueio é
+       * privado da loja.
+       */
+      mine: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+          }),
+        )
+        .query(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const featureKeys =
+            await listStoreMarketFeatureKeys({
+              storeId: input.storeId,
+            });
+
+          return { featureKeys };
+        }),
+
+      /**
+       * Compra de uma funcionalidade do Market com o
+       * crédito da loja (stores.creditMzn). O
+       * desbloqueio fica guardado permanentemente em
+       * store_market_features.
+       */
+      buy: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            featureKey: z
+              .string()
+              .trim()
+              .min(1)
+              .max(64),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const result = await purchaseMarketFeature({
+            storeId: input.storeId,
+            featureKey: input.featureKey,
+          });
+
+          if (result.ok) {
+            return result;
+          }
+
+          switch (result.reason) {
+            case "ALREADY_OWNED":
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "Esta funcionalidade já foi comprada pela loja.",
+              });
+            case "INSUFFICIENT_CREDIT":
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Crédito insuficiente. Pede mais crédito ao administrador.",
+              });
+            case "FEATURE_NOT_FOUND":
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Funcionalidade Market não encontrada ou inativa.",
+              });
+            default:
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Loja não encontrada.",
+              });
+          }
+        }),
+    }),
+  }),
 
   /* ==========================================================
      AUTH
@@ -271,7 +349,7 @@ export const appRouter = router({
           );
 
           const result =
-            await getStoreWithPlanUsage(
+            await getStoreWithUsage(
               input.storeId,
             );
 
@@ -293,6 +371,8 @@ export const appRouter = router({
               result.store.productCardModel ?? null,
             bannerModel:
               result.store.bannerModel ?? null,
+            navButtonModel:
+              result.store.navButtonModel ?? null,
             bannerTexts:
               result.store.bannerTexts ?? [],
             bannerFeatures:
@@ -753,17 +833,63 @@ export const appRouter = router({
               store.productCardModel ?? null,
           };
         }),
+
+      /* ========================================================
+         MODELO DOS BOTÕES DE NAVEGAÇÃO (tema Nova)
+         "1".."5" — ver BrandingPage / navButtonModels.
+         ======================================================== */
+
+      setNavButtonModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3", "4", "5"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store =
+            await updateStoreNavButtonModel(
+              input.storeId,
+              input.model,
+            );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            navButtonModel:
+              store.navButtonModel ?? null,
+          };
+        }),
     }),
 
     /* ========================================================
-       PLANOS DA LOJA (proprietário)
+       STORE USAGE (leitura do dashboard)
+
+       A plataforma é 100% gratuita: sem planos,
+       mensalidades ou upgrades. Esta leitura existe
+       apenas para métricas do dashboard (produtos
+       usados) e para o saldo de crédito da loja,
+       usado somente no Market.
        ======================================================== */
 
-    plan: router({
-      /**
-       * Plano ativo da loja + utilização.
-       * Visível para qualquer membro da loja.
-       */
+    usage: router({
       current: protectedProcedure
         .input(
           z.object({
@@ -780,7 +906,7 @@ export const appRouter = router({
           );
 
           const result =
-            await getStoreWithPlanUsage(
+            await getStoreWithUsage(
               input.storeId,
             );
 
@@ -792,89 +918,6 @@ export const appRouter = router({
           }
 
           return result;
-        }),
-
-      /**
-       * O proprietário pede um upgrade de plano.
-       * O limite só muda depois de aprovação
-       * manual do administrador.
-       */
-      requestUpgrade: protectedProcedure
-        .input(
-          z.object({
-            storeId: storeIdInput,
-            requestedPlanKey: planKeyInput,
-            note: optionalText(1000),
-          }),
-        )
-        .mutation(async ({ ctx, input }) => {
-          requireStoreAccess(
-            await userHasStoreAccess(
-              ctx.user.id,
-              input.storeId,
-              ctx.user.role === "admin",
-            ),
-          );
-
-          const latest =
-            await getStoreWithPlanUsage(
-              input.storeId,
-            );
-
-          if (!latest) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Loja não encontrada.",
-            });
-          }
-
-          if (
-            latest.latestRequest?.status ===
-            "pending"
-          ) {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "Já existe um pedido de plano pendente.",
-            });
-          }
-
-          if (
-            latest.latestRequest?.status ===
-              "approved" &&
-            latest.latestRequest.assignedPlanKey ===
-              input.requestedPlanKey
-          ) {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "A loja já tem este plano ativo.",
-            });
-          }
-
-          if (
-            planLimit(latest.store.planKey) >=
-            planLimit(input.requestedPlanKey)
-          ) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Escolha um plano superior ao atual.",
-            });
-          }
-
-          const request =
-            await createPlanUpgradeRequest({
-              storeId: input.storeId,
-              requestedPlanKey:
-                input.requestedPlanKey,
-              note: input.note ?? null,
-            });
-
-          return {
-            success: true,
-            request,
-          };
         }),
     }),
 
@@ -898,37 +941,6 @@ export const appRouter = router({
               ctx.user.role === "admin",
             ),
           );
-
-          /*
-           * A restrição de plano aplica-se apenas à
-           * ativação do tema: lojas no plano Free só
-           * podem ativar o tema Nova. Ver/preview
-           * continua livre para todos os temas.
-           */
-          const currentStore =
-            await getStoreWithPlanUsage(
-              input.storeId,
-            );
-
-          if (!currentStore) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Loja não encontrada.",
-            });
-          }
-
-          if (
-            !canStoreActivateTheme(
-              currentStore.store.planKey,
-              input.themeKey,
-            )
-          ) {
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message:
-                "O tema selecionado requer um plano pago. Faça upgrade do plano para desbloquear.",
-            });
-          }
 
           const store = await updateStoreTheme(
             input.storeId,
@@ -1383,39 +1395,16 @@ export const appRouter = router({
         );
 
         /* ======================================================
-           LIMITE DO PLANO
-
-           O limite do plano é aplicado no servidor:
-           sem aprovação manual do admin, o limite não aumenta.
+           A plataforma é 100% gratuita: sem limites de
+           produtos por plano. Qualquer loja cria
+           quantos produtos quiser.
            ====================================================== */
 
-        const storePlan =
-          await getStoreWithPlanUsage(
-            input.storeId,
-          );
+        const productImagePrefix =
+          `stores/${input.storeId}/products/`;
 
-        if (!storePlan) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Loja não encontrada.",
-          });
-        }
-
-        const limit = planLimit(
-          storePlan.store.planKey,
-        );
 
         if (
-          storePlan.productsUsed >= limit
-        ) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Limite de produtos do plano atual atingido. Peça um upgrade de plano ao administrador.",
-          });
-        }        const productImagePrefix =
-          `stores/${input.storeId}/products/`;
-        if (
           input.imageKeys.some(
             (key) =>
               !key.startsWith(
@@ -1828,200 +1817,204 @@ export const appRouter = router({
     }),
 
     /* ========================================================
-       PLANS
+       MARKET FEATURES
+       Funcionalidades de personalização do Market,
+       administráveis sem tocar em código.
        ======================================================== */
 
-    plans: router({
-      list: adminProcedure.query(
-        () => getAdminPlans(),
-      ),
+    market: router({
+      features: router({
+        list: adminProcedure.query(async () => {
+          await ensureMarketFeaturesSeeded();
 
-      /**
-       * Visão geral: cada loja, plano atual,
-       * limite, produtos usados, WhatsApp do proprietário,
-       * datas e último pedido.
-       */
-      overview: adminProcedure.query(
-        () => getAdminPlanOverview(),
-      ),
-
-      /**
-       * Pedidos de upgrade (todos os estados).
-       */
-      requests: adminProcedure.query(
-        () => getAdminPlanRequests(),
-      ),
-
-      /**
-       * Aprovar / rejeitar um pedido de upgrade.
-       * Ao aprovar, o plano pode ser ajustado pelo admin
-       * antes de ser aplicado à loja.
-       */
-      review: adminProcedure
-        .input(
-          z.object({
-            requestId: z
-              .number()
-              .int()
-              .positive(),
-
-            decision: z.enum([
-              "approved",
-              "rejected",
-            ]),
-
-            assignedPlanKey:
-              planKeyInput.optional(),
-
-            adminNotes:
-              optionalText(2000),
-          }),
-        )
-        .mutation(async ({ input }) => {
-          try {
-            const result =
-              await reviewPlanRequest({
-                requestId: input.requestId,
-                decision: input.decision,
-                assignedPlanKey:
-                  input.assignedPlanKey ??
-                  null,
-                adminNotes:
-                  input.adminNotes ?? null,
-              });
-
-            if (!result.request) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Pedido não encontrado.",
-              });
-            }
-
-            return {
-              success: true,
-              request: result.request,
-              store: result.store,
-            };
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message ===
-                "PLAN_REQUEST_NOT_FOUND"
-            ) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Pedido não encontrado.",
-              });
-            }
-
-            if (
-              error instanceof Error &&
-              error.message ===
-                "PLAN_REQUEST_ALREADY_REVIEWED"
-            ) {
-              throw new TRPCError({
-                code: "CONFLICT",
-                message:
-                  "Este pedido já foi avaliado.",
-              });
-            }
-
-            throw error;
-          }
+          return listMarketFeatures();
         }),
 
-      /**
-       * Atribuição direta de plano pelo admin,
-       * sem pedido do proprietário.
-       */
-      assign: adminProcedure
-        .input(
-          z.object({
-            storeId: storeIdInput,
-            planKey: planKeyInput,
-          }),
-        )
-        .mutation(async ({ input }) => {
-          try {
-            const store =
-              await assignPlanToStore({
-                storeId: input.storeId,
-                planKey: input.planKey,
-              });
+        /**
+         * Cria manualmente uma funcionalidade a partir
+         * de um featureKey já definido no catálogo
+         * estrutural (shared/market-catalog.ts).
+         */
+        create: adminProcedure
+          .input(
+            z.object({
+              featureKey: z
+                .string()
+                .trim()
+                .min(1)
+                .max(64),
+              name: z
+                .string()
+                .trim()
+                .min(1)
+                .max(120),
+              description: z
+                .string()
+                .trim()
+                .min(1)
+                .max(2000),
+              category: z.enum([
+                "header",
+                "banner",
+                "category_card",
+                "product_card",
+                "footer",
+              ]),
+              priceCredits: z
+                .number()
+                .int()
+                .min(0)
+                .max(1_000_000),
+              status: z
+                .enum(["active", "inactive"])
+                .default("active"),
+              sortOrder: z
+                .number()
+                .int()
+                .min(0)
+                .max(999)
+                .default(0),
+            }),
+          )
+          .mutation(async ({ input }) => {
+            /*
+             * A funcionalidade tem de existir no
+             * código/estrutura definida. O Admin publica
+             * comercialmente o que já existe em código.
+             */
+            const entry = findMarketCatalogEntry(
+              input.featureKey,
+            );
 
-            return {
-              success: true,
-              store,
-            };
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message ===
-                "STORE_NOT_FOUND"
-            ) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
-
-            throw error;
-          }
-        }),
-
-      /**
-       * Marca o pagamento mensal como recebido:
-       * renova a subscrição por mais um mês e
-       * mantém o plano ativo.
-       */
-      markPaid: adminProcedure
-        .input(
-          z.object({
-            storeId: storeIdInput,
-          }),
-        )
-        .mutation(async ({ input }) => {
-          try {
-            const store =
-              await markStoreSubscriptionPaid(
-                input.storeId,
-              );
-
-            return {
-              success: true,
-              store,
-            };
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message ===
-                "STORE_NOT_FOUND"
-            ) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message:
-                  "Loja não encontrada.",
-              });
-            }
-
-            if (
-              error instanceof Error &&
-              error.message ===
-                "SUBSCRIPTION_NOT_REQUIRED_FOR_FREE_PLAN"
-            ) {
+            if (!entry) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
-                  "O plano Free não requer pagamento mensal.",
+                  "featureKey não existe no catálogo estrutural do Market.",
               });
             }
 
-            throw error;
-          }
-        }),
+            try {
+              const feature =
+                await insertMarketFeature({
+                  id: input.featureKey,
+                  featureKey: input.featureKey,
+                  name: input.name,
+                  description:
+                    input.description,
+                  category: entry.category,
+                  priceCredits:
+                    input.priceCredits,
+                  status: input.status,
+                  sortOrder:
+                    input.sortOrder ||
+                    entry.sortOrder,
+                });
+
+              return { success: true, feature };
+            } catch (error) {
+              if (
+                error instanceof Error &&
+                error.message.includes(
+                  "market_features_feature_key_idx",
+                )
+              ) {
+                throw new TRPCError({
+                  code: "CONFLICT",
+                  message:
+                    "Já existe uma funcionalidade Market com esta referência.",
+                });
+              }
+
+              throw error;
+            }
+          }),
+
+        update: adminProcedure
+          .input(
+            z.object({
+              id: z.string().trim().min(1).max(64),
+              name: z
+                .string()
+                .trim()
+                .min(1)
+                .max(120)
+                .optional(),
+              description: z
+                .string()
+                .trim()
+                .min(1)
+                .max(2000)
+                .optional(),
+              priceCredits: z
+                .number()
+                .int()
+                .min(0)
+                .max(1_000_000)
+                .optional(),
+              status: z
+                .enum(["active", "inactive"])
+                .optional(),
+              sortOrder: z
+                .number()
+                .int()
+                .min(0)
+                .max(999)
+                .optional(),
+            }),
+          )
+          .mutation(async ({ input }) => {
+            const { id, ...patch } = input;
+
+            const feature =
+              await updateMarketFeature(
+                id,
+                patch,
+              );
+
+            if (!feature) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Funcionalidade Market não encontrada.",
+              });
+            }
+
+            return { success: true, feature };
+          }),
+
+        /**
+         * Ativar/desativar rapidamente (status).
+         */
+        setStatus: adminProcedure
+          .input(
+            z.object({
+              id: z.string().trim().min(1).max(64),
+              status: z.enum([
+                "active",
+                "inactive",
+              ]),
+            }),
+          )
+          .mutation(async ({ input }) => {
+            const feature =
+              await updateMarketFeature(
+                input.id,
+                {
+                  status: input.status,
+                },
+              );
+
+            if (!feature) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message:
+                  "Funcionalidade Market não encontrada.",
+              });
+            }
+            return { success: true, feature };
+          }),
+      }),
     }),
 
     /* ========================================================
@@ -2106,6 +2099,103 @@ export const appRouter = router({
           return {
             success: true,
             store,
+          };
+        }),
+    }),
+
+    /* ========================================================
+       STORE CREDITS
+       Gestão manual do saldo de crédito por loja.
+       O crédito vive na loja (stores.creditMzn).
+       ======================================================== */
+
+    credit: router({
+      /**
+       * Lista todas as lojas com o saldo atual
+       * (inclui lojas com NULL = 0).
+       */
+      list: adminProcedure.query(
+        () => getAdminUsers(),
+      ),
+
+      /**
+       * Define o saldo absoluto da loja.
+       */
+      set: adminProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            creditMzn: z
+              .number()
+              .int()
+              .min(0),
+          }),
+        )
+        .mutation(async ({ input }) => {
+          const store =
+            await setStoreCreditMzn({
+              storeId: input.storeId,
+              creditMzn: input.creditMzn,
+            });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            store: {
+              id: store.id,
+              creditMzn: store.creditMzn ?? 0,
+            },
+          };
+        }),
+
+      /**
+       * Acrescenta (ou subtrai) crédito ao saldo
+       * atual. O resultado nunca fica abaixo de 0.
+       */
+      add: adminProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            amountMzn: z
+              .number()
+              .int()
+              .refine(
+                (value) => value !== 0,
+                {
+                  message:
+                    "O valor não pode ser zero.",
+                },
+              ),
+          }),
+        )
+        .mutation(async ({ input }) => {
+          const store =
+            await addStoreCreditMzn({
+              storeId: input.storeId,
+              amountMzn: input.amountMzn,
+            });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            store: {
+              id: store.id,
+              creditMzn: store.creditMzn ?? 0,
+            },
           };
         }),
     }),

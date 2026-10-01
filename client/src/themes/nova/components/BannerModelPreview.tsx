@@ -1,5 +1,6 @@
 import {
   BANNER_MODELS,
+  BANNER_UNLOCKABLE_MODELS,
   getBannerModelLabel,
   type BannerModel,
 } from "../bannerModels";
@@ -87,12 +88,27 @@ export function BannerModelSelector({
   value,
   onChange,
   disabled = false,
+  unlockedModels,
 }: {
   value: string | null | undefined;
   onChange: (model: BannerModel) => void;
   disabled?: boolean;
+  /**
+   * Modelos desbloqueados pela loja via Market
+   * (store_market_features). Quando fornecido, APENAS
+   * estes modelos são mostrados — os não comprados ficam
+   * escondidos (comprados no Market, visíveis lá).
+   */
+  unlockedModels?: readonly BannerModel[] | null;
 }) {
   const selected = value ?? "1";
+
+  const visibleModels =
+    unlockedModels === undefined
+      ? BANNER_MODELS
+      : BANNER_UNLOCKABLE_MODELS.filter((model) =>
+          (unlockedModels ?? []).includes(model),
+        );
 
   const descriptions: Record<BannerModel, string> = {
     "1": "Design atual do carrossel, sem alterações.",
@@ -104,7 +120,7 @@ export function BannerModelSelector({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {BANNER_MODELS.map((model) => {
+      {visibleModels.map((model) => {
         const isActive = model === selected;
 
         return (

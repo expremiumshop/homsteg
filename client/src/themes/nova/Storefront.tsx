@@ -13,7 +13,7 @@ import {
 } from "./components/ProductGrid";
 import { PromotionBanner } from "./components/PromotionBanner";
 import { BenefitsSection } from "./components/BenefitsSection";
-import { BottomNavigation } from "./components/BottomNavigation";
+import { ModelBottomNavigation } from "./components/ModelBottomNavigation";
 import Footer from "./components/Footer";
 
 import {
@@ -60,6 +60,9 @@ type StoreData = {
 
   /* Modelo de cartão de produto (1..5), ver productCardModels. */
   productCardModel?: string | null;
+
+  /* Modelo de botão de navegação (1..5), ver navButtonModels. */
+  navButtonModel?: string | null;
 
   /* Modelo de banner do carrossel (1..5). */
   bannerModel?: string | null;
@@ -631,11 +634,12 @@ export default function NovaStorefront({
           NAVEGAÇÃO MOBILE
           ===================================================== */}
 
-      <BottomNavigation
+      <ModelBottomNavigation
         cartCount={0}
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
         storeSlug={storeSlug}
+        model={store?.navButtonModel}
       />
     </div>
   );

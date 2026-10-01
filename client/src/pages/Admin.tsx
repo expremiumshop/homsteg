@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
-  CreditCard,
   LogOut,
   Menu,
   Search,
+  ShoppingBag,
   Store,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 
@@ -16,12 +17,14 @@ import {
   getStoreUrlLabel,
 } from "@/lib/store-url";
 import UsersPanel from "@/components/admin/users/UsersPanel";
-import PlansPanel from "@/components/admin/plans/PlansPanel";
+import MarketFeaturesPanel from "@/components/admin/market/MarketFeaturesPanel";
+import CreditPanel from "@/components/admin/credit/CreditPanel";
 
 const adminNav = [
   { label: "Utilizadores", icon: Users },
   { label: "Lojas", icon: Store },
-  { label: "Planos", icon: CreditCard },
+  { label: "Créditos", icon: Wallet },
+  { label: "Produtos", icon: ShoppingBag },
 ];
 
 export default function Admin() {
@@ -249,9 +252,11 @@ export default function Admin() {
             <p className="mt-2 text-[13px] text-[#7d897e]">
               {active === "Utilizadores"
                 ? "Contas e lojas reais associadas."
-                : active === "Planos"
-                  ? "Planos, limites de produtos e pedidos de upgrade."
-                  : "Lojas ativas criadas pelos utilizadores."}
+                : active === "Créditos"
+                  ? "Gestão manual do saldo de crédito por loja — usado apenas no Market."
+                  : active === "Produtos"
+                    ? "Catálogo comercial do Market: preços em créditos e status."
+                    : "Lojas ativas criadas pelos utilizadores."}
             </p>
           </div>
 
@@ -278,8 +283,10 @@ export default function Admin() {
           </div>
 
           <div>
-            {active === "Planos" ? (
-              <PlansPanel />
+            {active === "Créditos" ? (
+              <CreditPanel />
+            ) : active === "Produtos" ? (
+              <MarketFeaturesPanel />
             ) : (
             <div className="rounded-[14px] border border-[#e1e9df] bg-white">
               <div className="flex flex-col justify-between gap-3 border-b border-[#edf1eb] px-5 py-4 sm:flex-row sm:items-center">
@@ -321,7 +328,7 @@ export default function Admin() {
                       <div className="grid grid-cols-[1.4fr_1.2fr_1fr_.8fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
                         <span>Utilizador</span>
                         <span>E-mail</span>
-                        <span>Loja / plano</span>
+                        <span>Loja</span>
                         <span>Estado</span>
                         <span />
                       </div>

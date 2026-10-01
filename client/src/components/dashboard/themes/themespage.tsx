@@ -6,7 +6,6 @@ import {
   Smartphone,
   Monitor,
   Tablet,
-  Crown,
   Sparkles,
   Store,
 } from "lucide-react";
@@ -17,65 +16,60 @@ type Theme = {
   name: string;
   description: string;
   category: string;
-  plan: "Grátis" | "Premium";
 };
 
+/*
+ * Todos os temas são gratuitos: a HOMSTEG
+ * não tem planos nem temas bloqueados.
+ */
 const themes: Theme[] = [
   {
     id: "",
     name: "Nova",
     description: "Marketplace moderno e versátil para diferentes tipos de loja.",
     category: "Marketplace",
-    plan: "Grátis",
   },
   {
     id: "luxe",
     name: "Luxe",
     description: "Visual premium para moda, luxo e marcas sofisticadas.",
     category: "Moda & Luxo",
-    plan: "Premium",
   },
   {
     id: "market",
     name: "Market",
     description: "Ideal para lojas com grande variedade de produtos.",
     category: "Marketplace",
-    plan: "Premium",
   },
   {
     id: "urban",
     name: "Urban",
     description: "Moda, streetwear e lifestyle com visual marcante.",
     category: "Lifestyle",
-    plan: "Premium",
   },
   {
     id: "essenza",
     name: "Essenza",
     description: "Design minimalista, elegante e focado nos produtos.",
     category: "Minimalista",
-    plan: "Premium",
   },
   {
     id: "prime",
     name: "Prime",
     description: "Experiência moderna para tecnologia e eletrónica.",
     category: "Tecnologia",
-    plan: "Premium",
   },
   {
     id: "caliza",
     name: "Caliza",
     description: "Visual sofisticado para marcas modernas e criativas.",
     category: "Moderno",
-    plan: "Premium",
   },
   {
     id: "chazuca",
     name: "Chazuca",
     description: "Um tema criativo, forte e versátil para destacar a loja.",
     category: "Criativo",
-    plan: "Premium",
   },
 ];
 
@@ -200,13 +194,6 @@ export default function ThemesPage() {
                       </div>
                     </div>
                   </div>
-
-                  {theme.plan === "Premium" && (
-                    <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-semibold text-white">
-                      <Crown className="h-3 w-3" />
-                      Premium
-                    </div>
-                  )}
 
                   {isSelected && (
                     <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">

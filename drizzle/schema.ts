@@ -1,10 +1,12 @@
 import {
+  index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -15,11 +17,6 @@ import {
 export const userRoleEnum = pgEnum("user_role", [
   "user",
   "admin",
-]);
-
-export const planStatusEnum = pgEnum("plan_status", [
-  "active",
-  "archived",
 ]);
 
 export const storeStatusEnum = pgEnum("store_status", [
@@ -39,12 +36,6 @@ export const applicationStatusEnum = pgEnum("application_status", [
   "approved",
   "rejected",
   "changes_requested",
-]);
-
-export const planRequestStatusEnum = pgEnum("plan_request_status", [
-  "pending",
-  "approved",
-  "rejected",
 ]);
 
 export const productStatusEnum = pgEnum("product_status", [
@@ -104,45 +95,6 @@ export const users = pgTable("users", {
 });
 
 /* ============================================================
-   PLANS
-   ============================================================ */
-
-export const plans = pgTable("plans", {
-  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
-
-  key: varchar("key", {
-    length: 32,
-  })
-    .notNull()
-    .unique(),
-
-  name: varchar("name", {
-    length: 80,
-  }).notNull(),
-
-  priceMzn: integer("priceMzn")
-    .notNull()
-    .default(0),
-
-  productLimit: integer("productLimit")
-    .notNull()
-    .default(10),
-
-  status: planStatusEnum("status")
-    .notNull()
-    .default("active"),
-
-  features: text("features")
-    .notNull(),
-
-  createdAt: timestamp("createdAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
-
-/* ============================================================
    STORES
    ============================================================ */
 
@@ -167,11 +119,30 @@ export const stores = pgTable("stores", {
     .notNull()
     .default("General"),
 
+  /*
+   * Campo histórico mantido para compatibilidade com
+   * dados antigos. Sempre "free": a HOMSTEG é uma
+   * plataforma 100% gratuita, sem planos.
+   */
   planKey: varchar("planKey", {
     length: 32,
   })
     .notNull()
     .default("free"),
+
+  /*
+   * Crédito da loja (MZN).
+   *
+   * O único sistema pago da HOMSTEG: o crédito é
+   * usado APENAS para comprar/desbloquear
+   * funcionalidades, modelos e componentes no
+   * Market. Definido/acrescentado manualmente pelo
+   * Admin (secção "Créditos"); 0 = sem crédito.
+   * Criar e usar a loja é sempre gratuito.
+   */
+  creditMzn: integer("creditMzn")
+    .notNull()
+    .default(0),
 
   status: storeStatusEnum("status")
     .notNull()
@@ -186,31 +157,6 @@ export const stores = pgTable("stores", {
   whatsapp: varchar("whatsapp", {
     length: 40,
   }),
-
-  /*
-   * Subscrição mensal do plano.
-   *
-   * null para lojas no plano Free.
-   * Para planos pagos: até quando o período
-   * pago está válido.
-   */
-  subscriptionPaidUntil: timestamp(
-    "subscriptionPaidUntil",
-    {
-      withTimezone: true,
-    },
-  ),
-
-  /*
-   * Quando o último pagamento foi registado
-   * pelo admin ("Mark as Paid").
-   */
-  subscriptionPaidAt: timestamp(
-    "subscriptionPaidAt",
-    {
-      withTimezone: true,
-    },
-  ),
 
   /*
    * Tema visual escolhido pela loja.
@@ -272,6 +218,15 @@ n   * stores/{storeId}/branding/.
    * Valores: "1".."5" (ver bannerModels).
    */
   bannerModel: varchar("bannerModel", {
+    length: 8,
+  }),
+
+  /*
+   * Modelo dos botões de navegação (tema Nova).
+   * null = modelo atual (1).
+   * Valores: "1".."5" (ver navButtonModels).
+   */
+  navButtonModel: varchar("navButtonModel", {
     length: 8,
   }),
 
@@ -423,52 +378,82 @@ export const storeApplications = pgTable("storeApplications", {
 });
 
 /* ============================================================
-   PLAN REQUESTS
+   MARKET FEATURES
    ============================================================ */
 
-/**
- * Pedidos de upgrade de plano.
+/*
+ * Catálogo comercial do módulo MARKET.
  *
- * O proprietário da loja pede um plano superior.
- * O limite só aumenta depois de aprovação manual
- * do administrador.
+ * O que se vende no Market são FUNCIONALIDADES de
+ * personalização da loja (header, banner, category-card,
+ * product-card, footer) — nunca produtos físicos.
+ *
+ * Cada linha é uma "funcionalidade Market": um componente
+ * estrutural comercializado em créditos.
+ *
+ * A estrutura de código de cada funcionalidade vive
+ * isolada em client/src/components/dashboard/market/
+ * components/*; aqui vivem apenas os dados comerciais
+ * (nome, descrição, categoria, preço em créditos e
+ * status), administráveis pelo Admin sem tocar em código.
  */
+export const marketFeatureStatusEnum = pgEnum(
+  "market_feature_status",
+  ["active", "inactive"],
+);
 
-export const planRequests = pgTable("planRequests", {
-  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+export const marketCategoryEnum = pgEnum(
+  "market_category",
+  [
+    "header",
+    "banner",
+    "category_card",
+    "product_card",
+    "nav_button",
+    "footer",
+  ],
+);
 
-  storeId: varchar("storeId", {
+export const marketFeatures = pgTable("market_features", {
+  id: varchar("id", {
     length: 64,
+  }).primaryKey(),
+
+  /* Nome comercial apresentado no Market e no Admin. */
+  name: varchar("name", {
+    length: 120,
   }).notNull(),
 
-  requestedPlanKey: varchar("requestedPlanKey", {
-    length: 32,
-  }).notNull(),
+  description: text("description").notNull(),
 
-  currentPlanKey: varchar("currentPlanKey", {
-    length: 32,
-  }).notNull(),
+  category: marketCategoryEnum("category").notNull(),
 
-  productsUsed: integer("productsUsed")
+  /*
+   * Preço da funcionalidade em créditos.
+   * Fonte única de verdade: nunca hardcoded no cliente.
+   */
+  priceCredits: integer("priceCredits")
     .notNull()
     .default(0),
 
-  status: planRequestStatusEnum("status")
+  status: marketFeatureStatusEnum("status")
     .notNull()
-    .default("pending"),
-
-  note: text("note"),
-
-  adminNotes: text("adminNotes"),
+    .default("active"),
 
   /*
-   * Plano efetivamente atribuído pelo admin.
-   * Pode diferir do pedido (ex.: aprovar Business
-   * quando foi pedido Professional).
+   * Referência ao código correspondente
+   * (ex.: "1header", "2banner", "3product").
+   * É o elo entre o registo comercial e o componente
+   * isolado em market/components/<categoria>/<featureKey>/page.tsx.
    */
-  assignedPlanKey: varchar("assignedPlanKey", {
-    length: 32,
-  }),
+  featureKey: varchar("featureKey", {
+    length: 64,
+  }).notNull(),
+
+  /* Ordenação manual dentro da categoria. */
+  sortOrder: integer("sortOrder")
+    .notNull()
+    .default(0),
 
   createdAt: timestamp("createdAt", {
     withTimezone: true,
@@ -481,11 +466,55 @@ export const planRequests = pgTable("planRequests", {
   })
     .defaultNow()
     .notNull(),
-
-  reviewedAt: timestamp("reviewedAt", {
-    withTimezone: true,
-  }),
 });
+
+/* ============================================================
+   STORE MARKET FEATURES
+
+   Compras/desbloqueios do Market por loja.
+   Cada linha é uma funcionalidade comprada
+   (ex.: "4product") por uma loja, com o preço em
+   créditos registado no momento da compra.
+
+   É a única fonte de verdade do desbloqueio: nada
+   de localStorage. Uma linha por loja + featureKey
+   (índice único).
+   ============================================================ */
+export const storeMarketFeatures = pgTable(
+  "store_market_features",
+  {
+    id: varchar("id", {
+      length: 64,
+    }).primaryKey(),
+
+    storeId: varchar("storeId", {
+      length: 64,
+    }).notNull(),
+
+    /* Referência ao código do Market (ex.: "4product"). */
+    featureKey: varchar("featureKey", {
+      length: 64,
+    }).notNull(),
+
+    /* Preço em créditos registado no momento da compra. */
+    priceCredits: integer("priceCredits")
+      .notNull()
+      .default(0),
+
+    purchasedAt: timestamp("purchasedAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("store_market_features_store_feature_idx").on(
+      table.storeId,
+      table.featureKey,
+    ),
+    index("store_market_features_store_id_idx").on(table.storeId),
+  ],
+);
 
 /* ============================================================
    STORE CATEGORIES
@@ -625,8 +654,20 @@ export type StoreCategory =
 export type InsertStoreCategory =
   typeof storeCategories.$inferInsert;
 
-export type PlanRequest =
-  typeof planRequests.$inferSelect;
+export type MarketFeature =
+  typeof marketFeatures.$inferSelect;
 
-export type InsertPlanRequest =
-  typeof planRequests.$inferInsert;
+export type InsertMarketFeature =
+  typeof marketFeatures.$inferInsert;
+
+export type StoreMarketFeature =
+  typeof storeMarketFeatures.$inferSelect;
+
+export type InsertStoreMarketFeature =
+  typeof storeMarketFeatures.$inferInsert;
+
+export type MarketCategory =
+  typeof marketCategoryEnum.enumValues[number];
+
+export type MarketFeatureStatus =
+  typeof marketFeatureStatusEnum.enumValues[number];

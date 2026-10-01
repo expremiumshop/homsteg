@@ -32,7 +32,7 @@ type SettingsSection =
   | "seo"
   | "notificacoes"
   | "politicas"
-  | "plano"
+  | "creditos"
   | "seguranca";
 
 const sections: {
@@ -51,7 +51,7 @@ const sections: {
   { id: "seo", label: "SEO", icon: Search },
   { id: "notificacoes", label: "Notificações", icon: Bell },
   { id: "politicas", label: "Políticas", icon: Package },
-  { id: "plano", label: "Meu plano", icon: CreditCard },
+  { id: "creditos", label: "Créditos", icon: Wallet },
   { id: "seguranca", label: "Segurança", icon: ShieldCheck },
 ];
 
@@ -763,29 +763,47 @@ export default function SettingsPage({
               </div>
             )}
 
-            {/* Plano */}
-            {activeSection === "plano" && (
+            {/* Créditos */}
+            {activeSection === "creditos" && (
               <div className="space-y-5 p-5 sm:p-6">
                 <div className="rounded-2xl border border-lime-200 bg-lime-50 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-lime-700">
-                        Plano actual
+                        Plataforma gratuita
                       </p>
 
                       <h3 className="mt-1 text-2xl font-bold text-slate-950">
-                        FREE
+                        100% grátis
                       </h3>
 
                       <p className="mt-1 text-sm text-slate-600">
-                        Comece a sua loja sem custos.
+                        Sem planos, sem mensalidades e sem
+                        subscrições — a sua loja é sempre
+                        gratuita.
                       </p>
                     </div>
 
                     <div className="rounded-xl bg-white p-3">
-                      <CreditCard className="h-5 w-5 text-lime-600" />
+                      <Wallet className="h-5 w-5 text-lime-600" />
                     </div>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Sobre os créditos
+                  </h3>
+
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Os créditos são o único sistema pago da
+                    HOMSTEG e servem apenas para comprar ou
+                    desbloquear funcionalidades, modelos e
+                    componentes no Market. Criar e usar a
+                    loja nunca é cobrado. O saldo de crédito
+                    é gerido pelo administrador da
+                    plataforma.
+                  </p>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -799,14 +817,14 @@ export default function SettingsPage({
                   <div className="rounded-xl border border-slate-200 p-4">
                     <p className="text-xs text-slate-400">Produtos</p>
                     <p className="mt-1 text-lg font-bold text-slate-900">
-                      Disponível
+                      Ilimitados
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 p-4">
-                    <p className="text-xs text-slate-400">Estado</p>
+                    <p className="text-xs text-slate-400">Custo da loja</p>
                     <p className="mt-1 text-lg font-bold text-lime-600">
-                      Activo
+                      0 MZN
                     </p>
                   </div>
                 </div>

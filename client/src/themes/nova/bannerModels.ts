@@ -21,6 +21,63 @@ export const BANNER_MODELS = [
 
 export type BannerModel = (typeof BANNER_MODELS)[number];
 
+/**
+ * FeatureKey do banner SIMPLES (10banner): o banner
+ * atual do sistema vendido no Market. A compra deste
+ * modelo ativa a versão simples de gestão na
+ * Personalização — apenas 1 imagem, sem configurações
+ * avançadas e sem carrossel.
+ */
+export const BANNER_SIMPLE_PURCHASE_KEY = "10banner";
+
+/**
+ * Modelos vendidos no Market como banners isolados
+ * (5banner–9banner) e desbloqueados por compra.
+ *
+ * Na "Personalizar Loja", quando a loja fornece a lista
+ * de desbloqueios, APENAS estes modelos podem aparecer —
+ * e só os efetivamente comprados. Sem compras, a secção
+ * fica vazia.
+ */
+export const BANNER_UNLOCKABLE_MODELS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+] as const;
+
+/**
+ * Mapa featureKey Market → modelo de banner.
+ * As compras no Market guardam featureKeys ("5banner"…
+ * "9banner"); a Personalização consome o modelo
+ * ("1"…"5") através deste mapa.
+ */
+export const BANNER_PURCHASE_TO_MODEL: Record<
+  string,
+  BannerModel
+> = {
+  "5banner": "1",
+  "6banner": "2",
+  "7banner": "3",
+  "8banner": "4",
+  "9banner": "5",
+};
+
+/**
+ * Mapa inverso: modelo de banner → featureKey Market.
+ */
+export const BANNER_TO_MARKET_FEATURE: Record<
+  BannerModel,
+  string
+> = {
+  "1": "5banner",
+  "2": "6banner",
+  "3": "7banner",
+  "4": "8banner",
+  "5": "9banner",
+};
+
 export function isBannerModel(
   value: unknown,
 ): value is BannerModel {

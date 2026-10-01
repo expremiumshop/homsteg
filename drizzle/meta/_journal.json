@@ -99,6 +99,41 @@
       "when": 1790890200000,
       "tag": "0013_store_banner_features",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790976600000,
+      "tag": "0014_market_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791063000000,
+      "tag": "0015_store_credit",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791150000000,
+      "tag": "0016_store_market_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791236400000,
+      "tag": "0017_store_nav_button_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790844884513,
+      "tag": "0018_remove_plans",
+      "breakpoints": true
     }
   ]
 }

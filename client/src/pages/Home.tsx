@@ -26,17 +26,8 @@ import {
   Users,
   X,
   Zap,
+  Gift,
 } from "lucide-react";
-
-type Plan = {
-  name: string;
-  price: string;
-  period: string;
-  limit: string;
-  description: string;
-  features: string[];
-  featured?: boolean;
-};
 
 type Feature = {
   icon: ReactNode;
@@ -45,99 +36,50 @@ type Feature = {
   accent: string;
 };
 
-const plans: Plan[] = [
-  {
-    name: "Free",
-    price: "0",
-    period: "para sempre",
-    limit: "50 produtos",
-    description: "Tudo o que precisas para começar a vender online.",
-    features: [
-      "Loja online",
-      "50 produtos",
-      "Tema base",
-      "Gestão de stock",
-      "Gestão de pedidos",
-      "Painel administrativo",
-      "Banner da loja",
-      "Logo e informações da loja",
-      "Link para WhatsApp",
-    ],
-  },
-  {
-    name: "Starter",
-    price: "480",
-    period: "/mês",
-    limit: "580 produtos",
-    description: "Para lojas que já estão a crescer e precisam de mais controlo.",
-    features: [
-      "Tudo do Free",
-      "580 produtos",
-      "Todos os temas disponíveis",
-      "Variantes de produtos",
-      "Galeria de imagens",
-      "Promoções",
-      "Cupons",
-      "Relatórios básicos",
-      "Mais personalização",
-    ],
-  },
-  {
-    name: "Business",
-    price: "1.590",
-    period: "/mês",
-    limit: "2.450 produtos",
-    description: "Mais ferramentas para transformar a loja num negócio completo.",
-    features: [
-      "Tudo do Starter",
-      "2.450 produtos",
-      "Domínio personalizado",
-      "Relatórios avançados",
-      "Gestão avançada de pedidos",
-      "Marketing e promoções",
-      "Mais membros da equipa",
-      "Permissões de equipa",
-      "Personalização avançada",
-    ],
-    featured: true,
-  },
-  {
-    name: "Professional",
-    price: "2.150",
-    period: "/mês",
-    limit: "5.850 produtos",
-    description: "Para operações maiores que precisam de escala e controlo.",
-    features: [
-      "Tudo do Business",
-      "5.850 produtos",
-      "Analytics avançado",
-      "Stock avançado",
-      "Marketing avançado",
-      "Mais membros da equipa",
-      "Permissões avançadas",
-      "Personalização completa",
-      "Maior capacidade operacional",
-    ],
-  },
-  {
-    name: "Enterprise",
-    price: "8.900",
-    period: "/mês",
-    limit: "Produtos ilimitados",
-    description: "Infraestrutura e capacidade para operações de grande dimensão.",
-    features: [
-      "Tudo do Professional",
-      "Produtos ilimitados",
-      "Variantes ilimitadas",
-      "Equipas maiores",
-      "Permissões avançadas",
-      "Domínio personalizado",
-      "Integrações personalizadas",
-      "Maior capacidade",
-      "Suporte prioritário",
-    ],
-  },
+/*
+ * Benefícios da home: comerciais e simples.
+ * Não se revela aqui qualquer regra de limite de
+ * produtos/stock — o utilizador entra, cria a loja
+ * e começa a usá-la normalmente.
+ */
+const benefits: string[] = [
+  "Loja online completa",
+  "Produtos, pedidos e clientes",
+  "Todos os temas disponíveis",
+  "Gestão de stock",
+  "Painel administrativo",
+  "Banner, logo e identidade da loja",
+  "Integração com WhatsApp",
+  "Market de modelos e componentes",
 ];
+
+const faqItems = [
+  {
+    question: "A HOMSTEG é realmente gratuita?",
+    answer:
+      "Sim. Criar e usar a tua loja é 100% gratuito, para sempre. Não existem planos, mensalidades, subscrições nem taxas de utilização da plataforma.",
+  },
+  {
+    question: "Então o que são os créditos?",
+    answer:
+      "Os créditos são o único sistema pago da HOMSTEG. Servem apenas para comprar ou desbloquear funcionalidades, modelos e componentes específicos no Market. Criar e usar a loja continua sempre gratuito.",
+  },
+  {
+    question: "Preciso saber programação para criar uma loja?",
+    answer:
+      "Não. O HOMSTEG foi pensado para que possas criar e gerir a tua loja através do painel, sem precisares escrever código.",
+  },
+  {
+    question: "Posso mudar o tema da minha loja?",
+    answer:
+      "Sim. Todos os temas — incluindo Nova, Luxe, Urban, Prime e outros — estão disponíveis gratuitamente para todas as lojas.",
+  },
+  {
+    question: "Posso vender através do WhatsApp?",
+    answer:
+      "Sim. A experiência da loja pode ser integrada ao fluxo de contacto e pedidos através do WhatsApp.",
+  },
+];;
 
 const features: Feature[] = [
   {
@@ -181,34 +123,6 @@ const features: Feature[] = [
     description:
       "Publica a tua loja com um endereço profissional e prepara-a para crescer.",
     accent: "from-cyan-400 to-violet-500",
-  },
-];
-
-const faqItems = [
-  {
-    question: "Preciso saber programação para criar uma loja?",
-    answer:
-      "Não. O HOMSTEG foi pensado para que possas criar e gerir a tua loja através do painel, sem precisares escrever código.",
-  },
-  {
-    question: "Posso mudar o tema da minha loja?",
-    answer:
-      "Sim. O HOMSTEG disponibiliza temas diferentes, incluindo Nova, Luxe, Urban e Prime, para que possas escolher o estilo da tua loja.",
-  },
-  {
-    question: "Posso adicionar muitos produtos?",
-    answer:
-      "Sim. O limite depende do plano. O Free permite 50 produtos, enquanto o Enterprise permite produtos ilimitados.",
-  },
-  {
-    question: "Posso vender através do WhatsApp?",
-    answer:
-      "Sim. A experiência da loja pode ser integrada ao fluxo de contacto e pedidos através do WhatsApp.",
-  },
-  {
-    question: "Posso ter domínio próprio?",
-    answer:
-      "Os planos superiores podem utilizar domínio personalizado, permitindo apresentar a loja com uma presença própria.",
   },
 ];
 
@@ -669,6 +583,15 @@ export default function Home() {
         .homsteg-marquee { animation:marquee 25s linear infinite; }
         .homsteg-shine { animation:shine 2.8s ease-in-out infinite; }
 
+        /*
+         * Hero em vídeo: utilizadores que preferem
+         * menos movimento veem o fundo estático
+         * (poster + gradientes) em vez do vídeo.
+         */
+        @media (prefers-reduced-motion: reduce) {
+          .homsteg-hero-video { display: none; }
+        }
+
         html { scroll-behavior:smooth; }
       `}</style>
 
@@ -693,10 +616,10 @@ export default function Home() {
               Temas
             </a>
             <a
-              href="#planos"
+              href="#gratuito"
               className="text-sm font-medium text-slate-500 transition hover:text-slate-950"
             >
-              Planos
+              Gratuito
             </a>
             <a
               href="#recursos"
@@ -737,7 +660,7 @@ export default function Home() {
               {[
                 ["#plataforma", "Plataforma"],
                 ["#temas", "Temas"],
-                ["#planos", "Planos"],
+                ["#gratuito", "Gratuito"],
                 ["#recursos", "Recursos"],
                 ["#faq", "FAQ"],
               ].map(([href, label]) => (
@@ -764,10 +687,35 @@ export default function Home() {
 
       {/* HERO */}
       <section className="relative overflow-hidden bg-[#080b18] pb-24 pt-36 text-white sm:pt-40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(124,58,237,.30),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(6,182,212,.20),transparent_28%),radial-gradient(circle_at_70%_85%,rgba(217,70,239,.16),transparent_32%)]" />
+        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Sem rede, o poster + gradientes mantêm o hero intacto. */}
+        <video
+          className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          disablePictureInPicture
+          poster="https://images.pexels.com/videos/8937981/achievement-adult-architect-big-sale-8937981.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=1"
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          <source
+            src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4"
+            type="video/mp4"
+          />
+
+          <source
+            src="https://videos.pexels.com/video-files/6238179/6238179-hd_1920_1080_25fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+
+        {/* Overlay MUITO sutil sobre o vídeo: apenas escurece o suficiente para o texto manter contraste — o vídeo permanece claramente visível. */}
+        <div className="absolute inset-0 bg-[#080b18]/30" />
 
         <div
-          className="absolute inset-0 opacity-[.07]"
+          className="pointer-events-none absolute inset-0 opacity-[.05]"
           style={{
             backgroundImage:
               "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
@@ -775,8 +723,8 @@ export default function Home() {
           }}
         />
 
-        <div className="homsteg-glow absolute -left-24 top-32 h-72 w-72 rounded-full bg-violet-600/20 blur-3xl" />
-        <div className="homsteg-glow absolute -right-24 top-72 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="pointer-events-none homsteg-glow absolute -left-24 top-32 h-72 w-72 rounded-full bg-violet-600/20 blur-3xl" />
+        <div className="pointer-events-none homsteg-glow absolute -right-24 top-72 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl px-5">
           <div className="grid items-center gap-14 lg:grid-cols-[.85fr_1.15fr]">
@@ -787,21 +735,22 @@ export default function Home() {
               </div>
 
               <h1 className="max-w-2xl text-[clamp(3rem,6vw,5.8rem)] font-black leading-[.91] tracking-[-0.07em]">
-                O teu negócio.
+                Crie a sua loja online
                 <span className="block bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
-                  Uma nova experiência.
+                  100% grátis.
                 </span>
               </h1>
 
               <p className="mt-7 max-w-xl text-base leading-7 text-white/60 sm:text-lg">
                 Cria uma loja profissional, gere produtos, pedidos, clientes e
-                vendas e dá ao teu negócio uma presença digital que realmente
-                parece tua.
+                vendas — sem planos, sem mensalidades e sem custos de
+                utilização. Só pagas créditos se quiseres desbloquear
+                funcionalidades específicas no Market.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button variant="secondary" onClick={goCreate}>
-                  Começar gratuitamente
+                  Criar loja grátis
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
 
@@ -814,15 +763,15 @@ export default function Home() {
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[11px] font-medium text-white/45">
                 <span className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-emerald-300" />
-                  Sem programação
+                  Sem mensalidades
                 </span>
                 <span className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-emerald-300" />
-                  Começa grátis
+                  100% grátis, para sempre
                 </span>
                 <span className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-emerald-300" />
-                  Cresce contigo
+                  Sem cartão de crédito
                 </span>
               </div>
             </div>
@@ -837,9 +786,9 @@ export default function Home() {
 
           <div className="mt-20 grid grid-cols-2 gap-3 border-t border-white/10 pt-8 sm:grid-cols-4">
             {[
-              ["50+", "produtos no Free"],
-              ["4", "temas profissionais"],
-              ["5", "planos disponíveis"],
+              ["0", "mensalidades"],
+              ["8+", "temas gratuitos"],
+              ["100%", "grátis para sempre"],
               ["∞", "possibilidades"],
             ].map(([value, label]) => (
               <div key={label}>
@@ -1147,123 +1096,104 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PLANS */}
-      <section id="planos" className="bg-[#f5f6fa] py-24 sm:py-32">
+      {/* 100% GRATUITO + CRÉDITOS */}
+      <section id="gratuito" className="bg-[#f5f6fa] py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-5">
           <div className="mx-auto max-w-2xl text-center">
             <span className="text-[10px] font-black uppercase tracking-[.2em] text-violet-600">
-              Planos
+              100% gratuito
             </span>
             <h2 className="mt-4 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
-              Começa pequeno.
-              <span className="block text-slate-400">Cresce sem trocar de plataforma.</span>
+              Sem planos.
+              <span className="block text-slate-400">Sem mensalidades. Para sempre.</span>
             </h2>
             <p className="mt-5 text-sm leading-7 text-slate-500">
-              Escolhe a capacidade que faz sentido para o teu negócio hoje e
-              muda de plano quando precisares.
+              A HOMSTEG não tem planos nem subscrições: criar e usar a tua loja
+              é completamente gratuito. O único sistema pago é o de créditos —
+              e só precisas deles se quiseres desbloquear funcionalidades
+              específicas no Market.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative flex flex-col rounded-[28px] p-6 ${
-                  plan.featured
-                    ? "bg-slate-950 text-white shadow-[0_30px_80px_rgba(15,23,42,.22)]"
-                    : "bg-white text-slate-950 shadow-[0_15px_50px_rgba(15,23,42,.06)]"
-                }`}
-              >
-                {plan.featured && (
-                  <div className="absolute -top-3 left-5 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-white">
-                    Mais completo
-                  </div>
-                )}
+          <div className="mt-14 grid gap-4 lg:grid-cols-2">
+            <div className="relative flex flex-col overflow-hidden rounded-[28px] bg-slate-950 p-8 text-white shadow-[0_30px_80px_rgba(15,23,42,.22)]">
+              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/20 blur-3xl" />
 
-                <p
-                  className={`text-sm font-black ${
-                    plan.featured ? "text-white" : "text-slate-950"
-                  }`}
-                >
-                  {plan.name}
-                </p>
-
-                <p
-                  className={`mt-2 text-xs leading-5 ${
-                    plan.featured ? "text-white/45" : "text-slate-400"
-                  }`}
-                >
-                  {plan.description}
-                </p>
-
-                <div className="mt-7">
-                  <div className="flex items-end gap-1">
-                    <span className="text-3xl font-black tracking-[-0.05em]">
-                      {plan.price === "0" ? "Grátis" : `MT ${plan.price}`}
-                    </span>
-                    {plan.price !== "0" && (
-                      <span
-                        className={`pb-1 text-[9px] ${
-                          plan.featured ? "text-white/40" : "text-slate-400"
-                        }`}
-                      >
-                        {plan.period}
-                      </span>
-                    )}
-                  </div>
-
-                  <div
-                    className={`mt-4 rounded-xl px-3 py-2 text-[10px] font-black ${
-                      plan.featured
-                        ? "bg-white/10 text-cyan-200"
-                        : "bg-violet-50 text-violet-700"
-                    }`}
-                  >
-                    {plan.limit}
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 text-slate-950 shadow-lg">
+                  <Gift className="h-6 w-6" />
                 </div>
-
-                <div className="my-6 h-px bg-current opacity-[.08]" />
-
-                <ul className="flex-1 space-y-3">
-                  {plan.features.map((feature) => (
-                    <li
-                      key={feature}
-                      className={`flex gap-2 text-[10px] leading-4 ${
-                        plan.featured ? "text-white/65" : "text-slate-500"
-                      }`}
-                    >
-                      <Check
-                        className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                          plan.featured
-                            ? "text-cyan-300"
-                            : "text-violet-600"
-                        }`}
-                      />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  type="button"
-                  onClick={goCreate}
-                  className={`mt-7 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition ${
-                    plan.featured
-                      ? "bg-white text-slate-950 hover:bg-cyan-50"
-                      : "bg-slate-950 text-white hover:bg-violet-600"
-                  }`}
-                >
-                  Escolher {plan.name}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
+                <h3 className="text-xl font-black">A loja é grátis</h3>
               </div>
-            ))}
-          </div>
 
-          <p className="mt-6 text-center text-[10px] text-slate-400">
-            Preços apresentados em Meticais (MZN/MT).
-          </p>
+              <p className="mt-4 text-sm leading-7 text-white/55">
+                Tudo o que precisas para vender online, sem pagar nada pela
+                plataforma:
+              </p>
+
+              <ul className="mt-6 grid flex-1 gap-3 sm:grid-cols-2">
+                {benefits.map((benefit) => (
+                  <li
+                    key={benefit}
+                    className="flex gap-2 text-xs leading-5 text-white/70"
+                  >
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={goCreate}
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-50"
+              >
+                Criar a minha loja grátis
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col rounded-[28px] bg-white p-8 text-slate-950 shadow-[0_15px_50px_rgba(15,23,42,.06)]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-lg">
+                  <Zap className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-black">Créditos: só para o Market</h3>
+              </div>
+
+              <p className="mt-4 text-sm leading-7 text-slate-500">
+                Os créditos nunca caducam e nunca são cobrados pela utilização
+                da loja. Usas créditos apenas quando quiseres comprar ou
+                desbloquear algo no Market:
+              </p>
+
+              <ul className="mt-6 flex-1 space-y-3">
+                {[
+                  "Modelos de banner e carrosséis promocionais",
+                  "Cartões de produto com design exclusivo",
+                  "Cabeçalhos e navegação personalizados",
+                  "Rodapés e secções de categorias",
+                  "Outros componentes e recursos do Market",
+                ].map((item) => (
+                  <li key={item} className="flex gap-2 text-xs leading-5 text-slate-500">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 rounded-2xl bg-violet-50 px-5 py-4">
+                <p className="text-xs font-bold uppercase tracking-[.12em] text-violet-700">
+                  Importante
+                </p>
+                <p className="mt-2 text-xs leading-5 text-slate-600">
+                  Não existem mensalidades nem cobranças recorrentes pela
+                  utilização da plataforma. A loja funciona por tempo
+                  indeterminado, 100% grátis.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1366,8 +1296,9 @@ export default function Home() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-white/50 sm:text-base">
-            Cria gratuitamente, escolhe o teu estilo e começa a construir uma
-            experiência de compra que representa o teu negócio.
+            Cria a tua loja 100% grátis, escolhe o teu estilo e começa a
+            construir uma experiência de compra que representa o teu negócio.
+            Sem planos. Sem mensalidades. Para sempre.
           </p>
 
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
@@ -1390,7 +1321,9 @@ export default function Home() {
             <div>
               <Logo dark />
               <p className="mt-3 max-w-sm text-[10px] leading-5 text-white/30">
-                Uma plataforma para criar, gerir e fazer crescer lojas online.
+                Cria a tua loja online 100% grátis. Sem planos nem
+                mensalidades — créditos apenas para recursos específicos do
+                Market.
               </p>
             </div>
 
@@ -1401,8 +1334,8 @@ export default function Home() {
               <a href="#temas" className="hover:text-white">
                 Temas
               </a>
-              <a href="#planos" className="hover:text-white">
-                Planos
+              <a href="#gratuito" className="hover:text-white">
+                Gratuito
               </a>
               <a href="#faq" className="hover:text-white">
                 FAQ

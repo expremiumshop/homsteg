@@ -27,7 +27,7 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const userQuery = trpc.auth.me.useQuery();
 
-  const { planKey } = useStorePlan(storeId);
+  const { creditMzn } = useStorePlan(storeId);
 
   const user = userQuery.data;
 
@@ -85,7 +85,7 @@ export default function DashboardHeader({
 
       <div className="flex items-center gap-2">
         <PlanBadge
-          planKey={planKey}
+          creditMzn={creditMzn}
           className="hidden sm:inline-flex"
         />
 

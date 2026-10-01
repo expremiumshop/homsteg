@@ -7,6 +7,7 @@ import {
   Menu,
   Palette,
   Settings2,
+  ShoppingBag,
   ShoppingCart,
   Users,
   X,
@@ -27,10 +28,12 @@ import ShippingPage from "@/components/dashboard/shipping/ShippingPage";
 import MarketingPage from "@/components/dashboard/Marketing/MarketingPage";
 import SettingsPage from "@/components/dashboard/Settings/SettingsPage";
 import BrandingPage from "@/components/dashboard/branding/BrandingPage";
+import MarketPage from "@/components/dashboard/market/page";
 import { trpc } from "@/lib/trpc";
 
 export type DashboardSection =
   | "home"
+  | "market"
   | "products"
   | "categories"
   | "orders"
@@ -48,6 +51,12 @@ const mainNav = [
     label: "Início",
     icon: LayoutDashboard,
     path: "/app",
+  },
+  {
+    id: "market" as DashboardSection,
+    label: "Market",
+    icon: ShoppingBag,
+    path: "/app/market",
   },
   {
     id: "products" as DashboardSection,
@@ -115,6 +124,8 @@ function getSectionFromPath(path: string): DashboardSection {
   const section = path.split("/")[2];
 
   switch (section) {
+    case "market":
+      return "market";
     case "products":
       return "products";
     case "categories":
@@ -150,6 +161,9 @@ function DashboardContent({
   storeSlug?: string;
 }) {
   switch (section) {
+    case "market":
+      return <MarketPage storeId={storeId} />;
+
     case "products":
       return <ProductsPage storeId={storeId} />;
 

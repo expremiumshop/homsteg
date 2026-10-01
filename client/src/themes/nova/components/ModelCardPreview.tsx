@@ -1,10 +1,23 @@
-import { MessageCircle } from "lucide-react";
+import {
+  Home,
+  MessageCircle,
+  ShoppingCart,
+  User,
+} from "lucide-react";
 
 import {
   PRODUCT_CARD_MODELS,
+  PRODUCT_CARD_UNLOCKABLE_MODELS,
   getProductCardModelLabel,
   type ProductCardModel,
 } from "../productCardModels";
+
+import {
+  NAV_BUTTON_MODELS,
+  NAV_BUTTON_UNLOCKABLE_MODELS,
+  getNavButtonModelLabel,
+  type NavButtonModel,
+} from "../navButtonModels";
 
 type PreviewImage = string | null;
 
@@ -118,17 +131,32 @@ export function ProductCardModelSelector({
   onChange,
   disabled = false,
   previewImage = null,
+  unlockedModels,
 }: {
   value: string | null | undefined;
   onChange: (model: ProductCardModel) => void;
   disabled?: boolean;
   previewImage?: PreviewImage;
+  /**
+   * Modelos desbloqueados pela loja via Market
+   * (stores.market purchases). Quando fornecido, APENAS
+   * estes modelos são mostrados — os não comprados ficam
+   * escondidos (comprados no Market, visíveis lá).
+   */
+  unlockedModels?: readonly ProductCardModel[] | null;
 }) {
   const selected = value ?? "1";
 
+  const visibleModels =
+    unlockedModels === undefined
+      ? PRODUCT_CARD_MODELS
+      : PRODUCT_CARD_UNLOCKABLE_MODELS.filter((model) =>
+          (unlockedModels ?? []).includes(model),
+        );
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {PRODUCT_CARD_MODELS.map((model) => {
+      {visibleModels.map((model) => {
         const isActive = model === selected;
 
         return (
@@ -189,3 +217,180 @@ const PRODUCT_CARD_MODEL_HINTS: Record<
 };
 
 export default ProductCardModelSelector;
+
+/* =========================================================
+   BOTÕES DE NAVEGAÇÃO — miniaturas + seletor
+   (mesma linguagem visual do seletor de cartões)
+   ========================================================= */
+
+const NAV_ITEMS = [
+  { name: "Home", icon: Home },
+  { name: "Mensagens", icon: MessageCircle },
+  { name: "Carrinho", icon: ShoppingCart },
+  { name: "Conta", icon: User },
+];
+
+/**
+ * Miniatura estática de cada modelo de botão de
+ * navegação, desenhada com a mesma linguagem visual da
+ * barra real do tema Nova (rounded-2xl, bg-white,
+ * shadow, primary).
+ */
+function NavButtonMiniature({
+  model,
+}: {
+  model: NavButtonModel;
+}) {
+  return (
+    <div
+      className={`
+        flex w-full items-center overflow-hidden bg-white shadow-sm
+        ${model === "2" ? "rounded-full" : "rounded-2xl"}
+        border border-gray-200
+      `}
+    >
+      {NAV_ITEMS.map((item, index) => {
+        const Icon = item.icon;
+
+        const active = index === 0;
+
+        return (
+          <div
+            key={item.name}
+            className={`
+              flex min-h-[44px] flex-1 flex-col items-center justify-center
+              ${model === "3" ? "" : "gap-0.5"}
+              ${
+                model === "4" && active
+                  ? "bg-[#141714] text-white"
+                  : active
+                    ? "text-[#141714]"
+                    : "text-gray-400"
+              }
+            `}
+          >
+            <div
+              className={
+                model === "5" && active
+                  ? "flex h-6 w-6 items-center justify-center rounded-full bg-[#141714] text-white"
+                  : ""
+              }
+            >
+              <Icon size={15} />
+            </div>
+
+            {model !== "3" && (
+              <span
+                className={`
+                  text-[8px]
+                  ${
+                    model === "5" && active
+                      ? "font-bold text-[#141714]"
+                      : "font-medium"
+                  }
+                `}
+              >
+                {item.name}
+              </span>
+            )}
+
+            {model === "3" && active && (
+              <div className="h-1 w-1 rounded-full bg-[#141714]" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const NAV_BUTTON_MODEL_HINTS: Record<
+  NavButtonModel,
+  string
+> = {
+  "1": "Estilo atual da loja.",
+  "2": "Barra em pílula compacta.",
+  "3": "Apenas ícones, sem rótulos.",
+  "4": "Separador ativo preenchido.",
+  "5": "Item ativo elevado com sombra.",
+};
+
+/**
+ * Seletor dos 5 modelos de botões de navegação.
+ * Mesma identidade visual do seletor de cartões
+ * (cards brancos, bordas cinza, seleção com anel escuro).
+ */
+export function NavButtonModelSelector({
+  value,
+  onChange,
+  disabled = false,
+  unlockedModels,
+}: {
+  value: string | null | undefined;
+  onChange: (model: NavButtonModel) => void;
+  disabled?: boolean;
+  /**
+   * Modelos desbloqueados pela loja via Market
+   * (store_market_features). Quando fornecido, APENAS
+   * estes modelos são mostrados — os não comprados ficam
+   * escondidos (comprados no Market, visíveis lá).
+   */
+  unlockedModels?: readonly NavButtonModel[] | null;
+}) {
+  const selected = value ?? "1";
+
+  const visibleModels =
+    unlockedModels === undefined
+      ? NAV_BUTTON_MODELS
+      : NAV_BUTTON_UNLOCKABLE_MODELS.filter((model) =>
+          (unlockedModels ?? []).includes(model),
+        );
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {visibleModels.map((model) => {
+        const isActive = model === selected;
+
+        return (
+          <button
+            key={model}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(model)}
+            className={`
+              overflow-hidden rounded-2xl border bg-white p-4 text-left transition
+              ${
+                isActive
+                  ? "border-[#111713] ring-1 ring-[#111713]"
+                  : "border-gray-200 hover:border-gray-300"
+              }
+              disabled:cursor-not-allowed disabled:opacity-60
+            `}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-[#111713]">
+                  {getNavButtonModelLabel(model)}
+                </h4>
+
+                <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                  {NAV_BUTTON_MODEL_HINTS[model]}
+                </p>
+              </div>
+
+              {isActive && (
+                <span className="rounded-full bg-[#111713] px-2.5 py-1 text-[10px] font-bold text-white">
+                  Ativo
+                </span>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <NavButtonMiniature model={model} />
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

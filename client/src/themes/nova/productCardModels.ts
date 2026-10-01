@@ -22,6 +22,54 @@ export const PRODUCT_CARD_MODELS = [
 export type ProductCardModel =
   (typeof PRODUCT_CARD_MODELS)[number];
 
+/**
+ * Modelos vendidos no Market como cartões isolados
+ * (4product–8product) e desbloqueados por compra.
+ *
+ * Na "Personalizar Loja", quando a loja fornece a lista
+ * de desbloqueios, APENAS estes modelos podem aparecer —
+ * e só os efetivamente comprados. Sem compras, a secção
+ * fica vazia.
+ */
+export const PRODUCT_CARD_UNLOCKABLE_MODELS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+] as const;
+
+/**
+ * Mapa featureKey Market → modelo de cartão.
+ * As compras no Market guardam featureKeys ("4product"…
+ * "8product"); a Personalização consome o modelo
+ * ("1"…"5") através deste mapa.
+ */
+export const MODEL_PURCHASE_TO_CARD: Record<
+  string,
+  ProductCardModel
+> = {
+  "4product": "1",
+  "5product": "2",
+  "6product": "3",
+  "7product": "4",
+  "8product": "5",
+};
+
+/**
+ * Mapa inverso: modelo de cartão → featureKey Market.
+ */
+export const MODEL_TO_MARKET_FEATURE: Record<
+  ProductCardModel,
+  string
+> = {
+  "1": "4product",
+  "2": "5product",
+  "3": "6product",
+  "4": "7product",
+  "5": "8product",
+};
+
 export function isProductCardModel(
   value: unknown,
 ): value is ProductCardModel {

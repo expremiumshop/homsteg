@@ -13,14 +13,10 @@ import {
   ExternalLink,
   ArrowLeft,
   Loader2,
-  Lock,
 } from "lucide-react";
 
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-
-import { useStorePlan } from "@/components/dashboard/plan/useStorePlan";
-import UpgradePlanModal from "@/components/dashboard/plan/UpgradePlanModal";
 
 import NovaStorefront from "@/themes/nova/Storefront";
 import LuxeStorefront from "@/themes/luxe/Storefront";
@@ -39,10 +35,14 @@ type Theme = {
   name: string;
   description: string;
   category: string;
-  price: string;
   popular?: boolean;
 };
 
+/*
+ * Todos os temas são gratuitos: a HOMSTEG não
+ * tem planos nem temas bloqueados. Qualquer
+ * loja pode ver e ativar qualquer tema.
+ */
 const themes: Theme[] = [
   {
     id: "nova",
@@ -50,7 +50,6 @@ const themes: Theme[] = [
     description:
       "Marketplace moderno, limpo e versátil.",
     category: "Marketplace",
-    price: "Grátis",
     popular: true,
   },
   {
@@ -59,7 +58,6 @@ const themes: Theme[] = [
     description:
       "Elegante e sofisticado para marcas premium.",
     category: "Moda & Luxo",
-    price: "Premium",
   },
   {
     id: "urban",
@@ -67,7 +65,6 @@ const themes: Theme[] = [
     description:
       "Visual moderno para lifestyle e tendências.",
     category: "Lifestyle",
-    price: "Premium",
   },
   {
     id: "prime",
@@ -75,7 +72,6 @@ const themes: Theme[] = [
     description:
       "Tecnologia e produtos modernos em destaque.",
     category: "Tecnologia",
-    price: "Premium",
   },
   {
     id: "market",
@@ -83,7 +79,6 @@ const themes: Theme[] = [
     description:
       "Aconchegante para mercados e produtos frescos.",
     category: "Mercado & Fresco",
-    price: "Premium",
   },
   {
     id: "essenza",
@@ -91,7 +86,6 @@ const themes: Theme[] = [
     description:
       "Minimalista e essencial, foco no produto.",
     category: "Minimalista",
-    price: "Premium",
   },
   {
     id: "caliza",
@@ -99,7 +93,6 @@ const themes: Theme[] = [
     description:
       "Tons terrosos para artesanato e decoração.",
     category: "Artesanato & Decoração",
-    price: "Premium",
   },
   {
     id: "chazuca",
@@ -107,7 +100,6 @@ const themes: Theme[] = [
     description:
       "Vibrante e criativo para marcas ousadas.",
     category: "Criativo",
-    price: "Premium",
   },
 ];
 
@@ -636,23 +628,12 @@ export default function StoreThemes() {
     getTheme(activeThemeId);
 
   /* ========================================================
-   *     PLANO DA LOJA
+   *     TEMAS DA LOJA
    *
-   *     A restrição de temas aplica-se APENAS à
-   *     seleção/ativação. Ver e pré-visualizar
-   *     qualquer tema é sempre permitido.
-   *     Free: apenas "nova". Plano pago: todos.
+   *     Todos os temas são gratuitos: ver,
+   *     pré-visualizar e ativar qualquer tema é
+   *     sempre permitido. Não existem bloqueios.
    *     ======================================================== */
-  const { planKey, planQuery } =
-    useStorePlan(clientStore?.id);
-
-  const isFreePlan =
-    !planQuery.isLoading &&
-    planKey === "free";
-
-  const isThemeLockedForStore = (
-    themeId: string,
-  ) => isFreePlan && themeId !== "nova";
 
   /* ========================================================
    *     DISPOSITIVO DE PRÉ-VISUALIZAÇÃO
@@ -673,14 +654,6 @@ export default function StoreThemes() {
   ] = useState<string | null>(
     null,
   );
-
-  /* ========================================================
-   *     MODAL DE UPGRADE DE PLANO
-   *     ======================================================== */
-  const [
-    upgradeModalOpen,
-    setUpgradeModalOpen,
-  ] = useState(false);
 
   /* ========================================================
    *     FECHA VISUALIZAÇÃO QUANDO O TEMA É APLICADO
@@ -1044,11 +1017,6 @@ export default function StoreThemes() {
                     ?.themeKey ===
                     theme.id;
 
-                const isLocked =
-                  isThemeLockedForStore(
-                    theme.id,
-                  );
-
                 return (
                   <article
                     key={theme.id}
@@ -1093,14 +1061,9 @@ export default function StoreThemes() {
                         </div>
 
                         <span
-                          className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
-                            theme.price ===
-                            "Grátis"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
+                          className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"
                         >
-                          {theme.price}
+                          Grátis
                         </span>
                       </div>
 
@@ -1110,22 +1073,8 @@ export default function StoreThemes() {
 
                       {/* BOTÕES */}
                       <div className="mt-5 grid grid-cols-2 gap-2">
-                        {/* SELECIONAR TEMA / UPGRADE */}
-                        {isLocked ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setUpgradeModalOpen(
-                                true,
-                              )
-                            }
-                            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
-                          >
-                            <Lock className="h-4 w-4" />
-                            Upgrade p/ desbloquear
-                          </button>
-                        ) : (
-                          <button
+                        {/* SELECIONAR TEMA */}
+                        <button
                             type="button"
                             onClick={() =>
                               handleSelectTheme(
@@ -1157,7 +1106,6 @@ export default function StoreThemes() {
                               "Selecionar tema"
                             )}
                           </button>
-                        )}
 
                         {/* VER TEMA */}
                         <button
@@ -1229,17 +1177,6 @@ export default function StoreThemes() {
             </section>
           )}
 
-          {/* MODAL DE UPGRADE (temas bloqueados) */}
-          {upgradeModalOpen &&
-            clientStore && (
-              <UpgradePlanModal
-                storeId={clientStore.id}
-                currentPlanKey={planKey}
-                onClose={() =>
-                  setUpgradeModalOpen(false)
-                }
-              />
-            )}
       </main>
     </div>
   );

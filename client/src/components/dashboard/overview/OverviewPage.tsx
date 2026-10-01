@@ -74,7 +74,7 @@
           </p>
         </div>
 
-        {/* Plano ativo e utilização */}
+        {/* Crédito e utilização */}
         <PlanUsageCard storeId={storeId} />
 
         {publicStoreUrl && (

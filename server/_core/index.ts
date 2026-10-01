@@ -5,8 +5,6 @@ import net from "net";
 
 import { createApp } from "../app";
 
-import { seedPlans } from "../db";
-
 import {
   serveStatic,
   setupVite,
@@ -99,15 +97,6 @@ async function startServer() {
   server.listen(
     port,
     () => {
-      // Garante que os planos HOMSTEG existem na base
-      // de dados antes de servir pedidos.
-      seedPlans().catch((error) => {
-        console.warn(
-          "[Plans] Failed to seed plans:",
-          error,
-        );
-      });
-
       console.log(
         `Server running on http://localhost:${port}/`,
       );

@@ -20,14 +20,6 @@ export const templates = [
   { name: "Stride", category: "Sports", description: "Ritmo visual para comunidades em movimento.", image: storeDemos[6].image, badge: "Express" },
 ];
 
-export const planData = [
-  { name: "Free", price: "0", description: "Para começar a vender sem fricção.", features: ["10 produtos", "1 loja publicada", "Checkout essencial", "Suporte por email"], cta: "Começar grátis" },
-  { name: "Starter", price: "480", description: "O essencial para uma operação em crescimento.", features: ["100 produtos", "Domínio HOMSTEG", "Cupons e descontos", "Analytics básico"], cta: "Escolher Starter" },
-  { name: "Business", price: "1.590", description: "Para equipas que vendem todos os dias.", features: ["1.000 produtos", "Domínio próprio", "Analytics avançado", "Até 5 membros"], cta: "Escolher Business", featured: true },
-  { name: "Pro", price: "2.150", description: "Mais controlo para marcas com ambição.", features: ["5.000 produtos", "Automação de marketing", "Relatórios avançados", "Até 15 membros"], cta: "Escolher Pro" },
-  { name: "Enterprise", price: "8.900", description: "Infraestrutura e apoio à medida.", features: ["Produtos ilimitados", "SLA dedicado", "Permissões avançadas", "Suporte prioritário"], cta: "Falar com vendas" },
-];
-
 export const productSeed = [
   { id: "PRD-1042", name: "Sculptural Candle", category: "Home", price: "1.890 MZN", stock: 28, status: "Ativo", image: "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=240&q=80" },
   { id: "PRD-1041", name: "Everyday Tote", category: "Accessories", price: "2.450 MZN", stock: 12, status: "Ativo", image: "https://images.unsplash.com/photo-1594223274512-ad4803739b7c?auto=format&fit=crop&w=240&q=80" },
@@ -41,7 +33,6 @@ export const navItems = [
   { label: "Recursos", href: "#recursos" },
   { label: "Lojas", href: "#lojas" },
   { label: "Templates", href: "#templates" },
-  { label: "Preços", href: "#precos" },
   { label: "FAQ", href: "#faq" },
 ];
 
