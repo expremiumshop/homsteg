@@ -59,22 +59,17 @@ import type { InsertProduct } from "../drizzle/schema.js";
 
 import { findMarketCatalogEntry } from "../shared/market-catalog.js";
 
-import { getBetterAuthUserById } from "./auth.js";
+import { fromNodeHeaders } from "better-auth/node";
 
-import {
-  createStoreDownloadUrl,
-  createStoreUploadUrl,
-} from "./r2.js";
+import { auth, getBetterAuthUserById } from "./auth.js";
+
+import { createStoreDownloadUrl, createStoreUploadUrl } from "./r2.js";
 
 /* ============================================================
    INPUTS
    ============================================================ */
 
-const storeIdInput = z
-  .string()
-  .trim()
-  .min(3)
-  .max(64);
+const storeIdInput = z.string().trim().min(3).max(64);
 
 const storeSlugInput = z
   .string()
@@ -84,34 +79,26 @@ const storeSlugInput = z
   .max(120)
   .regex(
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-    "O endereço da loja contém caracteres inválidos.",
+    "O endereço da loja contém caracteres inválidos."
   );
 
 const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""));
+  z.string().trim().max(max).optional().or(z.literal(""));
 
 const whatsappInput = z
   .string()
   .trim()
   .min(7)
   .max(40)
-  .refine(
-    (value) => {
-      if (!/^\+?[\d\s().-]+$/.test(value)) {
-        return false;
-      }
+  .refine(value => {
+    if (!/^\+?[\d\s().-]+$/.test(value)) {
+      return false;
+    }
 
-      const digits = value.replace(/\D/g, "");
+    const digits = value.replace(/\D/g, "");
 
-      return digits.length >= 7 && digits.length <= 15;
-    },
-    "Introduza um número de WhatsApp válido.",
-  );
+    return digits.length >= 7 && digits.length <= 15;
+  }, "Introduza um número de WhatsApp válido.");
 
 const brandingKeyInput = z
   .string()
@@ -120,7 +107,7 @@ const brandingKeyInput = z
   .max(255)
   .regex(
     /^stores\/[a-zA-Z0-9_-]+\/branding\/[a-zA-Z0-9._-]+$/,
-    "Chave de ficheiro inválida.",
+    "Chave de ficheiro inválida."
   );
 
 /*
@@ -193,21 +180,20 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .query(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const featureKeys =
-            await listStoreMarketFeatureKeys({
-              storeId: input.storeId,
-            });
+          const featureKeys = await listStoreMarketFeatureKeys({
+            storeId: input.storeId,
+          });
 
           return { featureKeys };
         }),
@@ -222,20 +208,16 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-            featureKey: z
-              .string()
-              .trim()
-              .min(1)
-              .max(64),
-          }),
+            featureKey: z.string().trim().min(1).max(64),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           const result = await purchaseMarketFeature({
@@ -251,8 +233,7 @@ export const appRouter = router({
             case "ALREADY_OWNED":
               throw new TRPCError({
                 code: "CONFLICT",
-                message:
-                  "Esta funcionalidade já foi comprada pela loja.",
+                message: "Esta funcionalidade já foi comprada pela loja.",
               });
             case "INSUFFICIENT_CREDIT":
               throw new TRPCError({
@@ -263,8 +244,7 @@ export const appRouter = router({
             case "FEATURE_NOT_FOUND":
               throw new TRPCError({
                 code: "NOT_FOUND",
-                message:
-                  "Funcionalidade Market não encontrada ou inativa.",
+                message: "Funcionalidade Market não encontrada ou inativa.",
               });
             default:
               throw new TRPCError({
@@ -282,6 +262,68 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query(({ ctx }) => ctx.user),
+
+    /*
+     * Repõe a credencial de palavra-passe da sessão atual
+     * quando a conta NÃO tem nenhuma.
+     *
+     * Motivo: o Better Auth 1.7 (revokeUnprovenAccountAccess)
+     * apaga todas as contas ligadas — incluindo a credencial
+     * "credential" com o hash da palavra-passe — de uma conta
+     * não verificada no momento em que o email é verificado
+     * via OTP. Sem este passo, quem cria conta e valida o
+     * código fica sem palavra-passe (login email+password
+     * falha de imediato).
+     *
+     * Segurança: exige sessão válida e recusa-se a substituir
+     * uma palavra-passe existente (PASSWORD_ALREADY_SET), pelo
+     * que nunca serve para a trocar.
+     */
+    restorePassword: protectedProcedure
+      .input(
+        z.object({
+          newPassword: z.string().min(8).max(128),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await auth.api.setPassword({
+            headers: fromNodeHeaders(ctx.req.headers),
+            body: { newPassword: input.newPassword },
+          });
+
+          return {
+            restored: true,
+            alreadyHadPassword: false,
+          } as const;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message.toLowerCase() : "";
+
+          /*
+           * A conta já tem palavra-passe: nada a repor.
+           * Ocorre no caminho de recuperação de contas
+           * já verificadas — a palavra-passe habitual
+           * continua válida.
+           */
+          if (message.includes("already has a password")) {
+            return {
+              restored: false,
+              alreadyHadPassword: true,
+            } as const;
+          }
+
+          console.error(
+            "[Auth] Falha ao repor a palavra-passe após verificação:",
+            error
+          );
+
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Não foi possível repor a palavra-passe da conta.",
+          });
+        }
+      }),
   }),
 
   /* ==========================================================
@@ -290,22 +332,17 @@ export const appRouter = router({
 
   stores: router({
     mine: protectedProcedure.query(({ ctx }) =>
-      getStoresForUser(
-        ctx.user.id,
-        ctx.user.role === "admin",
-      ),
+      getStoresForUser(ctx.user.id, ctx.user.role === "admin")
     ),
 
     bySlug: publicProcedure
       .input(
         z.object({
           slug: storeSlugInput,
-        }),
+        })
       )
       .query(async ({ input }) => {
-        const store = await getPublicStoreBySlug(
-          input.slug,
-        );
+        const store = await getPublicStoreBySlug(input.slug);
 
         if (!store) {
           throw new TRPCError({
@@ -348,14 +385,11 @@ export const appRouter = router({
             bannerKey: store.bannerKey ?? null,
             bannerKeys: store.bannerKeys ?? [],
             bannerModel: store.bannerModel ?? null,
-            productCardModel:
-              store.productCardModel ?? null,
-            navButtonModel:
-              store.navButtonModel ?? null,
+            productCardModel: store.productCardModel ?? null,
+            navButtonModel: store.navButtonModel ?? null,
             headerModel: store.headerModel ?? null,
             footerModel: store.footerModel ?? null,
-            categoryCardModel:
-              store.categoryCardModel ?? null,
+            categoryCardModel: store.categoryCardModel ?? null,
             bannerTexts: store.bannerTexts ?? [],
 
             /*
@@ -364,8 +398,7 @@ export const appRouter = router({
              * botão/texto/animação por banner) — necessário
              * para o carrossel do tema Nova.
              */
-            bannerFeatures:
-              store.bannerFeatures ?? {},
+            bannerFeatures: store.bannerFeatures ?? {},
           },
           branding,
           products,
@@ -385,21 +418,18 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .query(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const result =
-            await getStoreWithUsage(
-              input.storeId,
-            );
+          const result = await getStoreWithUsage(input.storeId);
 
           if (!result) {
             throw new TRPCError({
@@ -409,31 +439,18 @@ export const appRouter = router({
           }
 
           return {
-            logoKey:
-              result.store.logoKey ?? null,
-            bannerKey:
-              result.store.bannerKey ?? null,
-            bannerKeys:
-              result.store.bannerKeys ?? [],
-            productCardModel:
-              result.store.productCardModel ?? null,
-            bannerModel:
-              result.store.bannerModel ?? null,
-            navButtonModel:
-              result.store.navButtonModel ?? null,
-            headerModel:
-              result.store.headerModel ?? null,
-            footerModel:
-              result.store.footerModel ?? null,
-            categoryCardModel:
-              result.store.categoryCardModel ?? null,
-            bannerTexts:
-              result.store.bannerTexts ?? [],
-            bannerFeatures:
-              result.store.bannerFeatures ?? {},
-            ...(await getStoreBrandingUrls(
-              result.store,
-            )),
+            logoKey: result.store.logoKey ?? null,
+            bannerKey: result.store.bannerKey ?? null,
+            bannerKeys: result.store.bannerKeys ?? [],
+            productCardModel: result.store.productCardModel ?? null,
+            bannerModel: result.store.bannerModel ?? null,
+            navButtonModel: result.store.navButtonModel ?? null,
+            headerModel: result.store.headerModel ?? null,
+            footerModel: result.store.footerModel ?? null,
+            categoryCardModel: result.store.categoryCardModel ?? null,
+            bannerTexts: result.store.bannerTexts ?? [],
+            bannerFeatures: result.store.bannerFeatures ?? {},
+            ...(await getStoreBrandingUrls(result.store)),
           };
         }),
 
@@ -449,11 +466,7 @@ export const appRouter = router({
 
             asset: z.enum(["logo", "banner"]),
 
-            fileName: z
-              .string()
-              .trim()
-              .min(1)
-              .max(255),
+            fileName: z.string().trim().min(1).max(255),
 
             contentType: z.enum([
               "image/jpeg",
@@ -461,55 +474,44 @@ export const appRouter = router({
               "image/webp",
               "image/svg+xml",
             ]),
-          }),
+          })
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
-            );
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
 
-            const upload =
-              await createStoreUploadUrl({
-                storeId: input.storeId,
-                folder: "branding",
-                fileName: input.fileName,
-                contentType:
-                  input.contentType,
-              });
+          const upload = await createStoreUploadUrl({
+            storeId: input.storeId,
+            folder: "branding",
+            fileName: input.fileName,
+            contentType: input.contentType,
+          });
 
-            const imageUrl =
-              await createStoreDownloadUrl(
-                upload.key,
-              );
+          const imageUrl = await createStoreDownloadUrl(upload.key);
 
-            return {
-              key: upload.key,
-              uploadUrl: upload.uploadUrl,
-              imageUrl,
-            };
-          },
-        ),      /*
+          return {
+            key: upload.key,
+            uploadUrl: upload.uploadUrl,
+            imageUrl,
+          };
+        }) /*
        * Guarda/substitui logo, banner e/ou lista de
        * banners. null remove o asset atual.
-       */
+       */,
       set: protectedProcedure
         .input(
           z
             .object({
               storeId: storeIdInput,
 
-              logoKey: brandingKeyInput
-                .nullable()
-                .optional(),
+              logoKey: brandingKeyInput.nullable().optional(),
 
-              bannerKey: brandingKeyInput
-                .nullable()
-                .optional(),
+              bannerKey: brandingKeyInput.nullable().optional(),
 
               bannerKeys: z
                 .array(brandingKeyInput)
@@ -518,101 +520,85 @@ export const appRouter = router({
                 .optional(),
             })
             .refine(
-              (data) =>
+              data =>
                 data.logoKey !== undefined ||
                 data.bannerKey !== undefined ||
                 data.bannerKeys !== undefined,
               {
-                message:
-                  "Indique o logo, o banner ou ambos.",
-              },
-            ),
+                message: "Indique o logo, o banner ou ambos.",
+              }
+            )
         )
-        .mutation(
-          async ({ ctx, input }) => {
-            requireStoreAccess(
-              await userHasStoreAccess(
-                ctx.user.id,
-                input.storeId,
-                ctx.user.role === "admin",
-              ),
-            );
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
 
-            /*
-             * Defesa extra: cada chave tem de
-             * pertencer à própria loja
-             * (isolamento total entre lojas).
-             */
-            if (
-              input.logoKey &&
-              !input.logoKey.startsWith(
-                `stores/${input.storeId}/branding/`,
-              )
-            ) {
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message:
-                  "Ficheiro não pertence à loja selecionada.",
-              });
-            }
+          /*
+           * Defesa extra: cada chave tem de
+           * pertencer à própria loja
+           * (isolamento total entre lojas).
+           */
+          if (
+            input.logoKey &&
+            !input.logoKey.startsWith(`stores/${input.storeId}/branding/`)
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Ficheiro não pertence à loja selecionada.",
+            });
+          }
 
-            if (
-              input.bannerKey &&
-              !input.bannerKey.startsWith(
-                `stores/${input.storeId}/branding/`,
-              )
-            ) {
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message:
-                  "Ficheiro não pertence à loja selecionada.",
-              });
-            }
+          if (
+            input.bannerKey &&
+            !input.bannerKey.startsWith(`stores/${input.storeId}/branding/`)
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Ficheiro não pertence à loja selecionada.",
+            });
+          }
 
-            /*
-             * Defesa extra para a lista: cada chave tem de
-             * pertencer à própria loja.
-             */
-            if (
-              input.bannerKeys?.some(
-                (key) =>
-                  !key.startsWith(
-                    `stores/${input.storeId}/branding/`,
-                  ),
-              )
-            ) {
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message:
-                  "Ficheiro não pertence à loja selecionada.",
-              });
-            }
+          /*
+           * Defesa extra para a lista: cada chave tem de
+           * pertencer à própria loja.
+           */
+          if (
+            input.bannerKeys?.some(
+              key => !key.startsWith(`stores/${input.storeId}/branding/`)
+            )
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Ficheiro não pertence à loja selecionada.",
+            });
+          }
 
-            const store =
-              await updateStoreBranding({
-                storeId: input.storeId,
-                logoKey: input.logoKey,
-                bannerKey: input.bannerKey,
-                bannerKeys: input.bannerKeys,
-              });
+          const store = await updateStoreBranding({
+            storeId: input.storeId,
+            logoKey: input.logoKey,
+            bannerKey: input.bannerKey,
+            bannerKeys: input.bannerKeys,
+          });
 
-            if (!store) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message: "Loja não encontrada.",
-              });
-            }
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
 
-            return {
-              success: true,
-              logoKey: store.logoKey ?? null,
-              bannerKey:
-                store.bannerKey ?? null,
-              bannerKeys:
-                store.bannerKeys ?? [],
-            };
-          },
-        ),
+          return {
+            success: true,
+            logoKey: store.logoKey ?? null,
+            bannerKey: store.bannerKey ?? null,
+            bannerKeys: store.bannerKeys ?? [],
+          };
+        }),
 
       /* ========================================================
          BANNERS: modelo do carrossel + textos por slide
@@ -628,27 +614,23 @@ export const appRouter = router({
             storeId: storeIdInput,
 
             model: z
-              .enum([
-                "1", "2", "3", "4", "5",
-                "6", "7", "8", "9",
-              ])
+              .enum(["1", "2", "3", "4", "5", "6", "7", "8", "9"])
               .nullable(),
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store =
-            await updateStoreBannerSettings({
-              storeId: input.storeId,
-              bannerModel: input.model,
-            });
+          const store = await updateStoreBannerSettings({
+            storeId: input.storeId,
+            bannerModel: input.model,
+          });
 
           if (!store) {
             throw new TRPCError({
@@ -677,117 +659,99 @@ export const appRouter = router({
                 z.string(),
                 z
                   .object({
-                  /* Estado de publicação (false = rascunho). */
-                  published: z.boolean().optional(),
-                  button: z
-                    .object({
-                      enabled: z.boolean(),
-                      label: z.string().max(40).optional(),
-                      target: z
-                        .enum(["product", "link"])
-                        .optional(),
-                      destination: z
-                        .string()
-                        .max(600)
-                        .optional(),
-                      position: z
-                        .enum([
-                          "bottom-left",
-                          "bottom-right",
-                          "top-left",
-                          "top-right",
-                          "center",
-                        ])
-                        .optional(),
-                    })
-                    .optional(),
-                  text: z
-                    .object({
-                      enabled: z.boolean(),
-                      text: z.string().max(200).optional(),
-                      position: z
-                        .enum([
-                          "top-left",
-                          "top-center",
-                          "bottom-left",
-                          "bottom-center",
-                          "bottom-right",
-                        ])
-                        .optional(),
-                    })
-                    .optional(),
-                  animation: z
-                    .object({
-                      enabled: z.boolean(),
-                      type: z
-                        .enum([
-                          "none",
-                          "fade",
-                          "zoom",
-                          "slide-up",
-                          "slide-left",
-                        ])
-                        .optional(),
-                    })
-                    .optional(),
-                  countdown: z
-                    .object({
-                      enabled: z.boolean(),
-                      endsAt: z.string().max(40).optional(),
-                    })
-                    .optional(),
-                })
-                  .strip(),
+                    /* Estado de publicação (false = rascunho). */
+                    published: z.boolean().optional(),
+                    button: z
+                      .object({
+                        enabled: z.boolean(),
+                        label: z.string().max(40).optional(),
+                        target: z.enum(["product", "link"]).optional(),
+                        destination: z.string().max(600).optional(),
+                        position: z
+                          .enum([
+                            "bottom-left",
+                            "bottom-right",
+                            "top-left",
+                            "top-right",
+                            "center",
+                          ])
+                          .optional(),
+                      })
+                      .optional(),
+                    text: z
+                      .object({
+                        enabled: z.boolean(),
+                        text: z.string().max(200).optional(),
+                        position: z
+                          .enum([
+                            "top-left",
+                            "top-center",
+                            "bottom-left",
+                            "bottom-center",
+                            "bottom-right",
+                          ])
+                          .optional(),
+                      })
+                      .optional(),
+                    animation: z
+                      .object({
+                        enabled: z.boolean(),
+                        type: z
+                          .enum([
+                            "none",
+                            "fade",
+                            "zoom",
+                            "slide-up",
+                            "slide-left",
+                          ])
+                          .optional(),
+                      })
+                      .optional(),
+                    countdown: z
+                      .object({
+                        enabled: z.boolean(),
+                        endsAt: z.string().max(40).optional(),
+                      })
+                      .optional(),
+                  })
+                  .strip()
               )
-              .refine(
-                (features) =>
-                  Object.keys(features).length <= 20,
-                {
-                  message:
-                    "Máximo de 20 banners com elementos.",
-                },
-              )
+              .refine(features => Object.keys(features).length <= 20, {
+                message: "Máximo de 20 banners com elementos.",
+              })
               .nullable(),
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           /*
            * Isolamento por loja: cada chave tem de
            * apontar para um ficheiro da própria loja.
            */
-          const featureKeys = Object.keys(
-            input.bannerFeatures ?? {},
-          );
+          const featureKeys = Object.keys(input.bannerFeatures ?? {});
 
           if (
             featureKeys.some(
-              (key) =>
-                !key.startsWith(
-                  `stores/${input.storeId}/branding/`,
-                ),
+              key => !key.startsWith(`stores/${input.storeId}/branding/`)
             )
           ) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message:
-                "Ficheiro não pertence à loja selecionada.",
+              message: "Ficheiro não pertence à loja selecionada.",
             });
           }
 
-          const store =
-            await updateStoreBannerSettings({
-              storeId: input.storeId,
-              bannerFeatures:
-                input.bannerFeatures ?? {},
-            });
+          const store = await updateStoreBannerSettings({
+            storeId: input.storeId,
+            bannerFeatures: input.bannerFeatures ?? {},
+          });
 
           if (!store) {
             throw new TRPCError({
@@ -798,8 +762,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            bannerFeatures:
-              store.bannerFeatures ?? {},
+            bannerFeatures: store.bannerFeatures ?? {},
           };
         }),
 
@@ -813,26 +776,25 @@ export const appRouter = router({
                 z.object({
                   title: z.string().max(120).optional(),
                   subtitle: z.string().max(200).optional(),
-                }),
+                })
               )
               .max(10)
               .nullable(),
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store =
-            await updateStoreBannerSettings({
-              storeId: input.storeId,
-              bannerTexts: input.bannerTexts,
-            });
+          const store = await updateStoreBannerSettings({
+            storeId: input.storeId,
+            bannerTexts: input.bannerTexts,
+          });
 
           if (!store) {
             throw new TRPCError({
@@ -857,28 +819,22 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum([
-                "1", "2", "3", "4", "5",
-                "6", "7", "8",
-              ])
-              .nullable(),
-          }),
+            model: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).nullable(),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store =
-            await updateStoreProductCardModel(
-              input.storeId,
-              input.model,
-            );
+          const store = await updateStoreProductCardModel(
+            input.storeId,
+            input.model
+          );
 
           if (!store) {
             throw new TRPCError({
@@ -889,8 +845,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            productCardModel:
-              store.productCardModel ?? null,
+            productCardModel: store.productCardModel ?? null,
           };
         }),
 
@@ -904,25 +859,22 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum(["1", "2", "3", "4", "5"])
-              .nullable(),
-          }),
+            model: z.enum(["1", "2", "3", "4", "5"]).nullable(),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store =
-            await updateStoreNavButtonModel(
-              input.storeId,
-              input.model,
-            );
+          const store = await updateStoreNavButtonModel(
+            input.storeId,
+            input.model
+          );
 
           if (!store) {
             throw new TRPCError({
@@ -933,8 +885,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            navButtonModel:
-              store.navButtonModel ?? null,
+            navButtonModel: store.navButtonModel ?? null,
           };
         }),
 
@@ -949,24 +900,22 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum(["1", "2", "3"])
-              .nullable(),
-          }),
+            model: z.enum(["1", "2", "3"]).nullable(),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           const store = await updateStoreSectionModel(
             input.storeId,
             "headerModel",
-            input.model,
+            input.model
           );
 
           if (!store) {
@@ -978,8 +927,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            headerModel:
-              store.headerModel ?? null,
+            headerModel: store.headerModel ?? null,
           };
         }),
 
@@ -988,24 +936,22 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum(["1", "2", "3"])
-              .nullable(),
-          }),
+            model: z.enum(["1", "2", "3"]).nullable(),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           const store = await updateStoreSectionModel(
             input.storeId,
             "footerModel",
-            input.model,
+            input.model
           );
 
           if (!store) {
@@ -1017,8 +963,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            footerModel:
-              store.footerModel ?? null,
+            footerModel: store.footerModel ?? null,
           };
         }),
 
@@ -1027,24 +972,22 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum(["1", "2", "3"])
-              .nullable(),
-          }),
+            model: z.enum(["1", "2", "3"]).nullable(),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           const store = await updateStoreSectionModel(
             input.storeId,
             "categoryCardModel",
-            input.model,
+            input.model
           );
 
           if (!store) {
@@ -1056,8 +999,7 @@ export const appRouter = router({
 
           return {
             success: true,
-            categoryCardModel:
-              store.categoryCardModel ?? null,
+            categoryCardModel: store.categoryCardModel ?? null,
           };
         }),
     }),
@@ -1077,15 +1019,15 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .query(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           /*
@@ -1095,11 +1037,10 @@ export const appRouter = router({
            * endpoint que aparece no header, sidebar e
            * overview do dashboard.
            */
-          const [result, stockCapacity] =
-            await Promise.all([
-              getStoreWithUsage(input.storeId),
-              getStoreStockCapacity(input.storeId),
-            ]);
+          const [result, stockCapacity] = await Promise.all([
+            getStoreWithUsage(input.storeId),
+            getStoreStockCapacity(input.storeId),
+          ]);
 
           if (!result) {
             throw new TRPCError({
@@ -1126,7 +1067,7 @@ export const appRouter = router({
             result.store.storeCode
               ? Promise.resolve(result.store)
               : getStoreWithUsage(input.storeId).then(
-                  (r) => r?.store ?? result.store,
+                  r => r?.store ?? result.store
                 ),
             getStoreCodeRedemption(input.storeId),
           ]);
@@ -1172,15 +1113,15 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
             code: z.string().trim().min(4).max(32),
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
           const result = await useStorePromoCode({
@@ -1196,14 +1137,12 @@ export const appRouter = router({
             case "CODE_IS_OWN":
               throw new TRPCError({
                 code: "BAD_REQUEST",
-                message:
-                  "Não podes usar o código da tua própria loja.",
+                message: "Não podes usar o código da tua própria loja.",
               });
             case "ALREADY_USED":
               throw new TRPCError({
                 code: "CONFLICT",
-                message:
-                  "A tua loja já utilizou um código promocional.",
+                message: "A tua loja já utilizou um código promocional.",
               });
             case "STORE_NOT_FOUND":
               throw new TRPCError({
@@ -1230,21 +1169,18 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
             themeKey: themeInput,
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store = await updateStoreTheme(
-            input.storeId,
-            input.themeKey,
-          );
+          const store = await updateStoreTheme(input.storeId, input.themeKey);
 
           if (!store) {
             throw new TRPCError({
@@ -1270,22 +1206,21 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
             whatsapp: whatsappInput,
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           requireStoreAccess(
             await userHasStoreAccess(
               ctx.user.id,
               input.storeId,
-              ctx.user.role === "admin",
-            ),
+              ctx.user.role === "admin"
+            )
           );
 
-          const store =
-            await updateStoreWhatsApp(
-              input.storeId,
-              input.whatsapp,
-            );
+          const store = await updateStoreWhatsApp(
+            input.storeId,
+            input.whatsapp
+          );
 
           if (!store) {
             throw new TRPCError({
@@ -1306,21 +1241,9 @@ export const appRouter = router({
       create: protectedProcedure
         .input(
           z.object({
-            businessTypes: z
-              .array(
-                z
-                  .string()
-                  .trim()
-                  .min(1)
-                  .max(100),
-              )
-              .min(1),
+            businessTypes: z.array(z.string().trim().min(1).max(100)).min(1),
 
-            fullName: z
-              .string()
-              .trim()
-              .min(3)
-              .max(160),
+            fullName: z.string().trim().min(3).max(160),
 
             /*
              * IMPORTANTE:
@@ -1330,11 +1253,7 @@ export const appRouter = router({
              * como endereço da loja.
              */
 
-            storeName: z
-              .string()
-              .trim()
-              .min(2)
-              .max(120),
+            storeName: z.string().trim().min(2).max(120),
 
             /*
              * O endereço público da loja vem do nome da loja.
@@ -1345,11 +1264,7 @@ export const appRouter = router({
              */
             storeSlug: storeSlugInput,
 
-            phone: z
-              .string()
-              .trim()
-              .min(7)
-              .max(40),
+            phone: z.string().trim().min(7).max(40),
 
             /*
              * Telefone alternativo foi removido.
@@ -1357,11 +1272,7 @@ export const appRouter = router({
 
             whatsapp: optionalText(40),
 
-            country: z
-              .string()
-              .trim()
-              .min(2)
-              .max(80),
+            country: z.string().trim().min(2).max(80),
 
             province: optionalText(100),
 
@@ -1370,7 +1281,7 @@ export const appRouter = router({
             neighborhood: optionalText(120),
 
             notes: optionalText(5000),
-          }),
+          })
         )
         .mutation(async ({ ctx, input }) => {
           /*
@@ -1382,10 +1293,7 @@ export const appRouter = router({
            * Better Auth, fonte da verdade para emailVerified.
            */
 
-          const authUser =
-            await getBetterAuthUserById(
-              ctx.user.openId,
-            );
+          const authUser = await getBetterAuthUserById(ctx.user.openId);
 
           if (!authUser?.emailVerified) {
             throw new TRPCError({
@@ -1406,14 +1314,12 @@ export const appRouter = router({
              * participa na criação do domínio/slug.
              */
 
-            const store =
-              await createStoreForUser({
-                userId: ctx.user.id,
-                name: input.storeName,
-                slug: input.storeSlug,
-                whatsapp:
-                  input.whatsapp || undefined,
-              });
+            const store = await createStoreForUser({
+              userId: ctx.user.id,
+              name: input.storeName,
+              slug: input.storeSlug,
+              whatsapp: input.whatsapp || undefined,
+            });
 
             return {
               success: true,
@@ -1422,13 +1328,11 @@ export const appRouter = router({
           } catch (error) {
             if (
               error instanceof Error &&
-              error.message ===
-                "STORE_SLUG_ALREADY_EXISTS"
+              error.message === "STORE_SLUG_ALREADY_EXISTS"
             ) {
               throw new TRPCError({
                 code: "CONFLICT",
-                message:
-                  "Já existe uma loja com este endereço.",
+                message: "Já existe uma loja com este endereço.",
               });
             }
 
@@ -1447,21 +1351,18 @@ export const appRouter = router({
       .input(
         z.object({
           storeId: storeIdInput,
-        }),
+        })
       )
       .query(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        const summary =
-          await getStoreDashboardSummary(
-            input.storeId,
-          );
+        const summary = await getStoreDashboardSummary(input.storeId);
 
         if (!summary) {
           throw new TRPCError({
@@ -1490,33 +1391,25 @@ export const appRouter = router({
           storeId: storeIdInput,
 
           key: brandingKeyInput,
-        }),
+        })
       )
       .query(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        if (
-          !input.key.startsWith(
-            `stores/${input.storeId}/branding/`,
-          )
-        ) {
+        if (!input.key.startsWith(`stores/${input.storeId}/branding/`)) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message:
-              "Ficheiro não pertence à loja selecionada.",
+            message: "Ficheiro não pertence à loja selecionada.",
           });
         }
 
-        const imageUrl =
-          await createStoreDownloadUrl(
-            input.key,
-          );
+        const imageUrl = await createStoreDownloadUrl(input.key);
 
         return { imageUrl };
       }),
@@ -1526,11 +1419,7 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          fileName: z
-            .string()
-            .trim()
-            .min(1)
-            .max(255),
+          fileName: z.string().trim().min(1).max(255),
 
           contentType: z.enum([
             "image/jpeg",
@@ -1538,29 +1427,25 @@ export const appRouter = router({
             "image/webp",
             "image/gif",
           ]),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        const upload =
-          await createStoreUploadUrl({
-            storeId: input.storeId,
-            folder: "products",
-            fileName: input.fileName,
-            contentType: input.contentType,
-          });
+        const upload = await createStoreUploadUrl({
+          storeId: input.storeId,
+          folder: "products",
+          fileName: input.fileName,
+          contentType: input.contentType,
+        });
 
-        const imageUrl =
-          await createStoreDownloadUrl(
-            upload.key,
-          );
+        const imageUrl = await createStoreDownloadUrl(upload.key);
 
         return {
           key: upload.key,
@@ -1579,15 +1464,15 @@ export const appRouter = router({
       .input(
         z.object({
           storeId: storeIdInput,
-        }),
+        })
       )
       .query(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
         return listProducts(input.storeId);
@@ -1598,99 +1483,54 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          name: z
-            .string()
-            .trim()
-            .min(2)
-            .max(180),
+          name: z.string().trim().min(2).max(180),
 
-          slug: z
-            .string()
-            .trim()
-            .min(2)
-            .max(180),
+          slug: z.string().trim().min(2).max(180),
 
-          description: z
-            .string()
-            .max(5000)
-            .optional(),
+          description: z.string().max(5000).optional(),
 
-          priceMzn: z
-            .number()
-            .int()
-            .nonnegative(),
+          priceMzn: z.number().int().nonnegative(),
 
-          compareAtPriceMzn: z
-            .number()
-            .int()
-            .nonnegative()
-            .optional(),
+          compareAtPriceMzn: z.number().int().nonnegative().optional(),
 
-          stock: z
-            .number()
-            .int()
-            .nonnegative()
-            .default(0),
+          stock: z.number().int().nonnegative().default(0),
 
           /*
            * Categoria do produto: deve ser uma das
            * categorias reais da loja. Vazio/null =
            * Sem categoria.
            */
-          category: z
-            .string()
-            .trim()
-            .max(80)
-            .optional(),
+          category: z.string().trim().max(80).optional(),
 
-          imageUrl: z
-            .string()
-            .url()
-            .optional(),
+          imageUrl: z.string().url().optional(),
 
           imageKeys: z
-            .array(
-              z
-                .string()
-                .trim()
-                .min(1)
-                .max(1024),
-            )
+            .array(z.string().trim().min(1).max(1024))
             .max(12)
             .default([]),
 
           options: z
             .array(
               z.object({
-                name: z
-                  .string()
-                  .trim()
-                  .min(1)
-                  .max(80),
+                name: z.string().trim().min(1).max(80),
 
                 values: z
-                  .array(
-                    z
-                      .string()
-                      .trim()
-                      .min(1)
-                      .max(120),
-                  )
+                  .array(z.string().trim().min(1).max(120))
                   .min(1)
                   .max(100),
-              }),
+              })
             )
             .max(10)
             .default([]),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
         /* ======================================================
@@ -1700,40 +1540,24 @@ export const appRouter = router({
            extra. Produtos arquivados não contam.
            ====================================================== */
 
-        const [stockCapacity, productsUsed] =
-          await Promise.all([
-            getStoreStockCapacity(
-              input.storeId,
-            ),
-            countActiveStoreProducts(
-              input.storeId,
-            ),
-          ]);
+        const [stockCapacity, productsUsed] = await Promise.all([
+          getStoreStockCapacity(input.storeId),
+          countActiveStoreProducts(input.storeId),
+        ]);
 
         if (productsUsed >= stockCapacity) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message:
-              `Capacidade de estoque cheia (${productsUsed}/${stockCapacity} produtos). Compra mais capacidade no Market (Estoque).`,
+            message: `Capacidade de estoque cheia (${productsUsed}/${stockCapacity} produtos). Compra mais capacidade no Market (Estoque).`,
           });
         }
 
-        const productImagePrefix =
-          `stores/${input.storeId}/products/`;
+        const productImagePrefix = `stores/${input.storeId}/products/`;
 
-
-        if (
-          input.imageKeys.some(
-            (key) =>
-              !key.startsWith(
-                productImagePrefix,
-              ),
-          )
-        ) {
+        if (input.imageKeys.some(key => !key.startsWith(productImagePrefix))) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message:
-              "Imagem não pertence à loja selecionada.",
+            message: "Imagem não pertence à loja selecionada.",
           });
         }
 
@@ -1746,18 +1570,13 @@ export const appRouter = router({
         if (input.category && input.category.trim()) {
           const requestedCategory = input.category.trim();
 
-          const storeCategoriesList =
-            await listStoreCategories(
-              input.storeId,
-            );
+          const storeCategoriesList = await listStoreCategories(input.storeId);
 
           const match = storeCategoriesList.find(
-            (category) =>
-              category.name.localeCompare(
-                requestedCategory,
-                "pt",
-                { sensitivity: "accent" },
-              ) === 0,
+            category =>
+              category.name.localeCompare(requestedCategory, "pt", {
+                sensitivity: "accent",
+              }) === 0
           );
 
           if (!match) {
@@ -1777,8 +1596,7 @@ export const appRouter = router({
           slug: input.slug,
           description: input.description,
           priceMzn: input.priceMzn,
-          compareAtPriceMzn:
-            input.compareAtPriceMzn,
+          compareAtPriceMzn: input.compareAtPriceMzn,
           stock: input.stock,
           category,
           imageUrl: input.imageUrl,
@@ -1793,10 +1611,7 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          productId: z
-            .number()
-            .int()
-            .positive(),
+          productId: z.number().int().positive(),
 
           name: z.string().trim().min(2).max(180).optional(),
 
@@ -1821,28 +1636,33 @@ export const appRouter = router({
             .array(
               z.object({
                 name: z.string().trim().min(1).max(80),
-                values: z.array(z.string().trim().min(1).max(120)).min(1).max(100),
-              }),
+                values: z
+                  .array(z.string().trim().min(1).max(120))
+                  .min(1)
+                  .max(100),
+              })
             )
             .max(10)
             .optional(),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
         const updates: Partial<InsertProduct> = {};
 
         if (input.name !== undefined) updates.name = input.name;
-        if (input.description !== undefined) updates.description = input.description;
+        if (input.description !== undefined)
+          updates.description = input.description;
         if (input.priceMzn !== undefined) updates.priceMzn = input.priceMzn;
-        if (input.compareAtPriceMzn !== undefined) updates.compareAtPriceMzn = input.compareAtPriceMzn;
+        if (input.compareAtPriceMzn !== undefined)
+          updates.compareAtPriceMzn = input.compareAtPriceMzn;
         if (input.stock !== undefined) updates.stock = input.stock;
         if (input.category !== undefined) updates.category = input.category;
         if (input.imageUrl !== undefined) updates.imageUrl = input.imageUrl;
@@ -1855,21 +1675,14 @@ export const appRouter = router({
          * ao products.create.
          */
         if (input.imageKeys !== undefined) {
-          const productImagePrefix =
-            `stores/${input.storeId}/products/`;
+          const productImagePrefix = `stores/${input.storeId}/products/`;
 
           if (
-            input.imageKeys.some(
-              (key) =>
-                !key.startsWith(
-                  productImagePrefix,
-                ),
-            )
+            input.imageKeys.some(key => !key.startsWith(productImagePrefix))
           ) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message:
-                "Imagem não pertence à loja selecionada.",
+              message: "Imagem não pertence à loja selecionada.",
             });
           }
         }
@@ -1879,16 +1692,13 @@ export const appRouter = router({
          * nas categorias reais da loja.
          */
         if (updates.category) {
-          const storeCategoriesList =
-            await listStoreCategories(input.storeId);
+          const storeCategoriesList = await listStoreCategories(input.storeId);
 
           const match = storeCategoriesList.find(
-            (category) =>
-              category.name.localeCompare(
-                updates.category as string,
-                "pt",
-                { sensitivity: "accent" },
-              ) === 0,
+            category =>
+              category.name.localeCompare(updates.category as string, "pt", {
+                sensitivity: "accent",
+              }) === 0
           );
 
           if (!match) {
@@ -1905,7 +1715,7 @@ export const appRouter = router({
         const updated = await updateProduct(
           input.storeId,
           input.productId,
-          updates,
+          updates
         );
 
         if (!updated) {
@@ -1923,25 +1733,19 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          productId: z
-            .number()
-            .int()
-            .positive(),
-        }),
+          productId: z.number().int().positive(),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        await archiveProduct(
-          input.storeId,
-          input.productId,
-        );
+        await archiveProduct(input.storeId, input.productId);
 
         return {
           success: true,
@@ -1961,20 +1765,18 @@ export const appRouter = router({
       .input(
         z.object({
           storeId: storeIdInput,
-        }),
+        })
       )
       .query(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        return listStoreCategories(
-          input.storeId,
-        );
+        return listStoreCategories(input.storeId);
       }),
 
     create: protectedProcedure
@@ -1982,37 +1784,28 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          name: z
-            .string()
-            .trim()
-            .min(1)
-            .max(80),
-        }),
+          name: z.string().trim().min(1).max(80),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        const existing =
-          await listStoreCategories(
-            input.storeId,
-          );
+        const existing = await listStoreCategories(input.storeId);
 
         /*
          * Nome único por loja, case-insensitive.
          */
         const duplicate = existing.find(
-          (category) =>
-            category.name.localeCompare(
-              input.name,
-              "pt",
-              { sensitivity: "accent" },
-            ) === 0,
+          category =>
+            category.name.localeCompare(input.name, "pt", {
+              sensitivity: "accent",
+            }) === 0
         );
 
         if (duplicate) {
@@ -2030,48 +1823,34 @@ export const appRouter = router({
         z.object({
           storeId: storeIdInput,
 
-          categoryId: z
-            .string()
-            .trim()
-            .min(1)
-            .max(64),
+          categoryId: z.string().trim().min(1).max(64),
 
-          name: z
-            .string()
-            .trim()
-            .min(1)
-            .max(80),
-        }),
+          name: z.string().trim().min(1).max(80),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
             ctx.user.id,
             input.storeId,
-            ctx.user.role === "admin",
-          ),
+            ctx.user.role === "admin"
+          )
         );
 
-        const existing =
-          await listStoreCategories(
-            input.storeId,
-          );
+        const existing = await listStoreCategories(input.storeId);
 
         const duplicate = existing.find(
-          (category) =>
+          category =>
             category.id !== input.categoryId &&
-            category.name.localeCompare(
-              input.name,
-              "pt",
-              { sensitivity: "accent" },
-            ) === 0,
+            category.name.localeCompare(input.name, "pt", {
+              sensitivity: "accent",
+            }) === 0
         );
 
         if (duplicate) {
           throw new TRPCError({
             code: "CONFLICT",
-            message:
-              "Já existe uma categoria com esse nome.",
+            message: "Já existe uma categoria com esse nome.",
           });
         }
 
@@ -2084,13 +1863,11 @@ export const appRouter = router({
         } catch (error) {
           if (
             error instanceof Error &&
-            error.message ===
-              "STORE_CATEGORY_NOT_FOUND"
+            error.message === "STORE_CATEGORY_NOT_FOUND"
           ) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Categoria não encontrada.",
+              message: "Categoria não encontrada.",
             });
           }
 
@@ -2109,31 +1886,22 @@ export const appRouter = router({
        ======================================================== */
 
     users: router({
-      list: adminProcedure.query(
-        () => getAdminUsers(),
-      ),
+      list: adminProcedure.query(() => getAdminUsers()),
 
       delete: adminProcedure
         .input(
           z.object({
-            userId: z
-              .number()
-              .int()
-              .positive(),
-          }),
+            userId: z.number().int().positive(),
+          })
         )
         .mutation(async ({ input }) => {
           try {
-            const deleted =
-              await deleteAdminUser(
-                input.userId,
-              );
+            const deleted = await deleteAdminUser(input.userId);
 
             if (!deleted) {
               throw new TRPCError({
                 code: "NOT_FOUND",
-                message:
-                  "Utilizador não encontrado.",
+                message: "Utilizador não encontrado.",
               });
             }
 
@@ -2142,15 +1910,10 @@ export const appRouter = router({
               user: deleted,
             };
           } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message ===
-                "USER_NOT_FOUND"
-            ) {
+            if (error instanceof Error && error.message === "USER_NOT_FOUND") {
               throw new TRPCError({
                 code: "NOT_FOUND",
-                message:
-                  "Utilizador não encontrado.",
+                message: "Utilizador não encontrado.",
               });
             }
 
@@ -2181,21 +1944,9 @@ export const appRouter = router({
         create: adminProcedure
           .input(
             z.object({
-              featureKey: z
-                .string()
-                .trim()
-                .min(1)
-                .max(64),
-              name: z
-                .string()
-                .trim()
-                .min(1)
-                .max(120),
-              description: z
-                .string()
-                .trim()
-                .min(1)
-                .max(2000),
+              featureKey: z.string().trim().min(1).max(64),
+              name: z.string().trim().min(1).max(120),
+              description: z.string().trim().min(1).max(2000),
               category: z.enum([
                 "header",
                 "banner",
@@ -2204,21 +1955,10 @@ export const appRouter = router({
                 "footer",
                 "stock",
               ]),
-              priceCredits: z
-                .number()
-                .int()
-                .min(0)
-                .max(1_000_000),
-              status: z
-                .enum(["active", "inactive"])
-                .default("active"),
-              sortOrder: z
-                .number()
-                .int()
-                .min(0)
-                .max(999)
-                .default(0),
-            }),
+              priceCredits: z.number().int().min(0).max(1_000_000),
+              status: z.enum(["active", "inactive"]).default("active"),
+              sortOrder: z.number().int().min(0).max(999).default(0),
+            })
           )
           .mutation(async ({ input }) => {
             /*
@@ -2226,9 +1966,7 @@ export const appRouter = router({
              * código/estrutura definida. O Admin publica
              * comercialmente o que já existe em código.
              */
-            const entry = findMarketCatalogEntry(
-              input.featureKey,
-            );
+            const entry = findMarketCatalogEntry(input.featureKey);
 
             if (!entry) {
               throw new TRPCError({
@@ -2239,29 +1977,22 @@ export const appRouter = router({
             }
 
             try {
-              const feature =
-                await insertMarketFeature({
-                  id: input.featureKey,
-                  featureKey: input.featureKey,
-                  name: input.name,
-                  description:
-                    input.description,
-                  category: entry.category,
-                  priceCredits:
-                    input.priceCredits,
-                  status: input.status,
-                  sortOrder:
-                    input.sortOrder ||
-                    entry.sortOrder,
-                });
+              const feature = await insertMarketFeature({
+                id: input.featureKey,
+                featureKey: input.featureKey,
+                name: input.name,
+                description: input.description,
+                category: entry.category,
+                priceCredits: input.priceCredits,
+                status: input.status,
+                sortOrder: input.sortOrder || entry.sortOrder,
+              });
 
               return { success: true, feature };
             } catch (error) {
               if (
                 error instanceof Error &&
-                error.message.includes(
-                  "market_features_feature_key_idx",
-                )
+                error.message.includes("market_features_feature_key_idx")
               ) {
                 throw new TRPCError({
                   code: "CONFLICT",
@@ -2278,49 +2009,22 @@ export const appRouter = router({
           .input(
             z.object({
               id: z.string().trim().min(1).max(64),
-              name: z
-                .string()
-                .trim()
-                .min(1)
-                .max(120)
-                .optional(),
-              description: z
-                .string()
-                .trim()
-                .min(1)
-                .max(2000)
-                .optional(),
-              priceCredits: z
-                .number()
-                .int()
-                .min(0)
-                .max(1_000_000)
-                .optional(),
-              status: z
-                .enum(["active", "inactive"])
-                .optional(),
-              sortOrder: z
-                .number()
-                .int()
-                .min(0)
-                .max(999)
-                .optional(),
-            }),
+              name: z.string().trim().min(1).max(120).optional(),
+              description: z.string().trim().min(1).max(2000).optional(),
+              priceCredits: z.number().int().min(0).max(1_000_000).optional(),
+              status: z.enum(["active", "inactive"]).optional(),
+              sortOrder: z.number().int().min(0).max(999).optional(),
+            })
           )
           .mutation(async ({ input }) => {
             const { id, ...patch } = input;
 
-            const feature =
-              await updateMarketFeature(
-                id,
-                patch,
-              );
+            const feature = await updateMarketFeature(id, patch);
 
             if (!feature) {
               throw new TRPCError({
                 code: "NOT_FOUND",
-                message:
-                  "Funcionalidade Market não encontrada.",
+                message: "Funcionalidade Market não encontrada.",
               });
             }
 
@@ -2334,26 +2038,18 @@ export const appRouter = router({
           .input(
             z.object({
               id: z.string().trim().min(1).max(64),
-              status: z.enum([
-                "active",
-                "inactive",
-              ]),
-            }),
+              status: z.enum(["active", "inactive"]),
+            })
           )
           .mutation(async ({ input }) => {
-            const feature =
-              await updateMarketFeature(
-                input.id,
-                {
-                  status: input.status,
-                },
-              );
+            const feature = await updateMarketFeature(input.id, {
+              status: input.status,
+            });
 
             if (!feature) {
               throw new TRPCError({
                 code: "NOT_FOUND",
-                message:
-                  "Funcionalidade Market não encontrada.",
+                message: "Funcionalidade Market não encontrada.",
               });
             }
             return { success: true, feature };
@@ -2370,20 +2066,15 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .mutation(async ({ input }) => {
-          const store =
-            await updateStoreStatus(
-              input.storeId,
-              "active",
-            );
+          const store = await updateStoreStatus(input.storeId, "active");
 
           if (!store) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
+              message: "Loja não encontrada.",
             });
           }
 
@@ -2397,20 +2088,15 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .mutation(async ({ input }) => {
-          const store =
-            await updateStoreStatus(
-              input.storeId,
-              "suspended",
-            );
+          const store = await updateStoreStatus(input.storeId, "suspended");
 
           if (!store) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
+              message: "Loja não encontrada.",
             });
           }
 
@@ -2424,19 +2110,15 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-          }),
+          })
         )
         .mutation(async ({ input }) => {
-          const store =
-            await deleteStore(
-              input.storeId,
-            );
+          const store = await deleteStore(input.storeId);
 
           if (!store) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
+              message: "Loja não encontrada.",
             });
           }
 
@@ -2458,9 +2140,7 @@ export const appRouter = router({
        * Lista todas as lojas com o saldo atual
        * (inclui lojas com NULL = 0).
        */
-      list: adminProcedure.query(
-        () => getAdminUsers(),
-      ),
+      list: adminProcedure.query(() => getAdminUsers()),
 
       /**
        * Define o saldo absoluto da loja.
@@ -2469,24 +2149,19 @@ export const appRouter = router({
         .input(
           z.object({
             storeId: storeIdInput,
-            creditMzn: z
-              .number()
-              .int()
-              .min(0),
-          }),
+            creditMzn: z.number().int().min(0),
+          })
         )
         .mutation(async ({ input }) => {
-          const store =
-            await setStoreCreditMzn({
-              storeId: input.storeId,
-              creditMzn: input.creditMzn,
-            });
+          const store = await setStoreCreditMzn({
+            storeId: input.storeId,
+            creditMzn: input.creditMzn,
+          });
 
           if (!store) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
+              message: "Loja não encontrada.",
             });
           }
 
@@ -2510,27 +2185,21 @@ export const appRouter = router({
             amountMzn: z
               .number()
               .int()
-              .refine(
-                (value) => value !== 0,
-                {
-                  message:
-                    "O valor não pode ser zero.",
-                },
-              ),
-          }),
+              .refine(value => value !== 0, {
+                message: "O valor não pode ser zero.",
+              }),
+          })
         )
         .mutation(async ({ input }) => {
-          const store =
-            await addStoreCreditMzn({
-              storeId: input.storeId,
-              amountMzn: input.amountMzn,
-            });
+          const store = await addStoreCreditMzn({
+            storeId: input.storeId,
+            amountMzn: input.amountMzn,
+          });
 
           if (!store) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message:
-                "Loja não encontrada.",
+              message: "Loja não encontrada.",
             });
           }
 

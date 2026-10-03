@@ -1,9 +1,4 @@
-import {
-  FormEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   ArrowLeft,
@@ -21,6 +16,8 @@ import { useLocation } from "wouter";
 
 import { authClient } from "@/lib/auth-client";
 
+import { trpc } from "@/lib/trpc";
+
 import {
   InputOTP,
   InputOTPGroup,
@@ -32,14 +29,8 @@ type CreateAccountStep = "credentials" | "otp";
 const OTP_COOLDOWN_SECONDS = 60;
 
 function isOtpError(
-  error:
-    | { code?: string; message?: string }
-    | null
-    | undefined,
-  token:
-    | "OTP_EXPIRED"
-    | "INVALID_OTP"
-    | "TOO_MANY_ATTEMPTS",
+  error: { code?: string; message?: string } | null | undefined,
+  token: "OTP_EXPIRED" | "INVALID_OTP" | "TOO_MANY_ATTEMPTS"
 ) {
   if (!error) {
     return false;
@@ -53,10 +44,7 @@ function isOtpError(
 }
 
 function getOtpErrorMessage(
-  error:
-    | { code?: string; message?: string }
-    | null
-    | undefined,
+  error: { code?: string; message?: string } | null | undefined
 ) {
   if (isOtpError(error, "OTP_EXPIRED")) {
     return "O código expirou. Solicita um novo código.";
@@ -71,47 +59,48 @@ function getOtpErrorMessage(
   }
 
   return (
-    error?.message ||
-    "Não foi possível validar o código. Tenta novamente."
+    error?.message || "Não foi possível validar o código. Tenta novamente."
   );
 }
 
 export default function CreateAccount() {
   const [, setLocation] = useLocation();
 
-  const [step, setStep] =
-    useState<CreateAccountStep>("credentials");
+  const [step, setStep] = useState<CreateAccountStep>("credentials");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
-    useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [acceptedTerms, setAcceptedTerms] =
-    useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
   const [otpEmail, setOtpEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] =
-    useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
 
-  const [isSendingOtp, setIsSendingOtp] =
-    useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
-  const [isVerifyingOtp, setIsVerifyingOtp] =
-    useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const [resendIn, setResendIn] = useState(0);
 
+  /*
+   * Verdadeiro quando o email submetido já tinha conta
+   * (ex.: tentativa anterior sem concluir a verificação).
+   * O fluxo passa a enviar o código na mesma, em vez de
+   * bloquear com "email já registado".
+   */
+  const [accountExisted, setAccountExisted] = useState(false);
+
   const isSubmittingRef = useRef(false);
+
+  const restorePasswordMutation = trpc.auth.restorePassword.useMutation();
 
   useEffect(() => {
     if (resendIn <= 0) {
@@ -119,18 +108,14 @@ export default function CreateAccount() {
     }
 
     const timer = window.setTimeout(() => {
-      setResendIn((current) => current - 1);
+      setResendIn(current => current - 1);
     }, 1000);
 
     return () => window.clearTimeout(timer);
   }, [resendIn]);
 
   function getErrorMessage(error: unknown): string {
-    if (
-      error &&
-      typeof error === "object" &&
-      "error" in error
-    ) {
+    if (error && typeof error === "object" && "error" in error) {
       const responseError = (
         error as {
           error?: {
@@ -150,8 +135,7 @@ export default function CreateAccount() {
       error &&
       typeof error === "object" &&
       "message" in error &&
-      typeof (error as { message?: unknown }).message ===
-        "string"
+      typeof (error as { message?: unknown }).message === "string"
     ) {
       return (error as { message: string }).message;
     }
@@ -163,26 +147,20 @@ export default function CreateAccount() {
     setIsSendingOtp(true);
 
     try {
-      const result =
-        await authClient.emailOtp.sendVerificationOtp({
-          email: targetEmail,
-          type: "email-verification",
-        });
+      const result = await authClient.emailOtp.sendVerificationOtp({
+        email: targetEmail,
+        type: "email-verification",
+      });
 
       if (result.error) {
-        console.error(
-          "[CreateAccount] Erro ao enviar OTP:",
-          result.error,
-        );
+        console.error("[CreateAccount] Erro ao enviar OTP:", result.error);
 
         if (result.error.status === 429) {
-          toast.error(
-            "Aguarda um momento antes de pedir outro código.",
-          );
+          toast.error("Aguarda um momento antes de pedir outro código.");
         } else {
           toast.error(
             result.error.message ||
-              "Não foi possível enviar o código. Tenta novamente.",
+              "Não foi possível enviar o código. Tenta novamente."
           );
         }
 
@@ -195,16 +173,11 @@ export default function CreateAccount() {
       setResendIn(OTP_COOLDOWN_SECONDS);
       setStep("otp");
 
-      toast.success(
-        "Enviamos um código para o teu email.",
-      );
+      toast.success("Enviamos um código para o teu email.");
 
       return true;
     } catch (error: unknown) {
-      console.error(
-        "[CreateAccount] Erro inesperado ao enviar OTP:",
-        error,
-      );
+      console.error("[CreateAccount] Erro inesperado ao enviar OTP:", error);
 
       toast.error(getErrorMessage(error));
 
@@ -228,47 +201,54 @@ export default function CreateAccount() {
     setOtpError(null);
 
     try {
-      const result =
-        await authClient.emailOtp.verifyEmail({
-          email: otpEmail,
-          otp,
-        });
+      const result = await authClient.emailOtp.verifyEmail({
+        email: otpEmail,
+        otp,
+      });
 
       if (result.error) {
-        console.error(
-          "[CreateAccount] Erro ao verificar OTP:",
-          result.error,
-        );
+        console.error("[CreateAccount] Erro ao verificar OTP:", result.error);
 
-        setOtpError(
-          getOtpErrorMessage(result.error),
-        );
+        setOtpError(getOtpErrorMessage(result.error));
 
         setOtp("");
 
         return;
       }
 
-      sessionStorage.removeItem(
-        "homsteg_business_types",
-      );
+      sessionStorage.removeItem("homsteg_business_types");
 
-      sessionStorage.removeItem(
-        "homsteg_store_data",
-      );
+      sessionStorage.removeItem("homsteg_store_data");
 
-      toast.success(
-        "Email verificado com sucesso!",
-      );
+      toast.success("Email verificado com sucesso!");
 
-      window.location.assign(
-        "/criar-loja/negocio",
-      );
+      /*
+       * A verificação por OTP (Better Auth 1.7,
+       * revokeUnprovenAccountAccess) apaga a credencial de
+       * palavra-passe de contas que ainda não estavam
+       * verificadas. Repor a palavra-passe escolhida no
+       * formulário para o login email+password continuar
+       * a funcionar.
+       */
+      try {
+        const restore = await restorePasswordMutation.mutateAsync({
+          newPassword: password,
+        });
+
+        if (restore.alreadyHadPassword) {
+          toast.info(
+            "Este email já tinha palavra-passe. Usa a tua palavra-passe habitual para entrar."
+          );
+        }
+      } catch {
+        toast.error(
+          "A conta foi verificada, mas não foi possível repor a palavra-passe. Usa “Recuperar conta” para definir uma nova."
+        );
+      }
+
+      window.location.assign("/criar-loja/negocio");
     } catch (error: unknown) {
-      console.error(
-        "[CreateAccount] Erro inesperado ao verificar OTP:",
-        error,
-      );
+      console.error("[CreateAccount] Erro inesperado ao verificar OTP:", error);
 
       setOtpError(getErrorMessage(error));
       setOtp("");
@@ -277,9 +257,7 @@ export default function CreateAccount() {
     }
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (isSubmittingRef.current || isLoading) {
@@ -299,23 +277,17 @@ export default function CreateAccount() {
     }
 
     if (password.length < 8) {
-      toast.error(
-        "A palavra-passe deve ter pelo menos 8 caracteres.",
-      );
+      toast.error("A palavra-passe deve ter pelo menos 8 caracteres.");
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error(
-        "As palavras-passe não coincidem.",
-      );
+      toast.error("As palavras-passe não coincidem.");
       return;
     }
 
     if (!acceptedTerms) {
-      toast.error(
-        "Aceita os termos e condições para continuar.",
-      );
+      toast.error("Aceita os termos e condições para continuar.");
       return;
     }
 
@@ -323,78 +295,64 @@ export default function CreateAccount() {
     setIsLoading(true);
 
     try {
-      const generatedName =
-        cleanEmail.split("@")[0] ||
-        "Utilizador";
+      const generatedName = cleanEmail.split("@")[0] || "Utilizador";
 
-      const result =
-        await authClient.signUp.email({
-          email: cleanEmail,
-          password,
-          name: generatedName,
-        });
+      const result = await authClient.signUp.email({
+        email: cleanEmail,
+        password,
+        name: generatedName,
+      });
 
       if (result.error) {
-        console.error(
-          "[CreateAccount] Better Auth error:",
-          result.error,
-        );
+        console.error("[CreateAccount] Better Auth error:", result.error);
 
-        if (
-          result.error.code ===
-            "USER_ALREADY_EXISTS" ||
-          result.error.status === 422
-        ) {
-          const session =
-            await authClient.getSession();
+        const errorCode = result.error.code ?? "";
 
-          const sessionEmail =
-            session.data?.user?.email
-              ?.toLowerCase()
-              .trim();
+        const errorMessage = result.error.message ?? "";
 
-          if (sessionEmail === cleanEmail) {
-            const sent =
-              await sendOtp(cleanEmail);
+        const isUserAlreadyExists =
+          errorCode.includes("USER_ALREADY_EXISTS") ||
+          errorMessage.toLowerCase().includes("already exists");
 
-            if (!sent) {
-              toast.error(
-                "Não foi possível enviar o código de verificação.",
-              );
-            }
+        if (isUserAlreadyExists) {
+          /*
+           * O email já tem conta (ex.: tentativa
+           * anterior sem concluir a verificação).
+           * Em vez de bloquear, envia o código de
+           * verificação — quem controla a caixa de
+           * email consegue confirmar e continuar.
+           */
+          setAccountExisted(true);
 
-            return;
+          const sent = await sendOtp(cleanEmail);
+
+          if (!sent) {
+            toast.error(
+              "Este email já está registado. Entra na tua conta ou tenta pedir o código novamente."
+            );
           }
 
-          toast.error(
-            "Este email já está registado. Entra na tua conta.",
-          );
-        } else {
-          toast.error(
-            result.error.message ||
-              "Não foi possível criar a conta.",
-          );
+          return;
         }
+
+        toast.error(result.error.message || "Não foi possível criar a conta.");
 
         return;
       }
+
+      setAccountExisted(false);
 
       const sent = await sendOtp(cleanEmail);
 
       if (!sent) {
         toast.error(
-          "A conta foi criada, mas não foi possível enviar o código. Tenta novamente.",
+          "A conta foi criada, mas não foi possível enviar o código. Tenta novamente."
         );
       }
     } catch (error: unknown) {
-      console.error(
-        "[CreateAccount] Unexpected error:",
-        error,
-      );
+      console.error("[CreateAccount] Unexpected error:", error);
 
-      toast.error(
-        getErrorMessage(error),
-      );
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
       isSubmittingRef.current = false;
@@ -424,8 +382,7 @@ export default function CreateAccount() {
               </h2>
 
               <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
-                Enviámos um código de 6 dígitos
-                para o teu email. Introduz o
+                Enviámos um código de 6 dígitos para o teu email. Introduz o
                 código para continuar.
               </p>
             </div>
@@ -452,11 +409,15 @@ export default function CreateAccount() {
 
                 <p className="mt-2 text-sm text-slate-500">
                   Enviámos um código para{" "}
-                  <span className="font-medium text-black">
-                    {otpEmail}
-                  </span>
-                  .
+                  <span className="font-medium text-black">{otpEmail}</span>.
                 </p>
+
+                {accountExisted && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Este email já tem uma conta HOMSTEG. Confirma o código para
+                    continuar.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-5">
@@ -468,27 +429,22 @@ export default function CreateAccount() {
                   <InputOTP
                     maxLength={6}
                     value={otp}
-                    onChange={(value) => {
+                    onChange={value => {
                       setOtp(value);
                       setOtpError(null);
                     }}
-                    disabled={
-                      isVerifyingOtp ||
-                      isSendingOtp
-                    }
+                    disabled={isVerifyingOtp || isSendingOtp}
                     containerClassName="justify-center"
                     aria-invalid={Boolean(otpError)}
                   >
                     <InputOTPGroup className="gap-2">
-                      {Array.from({ length: 6 }).map(
-                        (_, index) => (
-                          <InputOTPSlot
-                            key={index}
-                            index={index}
-                            className="h-13 w-11 rounded-xl border-slate-200 bg-slate-50 text-lg font-semibold text-black data-[active=true]:border-black data-[active=true]:ring-black/10 aria-invalid:border-red-400/60"
-                          />
-                        ),
-                      )}
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          className="h-13 w-11 rounded-xl border-slate-200 bg-slate-50 text-lg font-semibold text-black data-[active=true]:border-black data-[active=true]:ring-black/10 aria-invalid:border-red-400/60"
+                        />
+                      ))}
                     </InputOTPGroup>
                   </InputOTP>
 
@@ -497,25 +453,21 @@ export default function CreateAccount() {
                       {otpError}
                     </p>
                   )}
+
+                  <p className="mt-3 text-center text-xs text-slate-400">
+                    Não recebeste? Verifica a caixa de spam ou as promoções.
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleVerifyOtp}
-                  disabled={
-                    isVerifyingOtp ||
-                    isSendingOtp ||
-                    otp.length !== 6
-                  }
+                  disabled={isVerifyingOtp || isSendingOtp || otp.length !== 6}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isVerifyingOtp
-                    ? "A verificar..."
-                    : "Confirmar código"}
+                  {isVerifyingOtp ? "A verificar..." : "Confirmar código"}
 
-                  {!isVerifyingOtp && (
-                    <ArrowRight className="h-5 w-5" />
-                  )}
+                  {!isVerifyingOtp && <ArrowRight className="h-5 w-5" />}
                 </button>
 
                 <div className="flex items-center justify-between text-sm">
@@ -527,10 +479,7 @@ export default function CreateAccount() {
                       setOtpError(null);
                     }}
                     className="flex items-center gap-1.5 text-slate-500 transition hover:text-black"
-                    disabled={
-                      isVerifyingOtp ||
-                      isSendingOtp
-                    }
+                    disabled={isVerifyingOtp || isSendingOtp}
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Voltar
@@ -538,14 +487,8 @@ export default function CreateAccount() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      sendOtp(otpEmail)
-                    }
-                    disabled={
-                      isVerifyingOtp ||
-                      isSendingOtp ||
-                      resendIn > 0
-                    }
+                    onClick={() => sendOtp(otpEmail)}
+                    disabled={isVerifyingOtp || isSendingOtp || resendIn > 0}
                     className="font-medium text-black transition hover:text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     {resendIn > 0
@@ -583,9 +526,7 @@ export default function CreateAccount() {
             </h2>
 
             <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
-              Cria a tua conta e começa a
-              configurar a tua loja no
-              HOMSTEG.
+              Cria a tua conta e começa a configurar a tua loja no HOMSTEG.
             </p>
           </div>
         </div>
@@ -610,15 +551,11 @@ export default function CreateAccount() {
               </h1>
 
               <p className="mt-2 text-sm text-slate-500">
-                Cria a tua conta com email
-                e palavra-passe.
+                Cria a tua conta com email e palavra-passe.
               </p>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5"
-            >
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-900">
                   Email
@@ -631,9 +568,7 @@ export default function CreateAccount() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
+                    onChange={event => setEmail(event.target.value)}
                     placeholder="teu@email.com"
                     required
                     disabled={isLoading}
@@ -651,16 +586,10 @@ export default function CreateAccount() {
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                   <input
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
+                    type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
+                    onChange={event => setPassword(event.target.value)}
                     placeholder="Mínimo de 8 caracteres"
                     required
                     disabled={isLoading}
@@ -669,11 +598,7 @@ export default function CreateAccount() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        (current) => !current,
-                      )
-                    }
+                    onClick={() => setShowPassword(current => !current)}
                     disabled={isLoading}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
                     aria-label={
@@ -691,8 +616,7 @@ export default function CreateAccount() {
                 </div>
 
                 <p className="mt-2 text-xs text-slate-400">
-                  A palavra-passe deve ter
-                  pelo menos 8 caracteres.
+                  A palavra-passe deve ter pelo menos 8 caracteres.
                 </p>
               </div>
 
@@ -705,18 +629,10 @@ export default function CreateAccount() {
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                   <input
-                    type={
-                      showConfirmPassword
-                        ? "text"
-                        : "password"
-                    }
+                    type={showConfirmPassword ? "text" : "password"}
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(
-                        event.target.value,
-                      )
-                    }
+                    onChange={event => setConfirmPassword(event.target.value)}
                     placeholder="Repete a palavra-passe"
                     required
                     disabled={isLoading}
@@ -725,11 +641,7 @@ export default function CreateAccount() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowConfirmPassword(
-                        (current) => !current,
-                      )
-                    }
+                    onClick={() => setShowConfirmPassword(current => !current)}
                     disabled={isLoading}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
                     aria-label={
@@ -751,18 +663,13 @@ export default function CreateAccount() {
                 <input
                   type="checkbox"
                   checked={acceptedTerms}
-                  onChange={(event) =>
-                    setAcceptedTerms(
-                      event.target.checked,
-                    )
-                  }
+                  onChange={event => setAcceptedTerms(event.target.checked)}
                   disabled={isLoading}
                   className="mt-1 h-4 w-4 rounded border-slate-300 bg-white accent-black"
                 />
 
                 <span className="text-sm leading-6 text-slate-500">
-                  Aceito os termos e condições
-                  e a política de privacidade do
+                  Aceito os termos e condições e a política de privacidade do
                   HOMSTEG.
                 </span>
               </label>
@@ -772,13 +679,9 @@ export default function CreateAccount() {
                 disabled={isLoading}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading
-                  ? "A criar conta..."
-                  : "Criar conta"}
+                {isLoading ? "A criar conta..." : "Criar conta"}
 
-                {!isLoading && (
-                  <ArrowRight className="h-5 w-5" />
-                )}
+                {!isLoading && <ArrowRight className="h-5 w-5" />}
               </button>
             </form>
 
@@ -787,9 +690,7 @@ export default function CreateAccount() {
                 Já tens uma conta?{" "}
                 <button
                   type="button"
-                  onClick={() =>
-                    setLocation("/login")
-                  }
+                  onClick={() => setLocation("/login")}
                   className="font-medium text-black transition hover:text-slate-600"
                 >
                   Entrar
