@@ -100,6 +100,69 @@ function ModelMiniature({
     );
   }
 
+  /* Modelo 6 — Elevado (Market 1product) */
+  if (model === "6") {
+    return (
+      <div className="flex h-28 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {img}
+
+        <div className="flex flex-1 flex-col p-1.5">
+          <span className="h-1 w-6 rounded bg-slate-200" />
+
+          <span className="mt-0.5 h-1.5 w-4/5 rounded bg-slate-300" />
+
+          <div className="mt-auto flex items-center justify-between">
+            <span className="text-[8px] font-black text-emerald-700">
+              1 250 MT
+            </span>
+
+            <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#111713] text-[7px] font-bold text-white">
+              +
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* Modelo 7 — Compacto (Market 2product) */
+  if (model === "7") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {img}
+
+        <div className="p-1.5">
+          <span className="block h-1.5 w-4/5 rounded bg-slate-300" />
+
+          <span className="mt-0.5 block text-[9px] font-black text-slate-900">
+            1 250,00 MZN
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  /* Modelo 8 — Horizontal (Market 3product) */
+  if (model === "8") {
+    return (
+      <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white p-1.5">
+        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-slate-200" />
+
+        <div className="min-w-0 flex-1">
+          <span className="block h-1 w-6 rounded bg-slate-200" />
+
+          <span className="mt-0.5 block h-1.5 w-4/5 rounded bg-slate-300" />
+
+          <span className="block text-[8px] font-black text-emerald-700">
+            1 250 MT
+          </span>
+        </div>
+
+        <span className="text-[10px] text-gray-400">›</span>
+      </div>
+    );
+  }
+
   /* Modelo 1 — clássico: nome + loja + preço */
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -214,6 +277,9 @@ const PRODUCT_CARD_MODEL_HINTS: Record<
   "3": "Imagem com o preço por baixo.",
   "4": "Imagem com o nome por baixo.",
   "5": "Imagem, nome, preço e botão Comprar.",
+  "6": "Sombra suave, categoria e botão circular.",
+  "7": "Quadrado, com nome e preço em destaque.",
+  "8": "Linha com imagem à esquerda e seta.",
 };
 
 export default ProductCardModelSelector;

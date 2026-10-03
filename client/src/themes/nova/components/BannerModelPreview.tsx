@@ -66,14 +66,74 @@ function BannerMiniature({ model }: { model: BannerModel }) {
   }
 
   /* Modelo 5 — overlay */
+  if (model === "5") {
+    return (
+      <div className="relative h-12 w-full overflow-hidden rounded-xl shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-300 to-slate-500" />
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/35">
+          <div className="h-1.5 w-3/5 rounded bg-white" />
+
+          <div className="h-1 w-2/5 rounded bg-white/60" />
+        </div>
+      </div>
+    );
+  }
+
+  /* Modelo 6 — Gradiente (Market 1banner) */
+  if (model === "6") {
+    return (
+      <div className="overflow-hidden rounded-xl bg-gradient-to-r from-slate-950 via-emerald-900 to-emerald-700 shadow-sm">
+        <div className="flex flex-col justify-center gap-1 p-2.5">
+          <span className="h-1 w-8 rounded bg-lime-300" />
+
+          <span className="h-1.5 w-3/5 rounded bg-white/90" />
+
+          <span className="h-2.5 w-9 rounded-full bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  /* Modelo 7 — Split claro (Market 2banner) */
+  if (model === "7") {
+    return (
+      <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col justify-center gap-1 p-2">
+          <span className="h-1 w-8 rounded bg-emerald-600" />
+
+          <span className="h-1.5 w-4/5 rounded bg-slate-800" />
+
+          <span className="h-2.5 w-9 rounded-full bg-slate-950" />
+        </div>
+
+        <div className="relative h-12 bg-gradient-to-br from-slate-300 to-slate-400" />
+      </div>
+    );
+  }
+
+  /* Modelo 8 — Faixa (Market 3banner) */
+  if (model === "8") {
+    return (
+      <div className="flex items-center justify-between overflow-hidden rounded-xl bg-lime-300 px-2.5 shadow-sm">
+        <div className="space-y-1 py-2">
+          <span className="block h-1.5 w-16 rounded bg-slate-900" />
+
+          <span className="block h-1 w-12 rounded bg-emerald-900/60" />
+        </div>
+
+        <span className="text-[11px] font-bold text-slate-950">→</span>
+      </div>
+    );
+  }
+
+  /* Modelo 9 — Simples (Market 10banner): imagem única. */
   return (
-    <div className="relative h-12 w-full overflow-hidden rounded-xl shadow-sm">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-300 to-slate-500" />
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/35">
-        <div className="h-1.5 w-3/5 rounded bg-white" />
-
-        <div className="h-1 w-2/5 rounded bg-white/60" />
+    <div className="overflow-hidden rounded-xl shadow-sm">
+      <div className="relative h-12 w-full overflow-hidden rounded-lg bg-gradient-to-br from-slate-300 to-slate-400">
+        <span className="absolute bottom-1 right-1 rounded bg-white/85 px-1 text-[8px] font-bold text-slate-700">
+          1 imagem
+        </span>
       </div>
     </div>
   );
@@ -116,6 +176,10 @@ export function BannerModelSelector({
     "3": "Duas áreas visuais no mesmo slide.",
     "4": "Duas metades lado a lado (imagem + texto).",
     "5": "Título e subtítulo em destaque sobre a imagem.",
+    "6": "Faixa com fundo em gradiente e botão de ação.",
+    "7": "Texto à esquerda, imagem à direita, fundo claro.",
+    "8": "Faixa compacta com chamada e seta.",
+    "9": "Imagem única, sem carrossel nem configurações.",
   };
 
   return (

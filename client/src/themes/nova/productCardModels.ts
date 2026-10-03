@@ -5,7 +5,12 @@
  * 2 — minimalista: apenas a imagem;
  * 3 — imagem + preço;
  * 4 — imagem + nome;
- * 5 — imagem + nome + preço + botão Comprar (WhatsApp).
+ * 5 — imagem + nome + preço + botão Comprar (WhatsApp);
+ * 6 — Elevado (Market 1product): sombra suave, categoria,
+ *     nome, preço em destaque e botão de compra circular;
+ * 7 — Compacto (Market 2product): quadrado, nome e preço;
+ * 8 — Horizontal (Market 3product): linha com imagem à
+ *     esquerda, categoria, nome, preço e seta.
  *
  * Sem dependências de React: partilhado entre o
  * dashboard (seletor) e o storefront (renderização).
@@ -17,6 +22,9 @@ export const PRODUCT_CARD_MODELS = [
   "3",
   "4",
   "5",
+  "6",
+  "7",
+  "8",
 ] as const;
 
 export type ProductCardModel =
@@ -37,13 +45,16 @@ export const PRODUCT_CARD_UNLOCKABLE_MODELS = [
   "3",
   "4",
   "5",
+  "6",
+  "7",
+  "8",
 ] as const;
 
 /**
  * Mapa featureKey Market → modelo de cartão.
  * As compras no Market guardam featureKeys ("4product"…
- * "8product"); a Personalização consome o modelo
- * ("1"…"5") através deste mapa.
+ * "8product", "1product"–"3product"); a Personalização
+ * consome o modelo ("1"…"8") através deste mapa.
  */
 export const MODEL_PURCHASE_TO_CARD: Record<
   string,
@@ -54,6 +65,9 @@ export const MODEL_PURCHASE_TO_CARD: Record<
   "6product": "3",
   "7product": "4",
   "8product": "5",
+  "1product": "6",
+  "2product": "7",
+  "3product": "8",
 };
 
 /**
@@ -68,6 +82,9 @@ export const MODEL_TO_MARKET_FEATURE: Record<
   "3": "6product",
   "4": "7product",
   "5": "8product",
+  "6": "1product",
+  "7": "2product",
+  "8": "3product",
 };
 
 export function isProductCardModel(
@@ -107,6 +124,12 @@ export function getProductCardModelLabel(
       return "Nome";
     case "5":
       return "Completo";
+    case "6":
+      return "Elevado";
+    case "7":
+      return "Compacto";
+    case "8":
+      return "Horizontal";
   }
 }
 
@@ -124,5 +147,11 @@ export function getProductCardModelDescription(
       return "Imagem com o nome do produto por baixo.";
     case "5":
       return "Imagem, nome, preço e botão Comprar.";
+    case "6":
+      return "Sombra suave, categoria, preço e botão circular.";
+    case "7":
+      return "Quadrado, com nome e preço em destaque.";
+    case "8":
+      return "Linha com imagem à esquerda e seta à direita.";
   }
 }

@@ -345,49 +345,232 @@ export default function BannerCarousel({
   }
 
   /* MODELO 5 — OVERLAY: texto em destaque sobre a imagem. */
-  return (
-    <section className="w-full px-3 py-3 md:px-6 md:py-5">
-      <div className="relative mx-auto w-full max-w-[1440px] overflow-hidden rounded-2xl bg-gray-100 md:rounded-3xl">
-        <div className="relative w-full aspect-[16/7] md:aspect-[16/6] lg:aspect-[16/5.5]">
+  if (bannerModel === "5") {
+    return (
+      <section className="w-full px-3 py-3 md:px-6 md:py-5">
+        <div className="relative mx-auto w-full max-w-[1440px] overflow-hidden rounded-2xl bg-gray-100 md:rounded-3xl">
+          <div className="relative w-full aspect-[16/7] md:aspect-[16/6] lg:aspect-[16/5.5]">
+            {orderedBanners.map((banner, index) => (
+              <div
+                key={banner.id}
+                className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                  index === current ? "z-10 opacity-100" : "z-0 opacity-0"
+                } ${animationClass(banner, index === current)}`}
+              >
+                <img
+                  src={banner.image_url}
+                  alt={`Banner ${index + 1}`}
+                  className="block h-full w-full object-cover"
+                />
+
+                <BannerFeatureLayer banner={banner} now={now} />
+
+                {(banner.title || banner.subtitle) && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/35 px-6 text-center text-white">
+                    {banner.title && (
+                      <h2 className="max-w-xl text-xl font-black tracking-tight drop-shadow-sm sm:text-3xl md:text-4xl">
+                        {banner.title}
+                      </h2>
+                    )}
+
+                    {banner.subtitle && (
+                      <p className="max-w-lg text-xs font-medium text-white/85 sm:text-sm md:text-base">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <CarouselDots
+            orderedBanners={orderedBanners}
+            current={current}
+            setCurrent={setCurrent}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  /*
+   * MODELO 6 — GRADIENTE (do Market 1banner): faixa com
+   * fundo em gradiente, título grande e botão de ação.
+   */
+  if (bannerModel === "6") {
+    return (
+      <section className="w-full px-3 py-3 md:px-6 md:py-5">
+        <div className="mx-auto w-full max-w-[1440px]">
           {orderedBanners.map((banner, index) => (
             <div
               key={banner.id}
-              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                index === current ? "z-10 opacity-100" : "z-0 opacity-0"
+              className={`overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out ${
+                index === current ? "block" : "hidden"
               } ${animationClass(banner, index === current)}`}
             >
-              <img
-                src={banner.image_url}
-                alt={`Banner ${index + 1}`}
-                className="block h-full w-full object-cover"
-              />
+              <div className="flex min-h-[180px] flex-col justify-center gap-3 bg-gradient-to-r from-slate-950 via-emerald-900 to-emerald-700 p-8 text-white">
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-lime-300">
+                  Destaque da semana
+                </span>
 
-              <BannerFeatureLayer banner={banner} now={now} />
+                <h2 className="max-w-md text-2xl font-black leading-tight sm:text-3xl">
+                  {banner.title || "Grandes ofertas, todos os dias"}
+                </h2>
 
-              {(banner.title || banner.subtitle) && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/35 px-6 text-center text-white">
-                  {banner.title && (
-                    <h2 className="max-w-xl text-xl font-black tracking-tight drop-shadow-sm sm:text-3xl md:text-4xl">
-                      {banner.title}
-                    </h2>
-                  )}
+                {banner.subtitle && (
+                  <p className="max-w-md text-xs font-medium text-white/80 sm:text-sm">
+                    {banner.subtitle}
+                  </p>
+                )}
+
+                {banner.buttonHref ? (
+                  <a
+                    href={banner.buttonHref}
+                    className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-lime-300"
+                  >
+                    Ver agora
+                  </a>
+                ) : (
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-950">
+                    Ver agora
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          <CarouselDots
+            orderedBanners={orderedBanners}
+            current={current}
+            setCurrent={setCurrent}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  /*
+   * MODELO 7 — SPLIT CLARO (do Market 2banner): texto à
+   * esquerda, imagem à direita, fundo branco.
+   */
+  if (bannerModel === "7") {
+    return (
+      <section className="w-full px-3 py-3 md:px-6 md:py-5">
+        <div className="mx-auto w-full max-w-[1440px]">
+          {orderedBanners.map((banner, index) => (
+            <div
+              key={banner.id}
+              className={`overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out ${
+                index === current ? "block" : "hidden"
+              } ${animationClass(banner, index === current)}`}
+            >
+              <div className="grid min-h-[180px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-white sm:grid-cols-2">
+                <div className="flex flex-col justify-center gap-3 p-8">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600">
+                    Nova coleção
+                  </span>
+
+                  <h2 className="text-xl font-black leading-tight text-slate-950 sm:text-2xl">
+                    {banner.title || "Explore a nova coleção"}
+                  </h2>
 
                   {banner.subtitle && (
-                    <p className="max-w-lg text-xs font-medium text-white/85 sm:text-sm md:text-base">
+                    <p className="text-xs text-slate-500 sm:text-sm">
                       {banner.subtitle}
                     </p>
                   )}
+
+                  {banner.buttonHref && (
+                    <a
+                      href={banner.buttonHref}
+                      className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      Descobrir
+                    </a>
+                  )}
                 </div>
-              )}
+
+                <div className="relative hidden items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 sm:flex">
+                  <img
+                    src={banner.image_url}
+                    alt={`Banner ${index + 1}`}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
+              </div>
             </div>
           ))}
-        </div>
 
-        <CarouselDots
-          orderedBanners={orderedBanners}
-          current={current}
-          setCurrent={setCurrent}
-        />
+          <CarouselDots
+            orderedBanners={orderedBanners}
+            current={current}
+            setCurrent={setCurrent}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  /*
+   * MODELO 9 — SIMPLES (do Market 10banner): imagem única,
+   * sem carrossel, sem pontos e sem configurações.
+   */
+  if (bannerModel === "9") {
+    const onlyBanner = orderedBanners[0];
+
+    if (!onlyBanner) {
+      return null;
+    }
+
+    return (
+      <section className="w-full px-3 py-3 md:px-6 md:py-5">
+        <div className="relative mx-auto w-full max-w-[1440px] overflow-hidden rounded-2xl bg-gray-100 md:rounded-3xl">
+          <div className="relative w-full aspect-[16/7] sm:aspect-[16/7] md:aspect-[16/6] lg:aspect-[16/5.5]">
+            <img
+              src={onlyBanner.image_url}
+              alt="Banner da loja"
+              className="block h-full w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  /*
+   * MODELO 8 — FAIXA (do Market 3banner): faixa compacta
+   * com chamada e seta.
+   */
+  return (
+    <section className="w-full px-3 py-3 md:px-6 md:py-5">
+      <div className="mx-auto w-full max-w-[1440px]">
+        {orderedBanners.map((banner, index) => (
+          <div
+            key={banner.id}
+            className={`transition-opacity duration-700 ease-in-out ${
+              index === current ? "block" : "hidden"
+            }`}
+          >
+            <div className="flex w-full items-center justify-between gap-4 rounded-xl bg-lime-300 px-5 py-4 text-left">
+              <div>
+                <p className="text-sm font-black uppercase tracking-wide text-slate-950">
+                  {banner.title || "Grande campanha da loja"}
+                </p>
+
+                {banner.subtitle && (
+                  <p className="mt-0.5 text-xs text-emerald-900">
+                    {banner.subtitle}
+                  </p>
+                )}
+              </div>
+
+              <span className="text-lg text-slate-950" aria-hidden="true">
+                →
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );

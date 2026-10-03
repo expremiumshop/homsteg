@@ -98,7 +98,9 @@ export const users = pgTable("users", {
    STORES
    ============================================================ */
 
-export const stores = pgTable("stores", {
+export const stores = pgTable(
+  "stores",
+  {
   id: varchar("id", {
     length: 64,
   }).primaryKey(),
@@ -131,18 +133,51 @@ export const stores = pgTable("stores", {
     .default("free"),
 
   /*
-   * Crédito da loja (MZN).
+   * Créditos da loja (coluna histórica "creditMzn").
    *
-   * O único sistema pago da HOMSTEG: o crédito é
-   * usado APENAS para comprar/desbloquear
-   * funcionalidades, modelos e componentes no
-   * Market. Definido/acrescentado manualmente pelo
-   * Admin (secção "Créditos"); 0 = sem crédito.
-   * Criar e usar a loja é sempre gratuito.
+   * Os créditos são uma UNIDADE INTERNA da HOMSTEG
+   * (não são dinheiro nem moeda) e servem APENAS
+   * para comprar/desbloquear funcionalidades,
+   * modelos e componentes no Market.
+   *
+   * Toda loja começa automaticamente com 100.000
+   * créditos gratuitos. O Admin pode ajustar o
+   * saldo na secção "Créditos". Criar e usar a
+   * loja é sempre gratuito.
    */
   creditMzn: integer("creditMzn")
     .notNull()
+    .default(100000),
+
+  /*
+   * Crédito de COMISSÃO da loja (em créditos, unidade
+   * interna da plataforma — nunca moeda). É um
+   * HISTÓRICO ACUMULADO: nasce a 0, só cresce a cada
+   * comissão recebida e nunca diminui. Cada comissão
+   * também é somada ao crédito atual (creditMzn).
+   */
+  commissionCredit: integer("commissionCredit")
+    .notNull()
     .default(0),
+
+  /*
+   * Crédito de BÔNUS da loja (em créditos, unidade
+   * interna da plataforma — nunca moeda). Nasce a 0 e
+   * é atribuído por campanhas/bônus do Admin.
+   */
+  bonusCredit: integer("bonusCredit")
+    .notNull()
+    .default(0),
+
+  /*
+   * Código exclusivo da loja (~8 caracteres). Pode ser
+   * partilhado pelo proprietário para convidar outras
+   * pessoas; um código pode ser utilizado por várias
+   * outras lojas. Único por loja (índice stores_store_code_unique).
+   */
+  storeCode: varchar("storeCode", {
+    length: 16,
+  }),
 
   status: storeStatusEnum("status")
     .notNull()
@@ -206,7 +241,7 @@ n   * stores/{storeId}/branding/.
   /*
    * Modelo dos cartões de produto no tema Nova.
    * null = modelo atual (1).
-   * Valores: "1".."5" (ver BrandingPage / ProductCard).
+   * Valores: "1".."8" (ver BrandingPage / ProductCard).
    */
   productCardModel: varchar("productCardModel", {
     length: 8,
@@ -215,7 +250,8 @@ n   * stores/{storeId}/branding/.
   /*
    * Modelo de banner do carrossel (tema Nova).
    * null = modelo atual (1).
-   * Valores: "1".."5" (ver bannerModels).
+   * Valores: "1".."9" (ver bannerModels;
+   * "9" = Simples, imagem única do 10banner).
    */
   bannerModel: varchar("bannerModel", {
     length: 8,
@@ -227,6 +263,33 @@ n   * stores/{storeId}/branding/.
    * Valores: "1".."5" (ver navButtonModels).
    */
   navButtonModel: varchar("navButtonModel", {
+    length: 8,
+  }),
+
+  /*
+   * Modelo do header/cabeçalho (tema Nova).
+   * null = modelo atual (1).
+   * Valores: "1".."3" (ver headerModels).
+   */
+  headerModel: varchar("headerModel", {
+    length: 8,
+  }),
+
+  /*
+   * Modelo do footer/rodapé (tema Nova).
+   * null = modelo atual (1).
+   * Valores: "1".."3" (ver footerModels).
+   */
+  footerModel: varchar("footerModel", {
+    length: 8,
+  }),
+
+  /*
+   * Modelo dos cartões de categoria/Seções (tema Nova).
+   * null = modelo atual (1).
+   * Valores: "1".."3" (ver categoryCardModels).
+   */
+  categoryCardModel: varchar("categoryCardModel", {
     length: 8,
   }),
 
@@ -261,13 +324,26 @@ n   * stores/{storeId}/branding/.
   })
     .defaultNow()
     .notNull(),
-});
+  },
+  (table) => [
+    /*
+     * Código exclusivo da loja: único por loja
+     * (migração 0023). Permite consultas rápidas
+     * por código (convites/indicações).
+     */
+    uniqueIndex("stores_store_code_unique").on(
+      table.storeCode,
+    ),
+  ],
+);
 
 /* ============================================================
    STORE MEMBERS
    ============================================================ */
 
-export const storeMembers = pgTable("storeMembers", {
+export const storeMembers = pgTable(
+  "storeMembers",
+  {
   id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
 
   storeId: varchar("storeId", {
@@ -286,7 +362,19 @@ export const storeMembers = pgTable("storeMembers", {
   })
     .defaultNow()
     .notNull(),
-});
+  },
+  (table) => [
+    /*
+     * Índices de desempenho (migração 0022): verificação de
+     * acesso (userId + storeId) e listagem de membros por loja.
+     */
+    index("store_members_user_store_idx").on(
+      table.userId,
+      table.storeId,
+    ),
+    index("store_members_store_id_idx").on(table.storeId),
+  ],
+);
 
 /* ============================================================
    STORE APPLICATIONS
@@ -526,7 +614,9 @@ export const storeMarketFeatures = pgTable(
  * São a única fonte de categorias no selector de produtos:
  * nada é derivado de produtos nem pré-preenchido.
  */
-export const storeCategories = pgTable("store_categories", {
+export const storeCategories = pgTable(
+  "store_categories",
+  {
   id: varchar("id", {
     length: 64,
   }).primaryKey(),
@@ -550,13 +640,20 @@ export const storeCategories = pgTable("store_categories", {
   })
     .defaultNow()
     .notNull(),
-});
+  },
+  (table) => [
+    /* Índice de desempenho (migração 0022): categorias por loja. */
+    index("store_categories_store_id_idx").on(table.storeId),
+  ],
+);
 
 /* ============================================================
    PRODUCTS
    ============================================================ */
 
-export const products = pgTable("products", {
+export const products = pgTable(
+  "products",
+  {
   id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
 
   storeId: varchar("storeId", {
@@ -627,7 +724,81 @@ export const products = pgTable("products", {
   })
     .defaultNow()
     .notNull(),
-});
+  },
+  (table) => [
+    /*
+     * Índice de desempenho (migração 0022): quase todas as
+     * consultas de produtos filtram por loja — listagens do
+     * dashboard, storefront público, contagens de uso e
+     * agregações do resumo.
+     */
+    index("products_store_id_idx").on(table.storeId),
+  ],
+);
+
+/* ============================================================
+   STORE CODE REDEMPTIONS (código promocional)
+   ============================================================ */
+
+/*
+ * Registos de uso do código promocional.
+ *
+ * Quando uma loja utiliza o código de OUTRA loja:
+ *   - dono do código:   +STORE_CODE_OWNER_REWARD em
+ *                       commissionCredit (histórico) E em
+ *                       creditMzn (crédito atual);
+ *   - loja que usou:    +STORE_CODE_USER_REWARD em creditMzn.
+ *
+ * Um uso por loja (storeId único) — o campo de inserir
+ * código desaparece depois. O código do dono continua
+ * utilizável por várias outras lojas.
+ */
+export const storeCodeRedemptions = pgTable(
+  "store_code_redemptions",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+
+    /* Loja que utilizou o código (recebe a recompensa de uso). */
+    storeId: varchar("storeId", {
+      length: 64,
+    }).notNull(),
+
+    /* Código promocional utilizado (de outra loja). */
+    usedStoreCode: varchar("usedStoreCode", {
+      length: 16,
+    }).notNull(),
+
+    /* Loja dona do código (recebe a recompensa de comissão). */
+    ownerStoreId: varchar("ownerStoreId", {
+      length: 64,
+    }),
+
+    /* Recompensas registadas no momento do uso (créditos). */
+    ownerRewardCredits: integer("ownerRewardCredits")
+      .notNull()
+      .default(0),
+
+    userRewardCredits: integer("userRewardCredits")
+      .notNull()
+      .default(0),
+
+    createdAt: timestamp("createdAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    /* Uma loja usa no máximo um código — nunca duplicar. */
+    uniqueIndex("store_code_redemptions_store_unique").on(
+      table.storeId,
+    ),
+
+    index("store_code_redemptions_owner_idx").on(
+      table.ownerStoreId,
+    ),
+  ],
+);
 
 /* ============================================================
    TYPES
@@ -666,6 +837,12 @@ export type StoreMarketFeature =
 
 export type InsertStoreMarketFeature =
   typeof storeMarketFeatures.$inferInsert;
+
+export type StoreCodeRedemption =
+  typeof storeCodeRedemptions.$inferSelect;
+
+export type InsertStoreCodeRedemption =
+  typeof storeCodeRedemptions.$inferInsert;
 
 export type MarketCategory =
   typeof marketCategoryEnum.enumValues[number];

@@ -2,12 +2,18 @@
 
 import {
   Mail,
+  Send,
   Camera,
   Share2,
   MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+
+import {
+  normalizeFooterModel,
+  type FooterModel,
+} from "../footerModels";
 
 interface FooterProps {
   storeName?: string;
@@ -16,6 +22,12 @@ interface FooterProps {
   email?: string;
   basePath?: string;
   year?: number;
+  /**
+   * Modelo do rodapé escolhido na Personalização da
+   * loja (Market → store_market_features). "1" = estilo
+   * atual da loja, inalterado.
+   */
+  footerModel?: string | null;
 }
 
 interface FooterSection {
@@ -33,9 +45,13 @@ export function Footer({
   email = "",
   basePath = "/themes/nova",
   year = 2026,
+  footerModel,
 }: FooterProps) {
   const [expandedSection, setExpandedSection] =
     useState<string | null>(null);
+
+  const model: FooterModel =
+    normalizeFooterModel(footerModel);
 
   const cleanWhatsappNumber =
     whatsappNumber.replace(/\D/g, "");
@@ -47,6 +63,162 @@ export function Footer({
   const emailUrl = email
     ? `mailto:${email}`
     : "#";
+
+  /*
+   * MODELO 3 — MINIMAL: uma linha com marca, links
+   * e copyright. Substitui o footer completo.
+   */
+  if (model === "3") {
+    return (
+      <footer className="border-t border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-gray-500 sm:flex-row sm:px-6">
+          <span className="font-black text-slate-950">
+            {storeName}
+          </span>
+
+          <div className="flex items-center gap-4">
+            <Link
+              href={basePath}
+              className="transition hover:text-slate-950"
+            >
+              Produtos
+            </Link>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition hover:text-slate-950"
+            >
+              Contactos
+            </a>
+
+            <Link
+              href={`${basePath}/ajuda`}
+              className="transition hover:text-slate-950"
+            >
+              Ajuda
+            </Link>
+          </div>
+
+          <span>
+            © {year} {storeName}
+          </span>
+        </div>
+      </footer>
+    );
+  }
+
+  /*
+   * MODELO 2 — ESCURO: fundo escuro com newsletter
+   * e links em duas colunas.
+   */
+  if (model === "2") {
+    return (
+      <footer className="bg-slate-950 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <div>
+              <p className="text-sm font-black">
+                Receba as novidades
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-white/60">
+                Ofertas exclusivas diretamente no seu
+                email.
+              </p>
+
+              <div className="mt-3 flex max-w-sm items-center gap-2 rounded-full bg-white/10 p-1 pl-4">
+                <span className="flex-1 text-xs text-white/50">
+                  O seu email
+                </span>
+
+                <span
+                  aria-hidden="true"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-lime-400 text-slate-950"
+                >
+                  <Send className="h-4 w-4" />
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-start justify-start gap-8 sm:justify-end">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide">
+                  Loja
+                </p>
+
+                <ul className="mt-2 space-y-1 text-xs text-white/60">
+                  <li>
+                    <Link
+                      href={basePath}
+                      className="transition hover:text-white"
+                    >
+                      Produtos
+                    </Link>
+                  </li>
+
+                  <li>
+                    <Link
+                      href={`${basePath}/pesquisa?tipo=ofertas`}
+                      className="transition hover:text-white"
+                    >
+                      Promoções
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide">
+                  Ajuda
+                </p>
+
+                <ul className="mt-2 space-y-1 text-xs text-white/60">
+                  <li>
+                    <Link
+                      href={`${basePath}/contacto`}
+                      className="transition hover:text-white"
+                    >
+                      Contactos
+                    </Link>
+                  </li>
+
+                  <li>
+                    <Link
+                      href={`${basePath}/entregas`}
+                      className="transition hover:text-white"
+                    >
+                      Entregas
+                    </Link>
+                  </li>
+
+                  <li>
+                    <Link
+                      href={`${basePath}/devolucoes`}
+                      className="transition hover:text-white"
+                    >
+                      Devoluções
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-white/10 px-0 pt-3 text-center text-[11px] text-white/40">
+            © {year} {storeName}. Todos os direitos
+            reservados.
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
+  /*
+   * MODELO 1 — CLÁSSICO: footer atual da loja,
+   * intacto (abaixo).
+   */
 
   const sections: FooterSection[] = [
     {

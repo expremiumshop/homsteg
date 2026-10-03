@@ -14,17 +14,11 @@ import {
   Store,
 } from "lucide-react";
 
-import {
-  toast,
-} from "sonner";
+import { toast } from "sonner";
 
-import {
-  useLocation,
-} from "wouter";
+import { useLocation } from "wouter";
 
-import {
-  authClient,
-} from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
 import {
   InputOTP,
@@ -32,13 +26,25 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-type RecoveryStep = "request" | "otp" | "reset";
+type RecoveryStep =
+  | "request"
+  | "otp"
+  | "reset";
 
 const OTP_COOLDOWN_SECONDS = 60;
 
 function isOtpError(
-  error: { code?: string; message?: string } | null | undefined,
-  token: "OTP_EXPIRED" | "INVALID_OTP" | "TOO_MANY_ATTEMPTS",
+  error:
+    | {
+        code?: string;
+        message?: string;
+      }
+    | null
+    | undefined,
+  token:
+    | "OTP_EXPIRED"
+    | "INVALID_OTP"
+    | "TOO_MANY_ATTEMPTS",
 ) {
   if (!error) {
     return false;
@@ -52,13 +58,21 @@ function isOtpError(
 }
 
 function getOtpErrorMessage(
-  error: { code?: string; message?: string } | null | undefined,
+  error:
+    | {
+        code?: string;
+        message?: string;
+      }
+    | null
+    | undefined,
 ) {
   if (isOtpError(error, "OTP_EXPIRED")) {
     return "O código expirou. Solicita um novo código.";
   }
 
-  if (isOtpError(error, "TOO_MANY_ATTEMPTS")) {
+  if (
+    isOtpError(error, "TOO_MANY_ATTEMPTS")
+  ) {
     return "Demasiadas tentativas. Solicita um novo código.";
   }
 
@@ -95,7 +109,8 @@ function getErrorMessage(error: unknown): string {
     error &&
     typeof error === "object" &&
     "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
+    typeof (error as { message?: unknown }).message ===
+      "string"
   ) {
     return (error as { message: string }).message;
   }
@@ -106,20 +121,37 @@ function getErrorMessage(error: unknown): string {
 export default function RecoverPassword() {
   const [, setLocation] = useLocation();
 
-  const [step, setStep] = useState<RecoveryStep>("request");
+  const [step, setStep] =
+    useState<RecoveryStep>("request");
 
   const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
 
   const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+
+  const [otpError, setOtpError] =
+    useState<string | null>(null);
+
+  const [isSendingOtp, setIsSendingOtp] =
+    useState(false);
+
   const [resendIn, setResendIn] = useState(0);
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
 
   useEffect(() => {
     if (resendIn <= 0) {
@@ -133,18 +165,22 @@ export default function RecoverPassword() {
     return () => window.clearTimeout(timer);
   }, [resendIn]);
 
-  /*
+  /**
    * Envia o OTP de recuperação para o email indicado.
    * O servidor envia o código por email (via Resend).
    */
-  async function requestOtp(targetEmail: string) {
+  async function requestOtp(
+    targetEmail: string,
+  ) {
     setIsSendingOtp(true);
 
     try {
       const result =
-        await authClient.emailOtp.requestPasswordReset({
-          email: targetEmail,
-        });
+        await authClient.emailOtp.requestPasswordReset(
+          {
+            email: targetEmail,
+          },
+        );
 
       if (result.error) {
         console.error(
@@ -190,14 +226,15 @@ export default function RecoverPassword() {
     }
   }
 
-  /*
+  /**
    * Verifica o OTP e, se válido, avança para o passo
-   * de redefinição da palavra-passe. Código inválido,
-   * expirado ou já utilizado bloqueia a continuação.
+   * de redefinição da palavra-passe.
    */
   async function handleVerifyOtp() {
     if (otp.length !== 6) {
-      setOtpError("Introduz o código de 6 dígitos.");
+      setOtpError(
+        "Introduz o código de 6 dígitos.",
+      );
       return;
     }
 
@@ -206,11 +243,13 @@ export default function RecoverPassword() {
 
     try {
       const result =
-        await authClient.emailOtp.checkVerificationOtp({
-          email,
-          otp,
-          type: "forget-password",
-        });
+        await authClient.emailOtp.checkVerificationOtp(
+          {
+            email,
+            otp,
+            type: "forget-password",
+          },
+        );
 
       if (result.error) {
         console.error(
@@ -218,7 +257,10 @@ export default function RecoverPassword() {
           result.error,
         );
 
-        setOtpError(getOtpErrorMessage(result.error));
+        setOtpError(
+          getOtpErrorMessage(result.error),
+        );
+
         setOtp("");
 
         return;
@@ -231,14 +273,17 @@ export default function RecoverPassword() {
         error,
       );
 
-      setOtpError(getErrorMessage(error));
+      setOtpError(
+        getErrorMessage(error),
+      );
+
       setOtp("");
     } finally {
       setIsLoading(false);
     }
   }
 
-  /*
+  /**
    * Redefine a palavra-passe usando o OTP validado.
    */
   async function handleResetPassword(
@@ -280,14 +325,19 @@ export default function RecoverPassword() {
           result.error,
         );
 
-        /*
-         * Se o OTP entretanto expirou ou foi consumido,
-         * volta ao passo do código para revalidar.
-         */
         if (
-          isOtpError(result.error, "OTP_EXPIRED") ||
-          isOtpError(result.error, "INVALID_OTP") ||
-          isOtpError(result.error, "TOO_MANY_ATTEMPTS")
+          isOtpError(
+            result.error,
+            "OTP_EXPIRED",
+          ) ||
+          isOtpError(
+            result.error,
+            "INVALID_OTP",
+          ) ||
+          isOtpError(
+            result.error,
+            "TOO_MANY_ATTEMPTS",
+          )
         ) {
           setOtp("");
           setStep("otp");
@@ -319,7 +369,7 @@ export default function RecoverPassword() {
 
   if (step === "request") {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-white text-black">
         <div className="flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
             <div className="mb-8 text-center">
@@ -328,27 +378,29 @@ export default function RecoverPassword() {
                 onClick={() => setLocation("/")}
                 className="mx-auto mb-8 flex items-center justify-center gap-2"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                   <Store className="h-6 w-6" />
                 </div>
 
-                <span className="text-2xl font-black tracking-tight">
+                <span className="text-2xl font-black tracking-tight text-black">
                   HOMSTEG
-                  <span className="text-lime-400">.</span>
+                  <span className="text-lime-500">
+                    .
+                  </span>
                 </span>
               </button>
 
-              <h1 className="text-3xl font-black tracking-tight">
+              <h1 className="text-3xl font-black tracking-tight text-black">
                 Recuperar palavra-passe
               </h1>
 
-              <p className="mt-3 text-sm text-white/60">
+              <p className="mt-3 text-sm text-slate-500">
                 Introduz o teu email para receber
                 um código de recuperação.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white p-6 text-black shadow-2xl sm:p-8">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 text-black shadow-2xl sm:p-8">
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -370,7 +422,7 @@ export default function RecoverPassword() {
                 <div>
                   <label
                     htmlFor="recovery-email"
-                    className="mb-2 block text-sm font-semibold"
+                    className="mb-2 block text-sm font-semibold text-slate-900"
                   >
                     Email
                   </label>
@@ -384,19 +436,23 @@ export default function RecoverPassword() {
                       autoComplete="email"
                       value={email}
                       onChange={(event) =>
-                        setEmail(event.target.value)
+                        setEmail(
+                          event.target.value,
+                        )
                       }
                       placeholder="teu@email.com"
                       required
                       disabled={isSendingOtp}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading || isSendingOtp}
+                  disabled={
+                    isLoading || isSendingOtp
+                  }
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-black px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSendingOtp
@@ -411,7 +467,9 @@ export default function RecoverPassword() {
 
               <button
                 type="button"
-                onClick={() => setLocation("/login")}
+                onClick={() =>
+                  setLocation("/login")
+                }
                 className="mt-5 flex w-full items-center justify-center gap-1.5 text-sm text-slate-500 transition hover:text-black"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -426,119 +484,129 @@ export default function RecoverPassword() {
 
   if (step === "otp") {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-white text-black">
         <div className="flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
             <div className="mb-8 text-center">
               <div className="mx-auto mb-8 flex items-center justify-center gap-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                   <Store className="h-6 w-6" />
                 </div>
 
-                <span className="text-2xl font-black tracking-tight">
+                <span className="text-2xl font-black tracking-tight text-black">
                   HOMSTEG
-                  <span className="text-lime-400">.</span>
+                  <span className="text-lime-500">
+                    .
+                  </span>
                 </span>
               </div>
 
-              <h1 className="text-3xl font-black tracking-tight">
+              <h1 className="text-3xl font-black tracking-tight text-black">
                 Introduz o código
               </h1>
 
-              <p className="mt-3 text-sm text-white/60">
+              <p className="mt-3 text-sm text-slate-500">
                 Enviámos um código para{" "}
-                <span className="font-medium text-white">
+                <span className="font-medium text-slate-900">
                   {email}
                 </span>
                 .
               </p>
             </div>
 
-            <div className="space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Código de recuperação
-                </label>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-8">
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-900">
+                    Código de recuperação
+                  </label>
 
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={(value) => {
-                    setOtp(value);
-                    setOtpError(null);
-                  }}
-                  disabled={isLoading || isSendingOtp}
-                  containerClassName="justify-center"
-                  aria-invalid={Boolean(otpError)}
-                >
-                  <InputOTPGroup className="gap-2">
-                    {Array.from({ length: 6 }).map(
-                      (_, index) => (
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={(value) => {
+                      setOtp(value);
+                      setOtpError(null);
+                    }}
+                    disabled={
+                      isLoading || isSendingOtp
+                    }
+                    containerClassName="justify-center"
+                    aria-invalid={Boolean(otpError)}
+                  >
+                    <InputOTPGroup className="gap-2">
+                      {Array.from({
+                        length: 6,
+                      }).map((_, index) => (
                         <InputOTPSlot
                           key={index}
                           index={index}
-                          className="h-13 w-11 rounded-xl border-white/15 bg-white/5 text-lg font-semibold text-white data-[active=true]:border-white/40 data-[active=true]:ring-white/20 aria-invalid:border-red-400/60"
+                          className="h-13 w-11 rounded-xl border-slate-200 bg-slate-50 text-lg font-semibold text-black data-[active=true]:border-black data-[active=true]:ring-black/10 aria-invalid:border-red-400"
                         />
-                      ),
-                    )}
-                  </InputOTPGroup>
-                </InputOTP>
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
 
-                {otpError && (
-                  <p className="mt-3 text-center text-sm text-red-400">
-                    {otpError}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleVerifyOtp}
-                disabled={
-                  isLoading ||
-                  isSendingOtp ||
-                  otp.length !== 6
-                }
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isLoading
-                  ? "A verificar..."
-                  : "Confirmar código"}
-
-                {!isLoading && (
-                  <ArrowRight className="h-5 w-5" />
-                )}
-              </button>
-
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("request");
-                    setOtp("");
-                    setOtpError(null);
-                  }}
-                  className="flex items-center gap-1.5 text-white/50 transition hover:text-white"
-                  disabled={isLoading || isSendingOtp}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Voltar
-                </button>
+                  {otpError && (
+                    <p className="mt-3 text-center text-sm text-red-600">
+                      {otpError}
+                    </p>
+                  )}
+                </div>
 
                 <button
                   type="button"
-                  onClick={() => requestOtp(email)}
+                  onClick={handleVerifyOtp}
                   disabled={
                     isLoading ||
                     isSendingOtp ||
-                    resendIn > 0
+                    otp.length !== 6
                   }
-                  className="font-medium text-white transition hover:text-white/70 disabled:cursor-not-allowed disabled:text-white/35"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {resendIn > 0
-                    ? `Reenviar código (${resendIn}s)`
-                    : "Reenviar código"}
+                  {isLoading
+                    ? "A verificar..."
+                    : "Confirmar código"}
+
+                  {!isLoading && (
+                    <ArrowRight className="h-5 w-5" />
+                  )}
                 </button>
+
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("request");
+                      setOtp("");
+                      setOtpError(null);
+                    }}
+                    className="flex items-center gap-1.5 text-slate-500 transition hover:text-black"
+                    disabled={
+                      isLoading || isSendingOtp
+                    }
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      requestOtp(email)
+                    }
+                    disabled={
+                      isLoading ||
+                      isSendingOtp ||
+                      resendIn > 0
+                    }
+                    className="font-medium text-black transition hover:text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
+                  >
+                    {resendIn > 0
+                      ? `Reenviar código (${resendIn}s)`
+                      : "Reenviar código"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -548,31 +616,33 @@ export default function RecoverPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-white text-black">
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="mx-auto mb-8 flex items-center justify-center gap-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                 <Store className="h-6 w-6" />
               </div>
 
-              <span className="text-2xl font-black tracking-tight">
+              <span className="text-2xl font-black tracking-tight text-black">
                 HOMSTEG
-                <span className="text-lime-400">.</span>
+                <span className="text-lime-500">
+                  .
+                </span>
               </span>
             </div>
 
-            <h1 className="text-3xl font-black tracking-tight">
+            <h1 className="text-3xl font-black tracking-tight text-black">
               Nova palavra-passe
             </h1>
 
-            <p className="mt-3 text-sm text-white/60">
+            <p className="mt-3 text-sm text-slate-500">
               Define a tua nova palavra-passe.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white p-6 text-black shadow-2xl sm:p-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 text-black shadow-2xl sm:p-8">
             <form
               onSubmit={handleResetPassword}
               className="space-y-5"
@@ -580,7 +650,7 @@ export default function RecoverPassword() {
               <div>
                 <label
                   htmlFor="new-password"
-                  className="mb-2 block text-sm font-semibold"
+                  className="mb-2 block text-sm font-semibold text-slate-900"
                 >
                   Nova palavra-passe
                 </label>
@@ -590,22 +660,30 @@ export default function RecoverPassword() {
 
                   <input
                     id="new-password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="new-password"
                     value={newPassword}
                     onChange={(event) =>
-                      setNewPassword(event.target.value)
+                      setNewPassword(
+                        event.target.value,
+                      )
                     }
                     placeholder="Mínimo de 8 caracteres"
                     required
                     disabled={isLoading}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm outline-none transition focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((value) => !value)
+                      setShowPassword(
+                        (value) => !value,
+                      )
                     }
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-black"
                     aria-label={
@@ -624,15 +702,15 @@ export default function RecoverPassword() {
                 </div>
 
                 <p className="mt-2 text-xs text-slate-400">
-                  A palavra-passe deve ter pelo menos
-                  8 caracteres.
+                  A palavra-passe deve ter pelo
+                  menos 8 caracteres.
                 </p>
               </div>
 
               <div>
                 <label
                   htmlFor="confirm-new-password"
-                  className="mb-2 block text-sm font-semibold"
+                  className="mb-2 block text-sm font-semibold text-slate-900"
                 >
                   Confirmar nova palavra-passe
                 </label>
@@ -657,7 +735,7 @@ export default function RecoverPassword() {
                     placeholder="Repete a nova palavra-passe"
                     required
                     disabled={isLoading}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm outline-none transition focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <button

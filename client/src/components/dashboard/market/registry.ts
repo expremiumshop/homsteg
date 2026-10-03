@@ -98,6 +98,33 @@ export type MarketVariantProps = {
   config?: MarketSectionConfig;
   feature?: MarketFeature;
   category?: MarketCategory;
+
+  /*
+   * Dados demo para os previews do Market — o cliente
+   * vê o modelo com conteúdo realista (imagem incluída)
+   * antes de comprar. Nunca usados na loja real.
+   */
+  product?: MarketDemoProduct;
+  banner?: MarketDemoBanner;
+};
+
+/*
+ * Tipos estruturais dos dados demo. As variantes definem
+ * os seus tipos locais compatíveis; aqui servem apenas
+ * para a página do Market passar os dados de forma
+ * type-checked (sem casts).
+ */
+export type MarketDemoProduct = {
+  name: string;
+  price: number;
+  imageUrl?: string | null;
+  category?: string | null;
+};
+
+export type MarketDemoBanner = {
+  title?: string;
+  subtitle?: string;
+  imageUrl?: string | null;
 };
 
 /* =========================================================

@@ -111,9 +111,9 @@ export default function Login() {
         return;
       }
 
-      // A sessão Better Auth acabou de ser criada. Descarta qualquer resposta
-      // anterior (por exemplo, uma consulta sem sessão) antes de procurar a
-      // loja já associada a este utilizador.
+      // A sessão Better Auth acabou de ser criada.
+      // Descarta qualquer resposta anterior antes de procurar
+      // a loja já associada a este utilizador.
       await Promise.all([
         utils.auth.me.invalidate(),
         utils.stores.mine.invalidate(),
@@ -142,7 +142,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-white text-black">
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           {/* LOGO */}
@@ -152,26 +152,27 @@ export default function Login() {
               onClick={() => setLocation("/")}
               className="mx-auto mb-8 flex items-center justify-center gap-2"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                 <Store className="h-6 w-6" />
               </div>
 
-              <span className="text-2xl font-black tracking-tight">
+              <span className="text-2xl font-black tracking-tight text-black">
                 HOMSTEG
                 <span className="text-lime-400">.</span>
               </span>
             </button>
 
-            <h1 className="text-3xl font-black tracking-tight">
+            <h1 className="text-3xl font-black tracking-tight text-black">
               Entrar na tua conta
             </h1>
 
-            <p className="mt-3 text-sm text-white/60">
+            <p className="mt-3 text-sm text-slate-500">
               Entra para gerir a tua loja HOMSTEG.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white p-6 text-black shadow-2xl sm:p-8">
+          {/* CARD DO LOGIN */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 text-black shadow-2xl sm:p-8">
             <form
               onSubmit={handleSubmit}
               className="space-y-5"
@@ -180,7 +181,7 @@ export default function Login() {
               <div>
                 <label
                   htmlFor="email"
-                  className="mb-2 block text-sm font-semibold"
+                  className="mb-2 block text-sm font-semibold text-slate-900"
                 >
                   Email
                 </label>
@@ -197,7 +198,7 @@ export default function Login() {
                       setEmail(event.target.value)
                     }
                     placeholder="exemplo@email.com"
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-black focus:bg-white"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white"
                     disabled={isLoading}
                   />
                 </div>
@@ -207,7 +208,7 @@ export default function Login() {
               <div>
                 <label
                   htmlFor="password"
-                  className="mb-2 block text-sm font-semibold"
+                  className="mb-2 block text-sm font-semibold text-slate-900"
                 >
                   Palavra-passe
                 </label>
@@ -228,7 +229,7 @@ export default function Login() {
                       setPassword(event.target.value)
                     }
                     placeholder="A tua palavra-passe"
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm outline-none transition focus:border-black focus:bg-white"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white"
                     disabled={isLoading}
                   />
 
@@ -262,7 +263,9 @@ export default function Login() {
                   type="button"
                   className="text-sm font-semibold text-slate-600 transition hover:text-black"
                   onClick={() =>
-                    setLocation("/recuperar-palavra-passe")
+                    setLocation(
+                      "/recuperar-palavra-passe",
+                    )
                   }
                   disabled={isLoading}
                 >
@@ -270,7 +273,7 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* BOTÃO */}
+              {/* BOTÃO ENTRAR */}
               <button
                 type="submit"
                 disabled={isLoading}
@@ -319,7 +322,7 @@ export default function Login() {
           <button
             type="button"
             onClick={() => setLocation("/")}
-            className="mx-auto mt-6 block text-sm text-white/50 transition hover:text-white"
+            className="mx-auto mt-6 block text-sm text-slate-500 transition hover:text-black"
           >
             Voltar para a HOMSTEG
           </button>

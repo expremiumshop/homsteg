@@ -13,6 +13,9 @@ import { trpc } from "@/lib/trpc";
 import {
   getPublicStoreUrl,
 } from "@/lib/store-url";
+import {
+  formatCreditAmount,
+} from "@/lib/plans";
 
 type UsersPanelProps = {
   search: string;
@@ -582,12 +585,12 @@ export default function UsersPanel({
                           />
 
                           <DetailRow
-                            label="Crédito (MZN)"
-                            value={
+                            label="Créditos"
+                            value={formatCreditAmount(
                               primaryStore
                                 .store
-                                .creditMzn ?? 0
-                            }
+                                .creditMzn,
+                            )}
                           />
 
                           <DetailRow

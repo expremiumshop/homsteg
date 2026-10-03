@@ -35,6 +35,7 @@ import {
   updateStoreBannerSettings,
   updateStoreProductCardModel,
   updateStoreNavButtonModel,
+  updateStoreSectionModel,
   updateStoreStatus,
   updateStoreTheme,
   updateStoreWhatsApp,
@@ -47,6 +48,11 @@ import {
   setStoreCreditMzn,
   addStoreCreditMzn,
   getStoreStockCapacity,
+  ensureStoreCode,
+  getStoreCodeRedemption,
+  useStorePromoCode,
+  STORE_CODE_OWNER_REWARD,
+  STORE_CODE_USER_REWARD,
 } from "./db.js";
 
 import type { InsertProduct } from "../drizzle/schema.js";
@@ -308,20 +314,61 @@ export const appRouter = router({
           });
         }
 
+        /*
+         * Branding e produtos são independentes:
+         * correr em paralelo encurta o TTFB do
+         * storefront público (a rota mais crítica).
+         */
+        const [branding, products] = await Promise.all([
+          getStoreBrandingUrls(store),
+          listPublicProducts(store.id),
+        ]);
+
+        /*
+         * Whitelist público (isolamento entre lojas):
+         * a resposta pública expõe APENAS os campos que o
+         * storefront precisa. Nunca saldos de crédito
+         * (creditMzn), comissão (commissionCredit), bônus
+         * (bonusCredit), código da loja (storeCode),
+         * bannerFeatures internos nem chaves R2 cruas.
+         * bannerTexts é público (é conteúdo de exibição
+         * do carrossel).
+         */
         return {
           store: {
-            ...store,
+            id: store.id,
+            name: store.name,
+            slug: store.slug,
+            category: store.category,
+            currency: store.currency,
+            status: store.status,
+            themeKey: store.themeKey,
+            whatsapp: store.whatsapp ?? null,
             logoKey: store.logoKey ?? null,
-            bannerKey:
-              store.bannerKey ?? null,
+            bannerKey: store.bannerKey ?? null,
+            bannerKeys: store.bannerKeys ?? [],
+            bannerModel: store.bannerModel ?? null,
+            productCardModel:
+              store.productCardModel ?? null,
+            navButtonModel:
+              store.navButtonModel ?? null,
+            headerModel: store.headerModel ?? null,
+            footerModel: store.footerModel ?? null,
+            categoryCardModel:
+              store.categoryCardModel ?? null,
+            bannerTexts: store.bannerTexts ?? [],
+
+            /*
+             * bannerFeatures é conteúdo de exibição do
+             * storefront público (estado de publicação,
+             * botão/texto/animação por banner) — necessário
+             * para o carrossel do tema Nova.
+             */
+            bannerFeatures:
+              store.bannerFeatures ?? {},
           },
-          branding:
-            await getStoreBrandingUrls(
-              store,
-            ),
-          products: await listPublicProducts(
-            store.id,
-          ),
+          branding,
+          products,
         };
       }),
 
@@ -374,6 +421,12 @@ export const appRouter = router({
               result.store.bannerModel ?? null,
             navButtonModel:
               result.store.navButtonModel ?? null,
+            headerModel:
+              result.store.headerModel ?? null,
+            footerModel:
+              result.store.footerModel ?? null,
+            categoryCardModel:
+              result.store.categoryCardModel ?? null,
             bannerTexts:
               result.store.bannerTexts ?? [],
             bannerFeatures:
@@ -575,7 +628,10 @@ export const appRouter = router({
             storeId: storeIdInput,
 
             model: z
-              .enum(["1", "2", "3", "4", "5"])
+              .enum([
+                "1", "2", "3", "4", "5",
+                "6", "7", "8", "9",
+              ])
               .nullable(),
           }),
         )
@@ -802,7 +858,10 @@ export const appRouter = router({
             storeId: storeIdInput,
 
             model: z
-              .enum(["1", "2", "3", "4", "5"])
+              .enum([
+                "1", "2", "3", "4", "5",
+                "6", "7", "8",
+              ])
               .nullable(),
           }),
         )
@@ -878,6 +937,129 @@ export const appRouter = router({
               store.navButtonModel ?? null,
           };
         }),
+
+      /* ========================================================
+         MODELOS DOS BANNERS / CARTÕES / HEADER / FOOTER /
+         CARTÕES DE CATEGORIA (tema Nova) — um modelo por
+         categoria, desbloqueado por compra no Market.
+         ======================================================== */
+
+      setHeaderModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store = await updateStoreSectionModel(
+            input.storeId,
+            "headerModel",
+            input.model,
+          );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            headerModel:
+              store.headerModel ?? null,
+          };
+        }),
+
+      setFooterModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store = await updateStoreSectionModel(
+            input.storeId,
+            "footerModel",
+            input.model,
+          );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            footerModel:
+              store.footerModel ?? null,
+          };
+        }),
+
+      setCategoryCardModel: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+
+            model: z
+              .enum(["1", "2", "3"])
+              .nullable(),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const store = await updateStoreSectionModel(
+            input.storeId,
+            "categoryCardModel",
+            input.model,
+          );
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return {
+            success: true,
+            categoryCardModel:
+              store.categoryCardModel ?? null,
+          };
+        }),
     }),
 
     /* ========================================================
@@ -906,10 +1088,18 @@ export const appRouter = router({
             ),
           );
 
-          const result =
-            await getStoreWithUsage(
-              input.storeId,
-            );
+          /*
+           * Uso e capacidade de estoque são independentes
+           * (ambos só precisam do storeId): correr em
+           * paralelo poupa uma ida e volta ao Neon neste
+           * endpoint que aparece no header, sidebar e
+           * overview do dashboard.
+           */
+          const [result, stockCapacity] =
+            await Promise.all([
+              getStoreWithUsage(input.storeId),
+              getStoreStockCapacity(input.storeId),
+            ]);
 
           if (!result) {
             throw new TRPCError({
@@ -918,15 +1108,115 @@ export const appRouter = router({
             });
           }
 
-          const stockCapacity =
-            await getStoreStockCapacity(
-              input.storeId,
-            );
+          /*
+           * Lojas criadas antes da migração 0023 podem ainda
+           * não ter código — reparar silenciosamente aqui.
+           */
+          if (!result.store.storeCode) {
+            await ensureStoreCode(result.store.id);
+          }
+
+          /*
+           * Releitura apenas quando houve reparação, para
+           * devolver o código recém-atribuído. Em paralelo,
+           * lê se a loja já utilizou um código promocional
+           * (o campo de inserir desaparece depois do uso).
+           */
+          const [store, redemption] = await Promise.all([
+            result.store.storeCode
+              ? Promise.resolve(result.store)
+              : getStoreWithUsage(input.storeId).then(
+                  (r) => r?.store ?? result.store,
+                ),
+            getStoreCodeRedemption(input.storeId),
+          ]);
 
           return {
             ...result,
+            store,
             stockCapacity,
+            promoCode: redemption
+              ? {
+                  usedStoreCode: redemption.usedStoreCode,
+                  userRewardCredits: redemption.userRewardCredits,
+                }
+              : null,
+
+            /*
+             * Recompensas vigentes do código promocional
+             * (o servidor é a única fonte de verdade) —
+             * usadas pela área "Minha Conta de Créditos"
+             * para explicar quanto a loja ganha ao indicar
+             * outras lojas e quanto recebe ao usar o
+             * código de outra loja.
+             */
+            storeCodeRewards: {
+              ownerRewardCredits: STORE_CODE_OWNER_REWARD,
+              userRewardCredits: STORE_CODE_USER_REWARD,
+            },
           };
+        }),
+
+      /* ========================================================
+         PROMO (código promocional entre lojas)
+
+         Usar o código de outra loja (uma única vez):
+           - dono do código:    +6.200 créditos de comissão
+             (acumula em commissionCredit e também entra no
+             crédito atual creditMzn);
+           - loja que usou:     +4.850 créditos.
+         ======================================================== */
+
+      usePromoCode: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            code: z.string().trim().min(4).max(32),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin",
+            ),
+          );
+
+          const result = await useStorePromoCode({
+            storeId: input.storeId,
+            rawCode: input.code,
+          });
+
+          if (result.ok) {
+            return result;
+          }
+
+          switch (result.reason) {
+            case "CODE_IS_OWN":
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Não podes usar o código da tua própria loja.",
+              });
+            case "ALREADY_USED":
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "A tua loja já utilizou um código promocional.",
+              });
+            case "STORE_NOT_FOUND":
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Loja não encontrada.",
+              });
+            default:
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Código promocional inválido. Verifica e tenta novamente.",
+              });
+          }
         }),
     }),
 
@@ -1558,6 +1848,31 @@ export const appRouter = router({
         if (input.imageUrl !== undefined) updates.imageUrl = input.imageUrl;
         if (input.imageKeys !== undefined) updates.imageKeys = input.imageKeys;
         if (input.options !== undefined) updates.options = input.options;
+
+        /*
+         * Defesa extra (isolamento entre lojas): cada chave
+         * de imagem tem de pertencer à própria loja — igual
+         * ao products.create.
+         */
+        if (input.imageKeys !== undefined) {
+          const productImagePrefix =
+            `stores/${input.storeId}/products/`;
+
+          if (
+            input.imageKeys.some(
+              (key) =>
+                !key.startsWith(
+                  productImagePrefix,
+                ),
+            )
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Imagem não pertence à loja selecionada.",
+            });
+          }
+        }
 
         /*
          * A categoria, quando definida, tem de existir

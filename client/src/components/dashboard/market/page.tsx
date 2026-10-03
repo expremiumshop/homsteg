@@ -19,8 +19,16 @@ import { trpc } from "@/lib/trpc";
 import type {
   MarketSectionKind,
   MarketFeature,
+  MarketVariantProps,
 } from "./registry";
 import { getMarketVariants } from "./registry";
+
+import {
+  MARKET_DEMO_PRODUCTS,
+  MARKET_DEMO_CATEGORIES,
+  MARKET_DEMO_BANNER,
+  MARKET_DEMO_CATEGORY,
+} from "./demoData";
 
 /* =========================================================
    MARKET — PÁGINA PRINCIPAL (sistema de categorias)
@@ -493,12 +501,58 @@ export default function MarketPage({
                     : "space-y-4"
                 }
               >
-                {variants.map((variant) => {
+                {variants.map((variant, index) => {
                   const feature =
                     featuresByKey[variant.featureKey];
 
                   const VariantComponent =
                     variant.Component;
+
+                  /*
+                   * Dados demo com imagens demonstrativas:
+                   * cada modelo mostra um item fictício
+                   * (rotação por índice, para não repetir a
+                   * mesma imagem lado a lado). O cliente vê
+                   * exatamente o que compra antes de
+                   * desbloquear. Sem dados comerciais aqui.
+                   */
+                  const demoProps: MarketVariantProps =
+                    (() => {
+                      switch (activeCard.kind) {
+                        case "product_card":
+                          return {
+                            product:
+                              MARKET_DEMO_PRODUCTS[
+                                index %
+                                  MARKET_DEMO_PRODUCTS.length
+                              ],
+                          };
+
+                        case "category_card":
+                          return {
+                            category:
+                              MARKET_DEMO_CATEGORIES[
+                                index %
+                                  MARKET_DEMO_CATEGORIES.length
+                              ],
+                          };
+
+                        case "banner":
+                          /*
+                           * Modelos 1..4 são texto sobre
+                           * gradiente (sem imagem); 5..10
+                           * usam imagem de fundo.
+                          */
+                          return Number(
+                            variant.featureKey,
+                          ) <= 4
+                            ? { category: MARKET_DEMO_CATEGORY }
+                            : { banner: MARKET_DEMO_BANNER };
+
+                        default:
+                          return {};
+                      }
+                    })();
 
                   return (
                     <article
@@ -507,7 +561,7 @@ export default function MarketPage({
                     >
                       {/* Pré-visualização real (código isolado do modelo) */}
                       <div className="p-3">
-                        <VariantComponent />
+                        <VariantComponent {...demoProps} />
                       </div>
 
                       {/* Nome da funcionalidade */}

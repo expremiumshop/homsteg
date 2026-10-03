@@ -5,7 +5,7 @@ import { formatStoreCredit } from "@/lib/plans";
  * O crédito é usado apenas para comprar
  * funcionalidades no Market — a loja em si
  * é sempre gratuita.
- * Sem crédito definido → "Crédito: 0".
+ * Sem dados → "Créditos: 0".
  */
 export default function PlanBadge({
   creditMzn,

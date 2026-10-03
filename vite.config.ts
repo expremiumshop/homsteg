@@ -258,6 +258,27 @@ export default defineConfig({
     ),
 
     emptyOutDir: true,
+
+    rollupOptions: {
+      output: {
+        /*
+         * Chunks de vendor estáveis: entre deploys, o browser
+         * mantém estes ficheiros em cache mesmo quando o
+         * código da aplicação muda (chunks de rota mudam, o
+         * vendor quase nunca).
+         */
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "wouter"],
+          "vendor-query": [
+            "@tanstack/react-query",
+            "@trpc/client",
+            "@trpc/server",
+            "superjson",
+          ],
+          "vendor-motion": ["framer-motion"],
+        },
+      },
+    },
   },
 
   server: {

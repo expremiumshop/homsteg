@@ -6,7 +6,8 @@ O HOMSTEG é uma plataforma de criação de lojas online **100% GRATUITA**, mult
 
 - **Criar e usar a loja é sempre gratuito.** Não existem planos (Free, Starter, Business, Professional ou Enterprise foram removidos), nem preços, assinaturas, upgrades ou períodos de pagamento.
 - **O único sistema pago é o de CRÉDITOS.** O utilizador usa créditos apenas para comprar/desbloquear funcionalidades, modelos, componentes ou recursos disponíveis no Market (banners, cartões de produto, cabeçalhos, rodapés, etc.).
-- O saldo de crédito vive na loja (`stores.creditMzn`) e é gerido manualmente pelo Admin (secção "Créditos").
+- O saldo de créditos vive na loja (`stores.creditMzn`). Toda loja começa automaticamente com **100.000 créditos gratuitos** — atribuídos na criação e garantidos às lojas existentes por migração — e o Admin pode ajustá-lo na secção "Créditos". Créditos são uma unidade interna da plataforma: nunca são apresentados como MZN, MT ou qualquer moeda.
+- **Crédito atual e crédito de comissão são saldos separados.** O crédito atual (`stores.creditMzn`) é o único saldo gasto no Market. O crédito de comissão (`stores.commissionCredit`) é um histórico acumulado: sobe a cada comissão recebida e nunca diminui. Quando a loja recebe uma comissão (loja usa o código dela), o valor soma ao histórico **e** ao crédito atual.
 - Não existe mensalidade pela loja nem cobrança recorrente pela utilização da plataforma.
 
 ## O que está implementado
@@ -57,7 +58,7 @@ Cada entidade de negócio inclui `storeId`. A autorização server-side usa a re
 
 ## Créditos e Market
 
-As funcionalidades do Market são geridas na tabela `market_features` (nome, descrição, categoria, `priceCredits` e status), administráveis pelo Admin sem tocar em código. A compra debita o crédito da loja de forma transacional e o desbloqueio fica registado permanentemente em `store_market_features`. O servidor é a única fonte de verdade dos preços — nunca constantes no cliente.
+As funcionalidades do Market são geridas na tabela `market_features` (nome, descrição, categoria, `priceCredits` e status), administráveis pelo Admin sem tocar em código. A compra debita os créditos da loja de forma transacional e o desbloqueio fica registado permanentemente em `store_market_features`. Toda loja nasce com 100.000 créditos gratuitos, sem compra nem ação do utilizador. O servidor é a única fonte de verdade dos preços — nunca constantes no cliente.
 
 ## Pagamentos, domínios e localização
 

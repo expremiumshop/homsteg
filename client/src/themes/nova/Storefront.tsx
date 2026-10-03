@@ -15,6 +15,7 @@ import { PromotionBanner } from "./components/PromotionBanner";
 import { BenefitsSection } from "./components/BenefitsSection";
 import { ModelBottomNavigation } from "./components/ModelBottomNavigation";
 import Footer from "./components/Footer";
+import { ModelCategorySection } from "./components/ModelCategorySection";
 
 import {
   novaDemoProducts,
@@ -63,6 +64,15 @@ type StoreData = {
 
   /* Modelo de botão de navegação (1..5), ver navButtonModels. */
   navButtonModel?: string | null;
+
+  /* Modelo de header/cabeçalho (1..3), ver headerModels. */
+  headerModel?: string | null;
+
+  /* Modelo de footer/rodapé (1..3), ver footerModels. */
+  footerModel?: string | null;
+
+  /* Modelo de cartões de categoria/Seções (1..3), ver categoryCardModels. */
+  categoryCardModel?: string | null;
 
   /* Modelo de banner do carrossel (1..5). */
   bannerModel?: string | null;
@@ -511,6 +521,7 @@ export default function NovaStorefront({
         country="Moçambique"
         headerVariant={headerVariant}
         logoUrl={logoUrl}
+        headerModel={store?.headerModel}
       />
 
       <main>
@@ -522,6 +533,18 @@ export default function NovaStorefront({
         banners={publishedBanners}
         model={store?.bannerModel}
       />
+
+        {/* =====================================================
+            SEÇÕES (CARTÕES DE CATEGORIA) — apenas quando a
+            loja aplicou um modelo comprado no Market
+            ===================================================== */}
+
+        <ModelCategorySection
+          categories={headerCategories}
+          model={store?.categoryCardModel}
+          basePath="/themes/nova"
+          storeSlug={store?.slug}
+        />
 
         {/* =====================================================
             BENEFÍCIOS SUPERIORES
@@ -628,6 +651,7 @@ export default function NovaStorefront({
         }
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
+        footerModel={store?.footerModel}
       />
 
       {/* =====================================================

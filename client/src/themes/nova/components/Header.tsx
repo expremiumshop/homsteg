@@ -23,6 +23,11 @@ import {
 
 import { Link, useLocation } from "wouter";
 
+import {
+  normalizeHeaderModel,
+  type HeaderModel,
+} from "../headerModels";
+
 export interface NovaHeaderCategory {
   id: string | number;
   name: string;
@@ -56,6 +61,13 @@ export interface NovaHeaderProps {
    * "auto" (padrão) mantém o comportamento atual.
    */
   headerVariant?: "auto" | "desktop" | "mobile";
+
+  /**
+   * Modelo do cabeçalho escolhido na Personalização da
+   * loja (Market → store_market_features). "1" = estilo
+   * atual da loja, inalterado.
+   */
+  headerModel?: string | null;
 }
 
 export function Header({
@@ -70,6 +82,7 @@ export function Header({
   country = "Moçambique",
   headerVariant = "auto",
   logoUrl = null,
+  headerModel,
 }: NovaHeaderProps) {
   const [, navigate] = useLocation();
 
@@ -135,6 +148,155 @@ export function Header({
 
   const cartPath = `${basePath}/carrinho${storeContext}`;
 
+  const model: HeaderModel =
+    normalizeHeaderModel(headerModel);
+
+  /*
+   * MODELO 3 — ESCURO: barra escura com marca e
+   * pesquisa centradas.
+   */
+  if (model === "3") {
+    return (
+      <header
+        className={[
+          "sticky top-0 z-50 bg-[#111713]",
+          headerVariant === "mobile"
+            ? "hidden"
+            : headerVariant === "desktop"
+              ? "block"
+              : "hidden md:block",
+        ].join(" ")}
+      >
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-center gap-2 px-5 py-3 xl:px-8">
+          <Link
+            href={homePath}
+            className="text-base font-black uppercase tracking-[0.3em] text-white"
+          >
+            {storeName}
+          </Link>
+
+          <form
+            onSubmit={handleSearch}
+            className="flex w-full max-w-lg items-center gap-2 rounded-full bg-white/10 px-4 py-1.5"
+          >
+            <Search size={15} className="text-gray-300" />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="O que procura hoje?"
+              className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-gray-300"
+            />
+          </form>
+
+          <div className="flex items-center gap-4 text-[11px] text-gray-300">
+            <Link
+              href={accountPath}
+              className="flex items-center gap-1 transition hover:text-white"
+            >
+              <User size={13} />
+              Conta
+            </Link>
+
+            <Link
+              href={cartPath}
+              className="flex items-center gap-1 transition hover:text-white"
+            >
+              <ShoppingCart size={13} />
+              Carrinho
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  /*
+   * MODELO 2 — MINIMAL: barra única com logo à
+   * esquerda e pesquisa/ações à direita.
+   */
+  if (model === "2") {
+    return (
+      <header
+        className={[
+          "sticky top-0 z-50 border-b border-gray-200 bg-white",
+          headerVariant === "mobile"
+            ? "hidden"
+            : headerVariant === "desktop"
+              ? "block"
+              : "hidden md:block",
+        ].join(" ")}
+      >
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-5 py-3 xl:px-8">
+          <Link
+            href={homePath}
+            className="flex items-center gap-2"
+          >
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={storeName}
+                className="max-h-9 max-w-[160px] w-auto object-contain"
+              />
+            ) : (
+              <span className="text-base font-bold tracking-tight text-slate-950">
+                {storeName}
+              </span>
+            )}
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <form
+              onSubmit={handleSearch}
+              className="hidden items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 sm:flex"
+            >
+              <Search size={14} className="text-gray-400" />
+
+              <input
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Pesquisar"
+                className="w-32 bg-transparent text-xs text-slate-950 outline-none placeholder:text-gray-400"
+              />
+            </form>
+
+            <Link
+              href={accountPath}
+              className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
+              aria-label="Minha conta"
+            >
+              <User size={18} />
+            </Link>
+
+            <Link
+              href={cartPath}
+              className="relative rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
+              aria-label="Carrinho"
+            >
+              <ShoppingCart size={18} />
+
+              {cartCount > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  /*
+   * MODELO 1 — CLÁSSICO: header atual da loja,
+   * intacto (abaixo).
+   */
   return (
     <>
       {/* =====================================================

@@ -2,6 +2,14 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "wouter";
 
+import {
+  formatStoreCredit,
+} from "@/lib/plans";
+import {
+  useStorePlan,
+} from "@/components/dashboard/plan/useStorePlan";
+import { trpc } from "@/lib/trpc";
+
 export type DashboardNavItem = {
   id: string;
   label: string;
@@ -100,23 +108,9 @@ export default function DashboardSidebar({
         </div>
       </div>
 
-      {/* Crédito */}
+      {/* Créditos */}
       <div className="border-t border-gray-100 p-3">
-        {children ?? (
-          <div className="rounded-2xl bg-[#111713] p-4 text-white">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-300">
-                Crédito
-              </span>
-            </div>
-
-            <p className="text-sm font-semibold">Crédito: 0</p>
-
-            <p className="mt-1 text-xs leading-5 text-gray-400">
-              O saldo de crédito é gerido pelo Admin.
-            </p>
-          </div>
-        )}
+        {children ?? <SidebarCreditCard />}
       </div>
 
       {/* Utilizador */}
@@ -189,5 +183,50 @@ function AnalyticsIcon() {
       <rect x="12" y="8" width="3" height="8" rx="1" />
       <rect x="17" y="5" width="3" height="11" rx="1" />
     </svg>
+  );
+}
+
+/**
+ * Cartão de crédito do sidebar (fallback quando a
+ * página não fornece o próprio cartão).
+ *
+ * Mostra o saldo real da loja ativa — sempre em
+ * "Créditos", nunca em moeda. A resolução da loja
+ * segue a mesma ordem do Dashboard: loja guardada
+ * em sessionStorage, senão a primeira loja.
+ */
+function SidebarCreditCard() {
+  const storesQuery = trpc.stores.mine.useQuery();
+
+  const activeStoreId = sessionStorage.getItem(
+    "homsteg_active_store_id",
+  );
+
+  const stores = (storesQuery.data ?? []).map(
+    (entry) => ("store" in entry ? entry.store : entry),
+  );
+
+  const storeId =
+    stores.find((store) => store.id === activeStoreId)
+      ?.id ?? stores[0]?.id;
+
+  const { creditMzn } = useStorePlan(storeId);
+
+  return (
+    <div className="rounded-2xl bg-[#111713] p-4 text-white">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-300">
+          Créditos
+        </span>
+      </div>
+
+      <p className="text-sm font-semibold">
+        {formatStoreCredit(creditMzn)}
+      </p>
+
+      <p className="mt-1 text-xs leading-5 text-gray-400">
+        O saldo de créditos é gerido pelo Admin.
+      </p>
+    </div>
   );
 }

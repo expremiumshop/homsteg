@@ -4,7 +4,10 @@ import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
 
-import { formatStoreCredit } from "@/lib/plans";
+import {
+  formatCreditAmount,
+  formatCredits,
+} from "@/lib/plans";
 
 /**
  * Gestão manual de crédito por loja (Admin).
@@ -12,8 +15,8 @@ import { formatStoreCredit } from "@/lib/plans";
  * O crédito vive na loja (stores.creditMzn), não no
  * utilizador. O Admin seleciona uma loja e define o
  * saldo absoluto (Set) ou acrescenta/subtrai (Add).
- * Exemplo: Loja A +500 → dashboard mostra 500 MZN;
- * Loja B +1.000 → dashboard mostra 1.000 MZN.
+ * Exemplo: Loja A +500 → dashboard mostra 500 créditos;
+ * Loja B +1.000 → dashboard mostra 1.000 créditos.
  */
 export default function CreditPanel() {
   const usersQuery =
@@ -44,7 +47,7 @@ export default function CreditPanel() {
     trpc.admin.credit.set.useMutation({
       onSuccess: (result) => {
         toast.success(
-          `Crédito definido: ${result.store.creditMzn} MZN.`,
+          `Crédito definido: ${formatCredits(result.store.creditMzn)}.`,
         );
 
         void utils.admin.credit.list.invalidate();
@@ -62,7 +65,7 @@ export default function CreditPanel() {
     trpc.admin.credit.add.useMutation({
       onSuccess: (result) => {
         toast.success(
-          `Novo saldo: ${result.store.creditMzn} MZN.`,
+          `Novo saldo: ${formatCredits(result.store.creditMzn)}.`,
         );
 
         void utils.admin.credit.list.invalidate();
@@ -151,8 +154,8 @@ export default function CreditPanel() {
 
           <p className="mt-1 text-[10px] text-[#8e998e]">
             Seleciona uma loja e define ou acrescenta
-            crédito (MZN). O saldo é exibido no dashboard
-            da loja como "Crédito: N".
+            créditos. O saldo é exibido no dashboard
+            da loja como "Créditos: N".
           </p>
         </div>
 
@@ -186,7 +189,7 @@ export default function CreditPanel() {
 
           <label className="block">
             <span className="text-[10px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
-              Valor (MZN)
+              Valor (créditos)
             </span>
 
             <input
@@ -228,10 +231,10 @@ export default function CreditPanel() {
               {selected.store.name}
             </span>
             :{" "}
-            {formatStoreCredit(
+            {formatCredits(
               selected.store.creditMzn,
             )}{" "}
-            MZN · Proprietário: {selected.ownerName}
+            · Proprietário: {selected.ownerName}
           </p>
         )}
       </div>
@@ -253,7 +256,7 @@ export default function CreditPanel() {
             <div className="grid grid-cols-[1.4fr_1.2fr_1fr] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
               <span>Loja</span>
               <span>Proprietário</span>
-              <span>Crédito (MZN)</span>
+              <span>Créditos</span>
             </div>
 
             {stores.length === 0 && (
@@ -276,7 +279,7 @@ export default function CreditPanel() {
                 </span>
 
                 <span className="font-bold text-[#141714]">
-                  {store.creditMzn ?? 0}
+                  {formatCreditAmount(store.creditMzn)}
                 </span>
               </div>
             ))}

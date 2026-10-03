@@ -6,7 +6,15 @@ import {
   getStockPackExtra,
 } from "../shared/market-catalog.js";
 
-import { and, count, desc, eq, ne } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  isNull,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { asc } from "drizzle-orm";
 
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -20,6 +28,7 @@ import {
   storeApplications,
   storeCategories,
   stores,
+  storeCodeRedemptions,
   storeMembers,
   users,
   marketFeatures,
@@ -27,6 +36,11 @@ import {
 } from "../drizzle/schema.js";
 
 import { createStoreDownloadUrl } from "./r2.js";
+import {
+  generateStoreCode,
+  isValidStoreCodeFormat,
+  normalizeStoreCode,
+} from "./store-code.js";
 
 let pool: Pool | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -36,6 +50,15 @@ export async function getDb() {
     try {
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
+
+        /*
+         * Tuning do pool (Neon/Vercel): evita pedidos a
+         * ficar pendurados sem conexão e liberta conexões
+         * inativas em vez de as segurar para sempre.
+         */
+        max: 10,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 10_000,
       });
 
       _db = drizzle(pool);
@@ -301,7 +324,7 @@ export async function createStoreForUser({
     throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  return db.transaction(async (tx) => {
+  const store = await db.transaction(async (tx) => {
     const existingStore = await tx
       .select()
       .from(stores)
@@ -348,6 +371,10 @@ export async function createStoreForUser({
         category: "General",
         status: "active",
         currency: "MZN",
+
+        /* Saldo inicial: 100.000 créditos gratuitos. */
+        creditMzn: STORE_INITIAL_CREDIT,
+
         whatsapp: whatsapp?.trim() || null,
         themeKey: "nova",
       })
@@ -363,6 +390,19 @@ export async function createStoreForUser({
 
     return created[0];
   });
+
+  /*
+   * Código exclusivo da loja (~8 caracteres), atribuído
+   * automaticamente na criação. FORA da transação: o gerador
+   * usa outra conexão e um UPDATE aqui dentro bloquearia na
+   * linha ainda não commitada (deadlock). Idempotente.
+   */
+  const storeCode = await ensureStoreCode(store.id);
+
+  return {
+    ...store,
+    storeCode,
+  };
 }
 
 export async function updateStoreWhatsApp(
@@ -419,6 +459,264 @@ export async function countActiveStoreProducts(
   return Number(result[0]?.value ?? 0);
 }
 
+/* ============================================================
+   STORE PROMO CODE (código promocional entre lojas)
+
+   Quando uma loja utiliza o código de outra loja:
+     - dono do código:    +6.200 créditos de COMISSÃO.
+
+       A comissão é um HISTÓRICO ACUMULADO: soma em
+       commissionCredit (nunca diminui) E no crédito
+       atual creditMzn, que é o único saldo gasto no
+       Market.
+     - loja que usou:     +4.850 créditos.
+
+   Regras: uma loja usa no máximo UM código, uma única
+   vez; nunca o próprio código; recompensas nunca
+   duplicadas (tudo numa transação com lock + índice
+   único). O código do dono continua utilizável por
+   várias outras lojas.
+   ============================================================ */
+
+/** Recompensa do DONO do código usado: comissão. */
+export const STORE_CODE_OWNER_REWARD = 6_200;
+
+/** Recompensa da loja que utilizou o código. */
+export const STORE_CODE_USER_REWARD = 4_850;
+
+export type UseStoreCodeResult =
+  | {
+      ok: true;
+      usedStoreCode: string;
+      ownerStoreName: string;
+      userRewardCredits: number;
+      ownerRewardCredits: number;
+    }
+  | {
+      ok: false;
+      reason:
+        | "STORE_NOT_FOUND"
+        | "CODE_INVALID"
+        | "CODE_IS_OWN"
+        | "ALREADY_USED";
+    };
+
+/**
+ * Lê o resgate feito por uma loja (null = ainda pode usar).
+ */
+export async function getStoreCodeRedemption(storeId: string) {
+  const db = await getDb();
+
+  if (!db) {
+    return null;
+  }
+
+  const result = await db
+    .select()
+    .from(storeCodeRedemptions)
+    .where(eq(storeCodeRedemptions.storeId, storeId))
+    .limit(1);
+
+  return result[0] ?? null;
+}
+
+/**
+ * Usa o código promocional de outra loja, com todas as
+ * regras e recompensas aplicadas numa transação única:
+ * nenhuma duplicação é possível (lock da loja + índice
+ * único por storeId).
+ */
+export async function useStorePromoCode({
+  storeId,
+  rawCode,
+}: {
+  storeId: string;
+  rawCode: string;
+}): Promise<UseStoreCodeResult> {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const code = normalizeStoreCode(rawCode);
+
+  if (!isValidStoreCodeFormat(code)) {
+    return { ok: false, reason: "CODE_INVALID" };
+  }
+
+  return db.transaction(async (tx) => {
+    /*
+     * Lock da loja que usa o código (FOR UPDATE): duas
+     * submissões em paralelo ficam em fila — a segunda
+     * vê o resgate da primeira e falha com ALREADY_USED.
+     */
+    const usingStoreResult = await tx
+      .select()
+      .from(stores)
+      .where(eq(stores.id, storeId))
+      .for("update")
+      .limit(1);
+
+    const usingStore = usingStoreResult[0];
+
+    if (!usingStore) {
+      return { ok: false, reason: "STORE_NOT_FOUND" };
+    }
+
+    /* Regra: uma loja usa apenas um código, uma vez. */
+    const existing = await tx
+      .select({ id: storeCodeRedemptions.id })
+      .from(storeCodeRedemptions)
+      .where(eq(storeCodeRedemptions.storeId, storeId))
+      .limit(1);
+
+    if (existing[0]) {
+      return { ok: false, reason: "ALREADY_USED" };
+    }
+
+    /* Dono do código (código é único por loja). */
+    const ownerResult = await tx
+      .select()
+      .from(stores)
+      .where(eq(stores.storeCode, code))
+      .limit(1);
+
+    const ownerStore = ownerResult[0];
+
+    if (!ownerStore) {
+      return { ok: false, reason: "CODE_INVALID" };
+    }
+
+    /* Regra: nunca usar o próprio código. */
+    if (ownerStore.id === storeId) {
+      return { ok: false, reason: "CODE_IS_OWN" };
+    }
+
+    /*
+     * Recompensa da loja que usou (BÔNUS): soma em
+     * bonusCredit (histórico acumulado de bônus) e também
+     * no crédito atual creditMzn (o único saldo gasto no
+     * Market). Nunca toca em commissionCredit — essa é a
+     * comissão do DONO do código, não da loja que o usou.
+     */
+    await tx
+      .update(stores)
+      .set({
+        bonusCredit: usingStore.bonusCredit + STORE_CODE_USER_REWARD,
+        creditMzn: usingStore.creditMzn + STORE_CODE_USER_REWARD,
+        updatedAt: new Date(),
+      })
+      .where(eq(stores.id, storeId));
+
+    /* Recompensa do dono (COMISSÃO — histórico
+       acumulado): soma no commissionCredit e também no
+       crédito atual creditMzn (o único saldo gasto no
+       Market). Gastos nunca mexem no commissionCredit. */
+    await tx
+      .update(stores)
+      .set({
+        commissionCredit:
+          ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD,
+        creditMzn:
+          ownerStore.creditMzn + STORE_CODE_OWNER_REWARD,
+        updatedAt: new Date(),
+      })
+      .where(eq(stores.id, ownerStore.id));
+
+    /* Registo permanente do uso (índice único por storeId). */
+    await tx.insert(storeCodeRedemptions).values({
+      storeId,
+      usedStoreCode: code,
+      ownerStoreId: ownerStore.id,
+      ownerRewardCredits: STORE_CODE_OWNER_REWARD,
+      userRewardCredits: STORE_CODE_USER_REWARD,
+    });
+
+    return {
+      ok: true,
+      usedStoreCode: code,
+      ownerStoreName: ownerStore.name,
+      userRewardCredits: STORE_CODE_USER_REWARD,
+      ownerRewardCredits: STORE_CODE_OWNER_REWARD,
+    };
+  });
+}
+
+/**
+ * Atribui um código exclusivo a uma loja que ainda não
+ * tenha (criação nova ou backfill de lojas antigas).
+ *
+ * Gera códigos com verificação de unicidade na base de
+ * dados; em caso de colisão (raríssima) tenta novamente.
+ * Idempotente: loja com código não é alterada.
+ */
+export async function ensureStoreCode(storeId: string): Promise<string | null> {
+  const db = await getDb();
+
+  if (!db) {
+    return null;
+  }
+
+  const current = await db
+    .select({ storeCode: stores.storeCode })
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .limit(1);
+
+  const existing = current[0]?.storeCode;
+
+  if (existing) {
+    return existing;
+  }
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = generateStoreCode();
+
+    try {
+      const updated = await db
+        .update(stores)
+        .set({
+          storeCode: candidate,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(stores.id, storeId),
+            isNull(stores.storeCode),
+          ),
+        )
+        .returning({ storeCode: stores.storeCode });
+
+      if (updated[0]?.storeCode) {
+        return updated[0].storeCode;
+      }
+
+      /* Outra conexão atribuiu entretanto — ler o valor real. */
+      const reread = await db
+        .select({ storeCode: stores.storeCode })
+        .from(stores)
+        .where(eq(stores.id, storeId))
+        .limit(1);
+
+      return reread[0]?.storeCode ?? null;
+    } catch (error) {
+      /*
+       * Colisão no índice único stores_store_code_unique:
+       * tentar outro código. Outros erros propagam.
+       */
+      const message =
+        error instanceof Error ? error.message : String(error);
+
+      if (!message.includes("stores_store_code_unique")) {
+        throw error;
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function getStoreWithUsage(
   storeId: string,
 ) {
@@ -452,13 +750,25 @@ export async function getStoreWithUsage(
 }
 
 /* ============================================================
-   STORE CREDIT (crédito da loja)
+   STORE CREDIT (créditos da loja)
 
-   O crédito vive na própria loja (stores.creditMzn),
-   nunca no utilizador. NULL = sem crédito definido
-   (tratado como 0 no dashboard). É o único sistema
-   pago da HOMSTEG e serve apenas para o Market.
+   Os créditos vivem na própria loja
+   (stores.creditMzn), nunca no utilizador. São a
+   unidade interna da HOMSTEG (não são dinheiro nem
+   moeda) e servem apenas para comprar/desbloquear
+   funcionalidades, modelos e componentes no Market.
+   Toda loja começa automaticamente com 100.000
+   créditos gratuitos; o Admin pode ajustar o saldo
+   na secção "Créditos".
    ============================================================ */
+
+/**
+ * Saldo inicial de créditos de toda nova loja,
+ * atribuído automaticamente na criação (sem compra
+ * nem ação do utilizador). Também garantido às lojas
+ * existentes pela migração 0021_store_initial_credit.
+ */
+export const STORE_INITIAL_CREDIT = 100_000;
 
 /**
  * Define o saldo de crédito da loja (set absoluto).
@@ -1357,8 +1667,46 @@ export async function updateStoreNavButtonModel(
 }
 
 /* ============================================================
-   STORE THEMES
+   STORE SECTION MODELS (tema Nova)
+   Header, footer e cartões de categoria — mesmo
+   padrão dos modelos anteriores: um único modelo
+   ativo por loja em cada momento.
    ============================================================ */
+
+export async function updateStoreSectionModel(
+  storeId: string,
+  field: "headerModel" | "footerModel" | "categoryCardModel",
+  model: string | null,
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updates: {
+    headerModel?: string | null;
+    footerModel?: string | null;
+    categoryCardModel?: string | null;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+
+  if (field === "headerModel") {
+    updates.headerModel = model;
+  } else if (field === "footerModel") {
+    updates.footerModel = model;
+  } else {
+    updates.categoryCardModel = model;
+  }
+
+  const result = await db
+    .update(stores)
+    .set(updates)
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return result[0];
+}
 
 export async function updateStoreTheme(
   storeId: string,
@@ -1494,16 +1842,43 @@ export async function getStoreDashboardSummary(
     return undefined;
   }
 
-  const storeResult = await db
-    .select()
-    .from(stores)
-    .where(
-      eq(
-        stores.id,
-        storeId,
-      ),
-    )
-    .limit(1);
+  /*
+   * Agregação em SQL (1 query com counts condicionais) +
+   * 1 query pequena dos 5 produtos recentes. Antes isto
+   * carregava TODAS as linhas de produtos da loja para
+   * contar em JavaScript — multiplicava o tráfego com o
+   * Neon a cada consulta do dashboard (polling de 30s).
+   */
+  const [storeResult, statsResult, recentProducts] =
+    await Promise.all([
+      db
+        .select()
+        .from(stores)
+        .where(eq(stores.id, storeId))
+        .limit(1),
+
+      db
+        .select({
+          total: sql<number>`count(*)::int`,
+          active:
+            sql<number>`count(*) filter (where ${products.status} = 'active')::int`,
+          draft:
+            sql<number>`count(*) filter (where ${products.status} = 'draft')::int`,
+          archived:
+            sql<number>`count(*) filter (where ${products.status} = 'archived')::int`,
+          outOfStock:
+            sql<number>`count(*) filter (where ${products.stock} <= 0)::int`,
+        })
+        .from(products)
+        .where(eq(products.storeId, storeId)),
+
+      db
+        .select()
+        .from(products)
+        .where(eq(products.storeId, storeId))
+        .orderBy(desc(products.createdAt))
+        .limit(5),
+    ]);
 
   const store = storeResult[0];
 
@@ -1511,56 +1886,13 @@ export async function getStoreDashboardSummary(
     return undefined;
   }
 
-  const storeProducts = await db
-    .select()
-    .from(products)
-    .where(
-      eq(
-        products.storeId,
-        storeId,
-      ),
-    )
-    .orderBy(
-      desc(
-        products.createdAt,
-      ),
-    );
-
-  const totalProducts =
-    storeProducts.length;
-
-  const activeProducts =
-    storeProducts.filter(
-      (product) =>
-        product.status ===
-        "active",
-    ).length;
-
-  const draftProducts =
-    storeProducts.filter(
-      (product) =>
-        product.status ===
-        "draft",
-    ).length;
-
-  const archivedProducts =
-    storeProducts.filter(
-      (product) =>
-        product.status ===
-        "archived",
-    ).length;
-
-  const outOfStockProducts =
-    storeProducts.filter(
-      (product) =>
-        product.stock <= 0,
-    ).length;
-
-  const recentProducts =
-    storeProducts.slice(
-      0,
-      5,
-    );
+  const stats = statsResult[0] ?? {
+    total: 0,
+    active: 0,
+    draft: 0,
+    archived: 0,
+    outOfStock: 0,
+  };
 
   return {
     store: {
@@ -1578,13 +1910,13 @@ export async function getStoreDashboardSummary(
     },
 
     products: {
-      total: totalProducts,
-      active: activeProducts,
-      draft: draftProducts,
+      total: Number(stats.total),
+      active: Number(stats.active),
+      draft: Number(stats.draft),
       archived:
-        archivedProducts,
+        Number(stats.archived),
       outOfStock:
-        outOfStockProducts,
+        Number(stats.outOfStock),
       recent:
         recentProducts,
     },
@@ -1987,7 +2319,7 @@ export async function createStoreFromApplication(
     );
   }
 
-  return db.transaction(async (tx) => {
+  const store = await db.transaction(async (tx) => {
     const applicationResult =
       await tx
         .select()
@@ -2099,23 +2431,23 @@ export async function createStoreFromApplication(
     }
 
     const storeId =
-      randomUUID();
+      randomUUID();  const createdStoreResult =
+    await tx
+      .insert(stores)
+      .values({
+        id: storeId,
+        name: application.storeName,
+        slug: application.storeSlug,
+        category: "General",
+        status: "active",
+        currency: "MZN",
 
-    const createdStoreResult =
-      await tx
-        .insert(stores)
-        .values({
-          id: storeId,
-          name:
-            application.storeName,
-          slug:
-            application.storeSlug,
-          category: "General",
-          status: "active",
-          currency: "MZN",
-          themeKey: "nova",
-        })
-        .returning();
+        /* Saldo inicial: 100.000 créditos gratuitos. */
+        creditMzn: STORE_INITIAL_CREDIT,
+
+        themeKey: "nova",
+      })
+      .returning();
 
     await tx
       .insert(storeMembers)
@@ -2144,8 +2476,28 @@ export async function createStoreFromApplication(
         ),
       );
 
-    return createdStoreResult[0];
+    /*
+     * Código exclusivo da loja, garantido também neste
+     * fluxo (candidatura aprovada). FORA da transação
+     * (mesma razão de createStoreForUser — evita deadlock).
+     */
+    const createdStore = createdStoreResult[0];
+
+    if (!createdStore) {
+      throw new Error(
+        "STORE_CREATE_FAILED",
+      );
+    }
+
+    return createdStore;
   });
+
+  const storeCode = await ensureStoreCode(store.id);
+
+  return {
+    ...store,
+    storeCode,
+  };
 }
 
 /* ============================================================
@@ -2256,10 +2608,28 @@ export async function updateMarketFeature(
  * Cria apenas o que falta; nunca sobrescreve preços nem
  * descrições já editados pelo Admin.
  */
+/**
+ * Cache in-process do último ensureMarketFeaturesSeeded bem-
+ * sucedido. O seed é idempotente e o catálogo estrutural só
+ * muda quando o código publica novas entradas — não há razão
+ * para consultar a tabela em TODA abertura do Market.
+ * TTL curto (60s): uma nova entrada do catálogo nasce na
+ * base de dados no máximo 1 minuto depois de ser publicada.
+ */
+const MARKET_SEED_TTL_MS = 60_000;
+let marketSeedCheckedAt = 0;
+
 export async function ensureMarketFeaturesSeeded() {
   const db = await getDb();
 
   if (!db) {
+    return;
+  }
+
+  if (
+    marketSeedCheckedAt &&
+    Date.now() - marketSeedCheckedAt < MARKET_SEED_TTL_MS
+  ) {
     return;
   }
 
@@ -2364,7 +2734,12 @@ export async function ensureMarketFeaturesSeeded() {
     (entry) => !existingKeys.has(entry.featureKey),
   );
 
+  /*
+   * Reparação concluída e nada a criar: o seed está
+   * consistente — só voltamos a verificar depois do TTL.
+   */
   if (missing.length === 0) {
+    marketSeedCheckedAt = Date.now();
     return;
   }
 
@@ -2403,6 +2778,9 @@ export async function ensureMarketFeaturesSeeded() {
         }),
       )
       .onConflictDoNothing();
+
+    /* Criado com sucesso: próxima chamada só verifica após o TTL. */
+    marketSeedCheckedAt = Date.now();
   } catch (error) {
     /*
      * O seed NUNCA pode derrubar o carregamento do

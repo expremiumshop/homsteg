@@ -1,7 +1,6 @@
 import { ArrowRight, Store } from "lucide-react";
 import { Link } from "wouter";
 
-import type { MarketSectionKind } from "./registry";
 import {
   MARKET_SECTION_LABELS,
   MARKET_SECTION_ORDER,
@@ -44,11 +43,14 @@ export default function MarketQuickCard({
               ? `/app/market?storeId=${storeId}`
               : "/app/market"
           }
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#111713] px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          style={{
+            backgroundColor: "#000000",
+            color: "#ffffff",
+          }}
+          className="relative inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl !bg-black px-4 text-sm font-semibold !text-white shadow-sm transition hover:!bg-black"
         >
           Abrir Market
-
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 !text-white" />
         </Link>
       </div>
 

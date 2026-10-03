@@ -34,7 +34,8 @@ type StoreData = {
 export default function CreateStoreReview() {
   const [, navigate] = useLocation();
 
-  const [data, setData] = useState<StoreData | null>(null);
+  const [data, setData] =
+    useState<StoreData | null>(null);
 
   // Verifica se o backend reconhece a sessão atual.
   const meQuery = trpc.auth.me.useQuery();
@@ -58,8 +59,13 @@ export default function CreateStoreReview() {
           );
         }
 
-        sessionStorage.removeItem("homsteg_business_types");
-        sessionStorage.removeItem("homsteg_store_data");
+        sessionStorage.removeItem(
+          "homsteg_business_types",
+        );
+
+        sessionStorage.removeItem(
+          "homsteg_store_data",
+        );
 
         sessionStorage.setItem(
           "homsteg_active_store_id",
@@ -69,7 +75,9 @@ export default function CreateStoreReview() {
         await utils.stores.mine.invalidate();
 
         navigate(
-          `/app?storeId=${encodeURIComponent(result.store.id)}`,
+          `/app?storeId=${encodeURIComponent(
+            result.store.id,
+          )}`,
         );
       },
 
@@ -95,9 +103,10 @@ export default function CreateStoreReview() {
         `homsteg_store_data_${userId}`,
       );
 
-      const savedBusinessTypes = sessionStorage.getItem(
-        `homsteg_business_types_${userId}`,
-      );
+      const savedBusinessTypes =
+        sessionStorage.getItem(
+          `homsteg_business_types_${userId}`,
+        );
 
       if (!saved || !savedBusinessTypes) {
         navigate("/criar-loja/dados");
@@ -105,8 +114,8 @@ export default function CreateStoreReview() {
       }
 
       const parsed = JSON.parse(saved);
-
-      const businessTypes = JSON.parse(savedBusinessTypes);
+      const businessTypes =
+        JSON.parse(savedBusinessTypes);
 
       if (
         !parsed ||
@@ -126,7 +135,9 @@ export default function CreateStoreReview() {
         country: String(parsed.country ?? ""),
         province: String(parsed.province ?? ""),
         district: String(parsed.district ?? ""),
-        neighborhood: String(parsed.neighborhood ?? ""),
+        neighborhood: String(
+          parsed.neighborhood ?? "",
+        ),
         notes: String(parsed.notes ?? ""),
         businessTypes,
       });
@@ -177,43 +188,35 @@ export default function CreateStoreReview() {
 
     createStoreMutation.mutate({
       businessTypes: data.businessTypes,
-
       fullName: data.fullName.trim(),
-
       storeName,
-
       storeSlug,
-
       phone: data.phone.trim(),
-
       whatsapp: data.whatsapp.trim(),
-
       country: data.country.trim(),
-
       province: data.province.trim(),
-
       district: data.district.trim(),
-
       neighborhood: data.neighborhood.trim(),
-
       notes: data.notes.trim(),
     });
   }
 
   if (!data) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p className="text-sm text-neutral-500">
+      <main className="flex min-h-screen items-center justify-center bg-white text-black">
+        <p className="text-sm text-slate-500">
           A carregar...
         </p>
       </main>
     );
   }
 
-  const storeSlug = createStoreSlug(data.storeName);
+  const storeSlug = createStoreSlug(
+    data.storeName,
+  );
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-white text-black">
       <div className="mx-auto min-h-screen w-full max-w-5xl px-5 py-10 sm:px-8 lg:px-10">
         {/* HEADER */}
         <div className="mb-14 flex items-center justify-between">
@@ -222,18 +225,18 @@ export default function CreateStoreReview() {
             onClick={() =>
               navigate("/criar-loja/dados")
             }
-            className="inline-flex items-center gap-2 text-sm text-neutral-500 transition hover:text-white"
+            className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-black"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-black">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white">
               <Store className="h-5 w-5" />
             </div>
 
-            <span className="text-xl font-bold tracking-tight">
+            <span className="text-xl font-bold tracking-tight text-black">
               HOMSTEG
             </span>
           </div>
@@ -241,53 +244,54 @@ export default function CreateStoreReview() {
 
         <div className="mx-auto w-full max-w-3xl">
           {/* TESTE DE SESSÃO */}
-          <div className="mb-6 rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-            <p className="mb-2 text-xs uppercase tracking-wider text-neutral-600">
+          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="mb-2 text-xs uppercase tracking-wider text-slate-400">
               Estado da sessão
             </p>
 
             {meQuery.isLoading && (
-              <p className="text-sm text-yellow-500">
+              <p className="text-sm text-yellow-600">
                 A verificar sessão...
               </p>
             )}
 
             {!meQuery.isLoading && meQuery.data && (
-              <div className="text-sm text-green-500">
+              <div className="text-sm text-green-600">
                 Sessão reconhecida ✓
 
-                <span className="ml-2 text-neutral-500">
+                <span className="ml-2 text-slate-400">
                   {meQuery.data.email}
                 </span>
               </div>
             )}
 
-            {!meQuery.isLoading && !meQuery.data && (
-              <div>
-                <p className="text-sm text-red-500">
-                  Sessão NÃO reconhecida ✕
-                </p>
-
-                {meQuery.error && (
-                  <p className="mt-1 text-xs text-neutral-600">
-                    {meQuery.error.message}
+            {!meQuery.isLoading &&
+              !meQuery.data && (
+                <div>
+                  <p className="text-sm text-red-600">
+                    Sessão NÃO reconhecida ✕
                   </p>
-                )}
-              </div>
-            )}
+
+                  {meQuery.error && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {meQuery.error.message}
+                    </p>
+                  )}
+                </div>
+              )}
           </div>
 
           {/* TITLE */}
           <div className="mb-10">
-            <p className="mb-4 text-sm font-medium text-neutral-400">
+            <p className="mb-4 text-sm font-medium text-slate-500">
               Revisão
             </p>
 
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-black sm:text-4xl">
               Confirma os dados da tua loja
             </h1>
 
-            <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500">
               Verifica se todas as informações estão
               corretas antes de criar a loja.
             </p>
@@ -330,20 +334,22 @@ export default function CreateStoreReview() {
                 value={getStoreUrlLabel(storeSlug)}
               />
 
-              <div className="border-t border-neutral-900 pt-4">
-                <p className="mb-3 text-xs uppercase tracking-wider text-neutral-600">
+              <div className="border-t border-slate-100 pt-4">
+                <p className="mb-3 text-xs uppercase tracking-wider text-slate-400">
                   Como vendes actualmente
                 </p>
 
                 <div className="flex flex-wrap gap-2">
-                  {data.businessTypes.map((type) => (
-                    <span
-                      key={type}
-                      className="rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm text-neutral-300"
-                    >
-                      {type}
-                    </span>
-                  ))}
+                  {data.businessTypes.map(
+                    (type) => (
+                      <span
+                        key={type}
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                      >
+                        {type}
+                      </span>
+                    ),
+                  )}
                 </div>
               </div>
             </ReviewSection>
@@ -382,8 +388,8 @@ export default function CreateStoreReview() {
                 }
                 title="Informação adicional"
               >
-                <div className="rounded-xl border border-neutral-800 bg-black p-4">
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-neutral-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
                     {data.notes}
                   </p>
                 </div>
@@ -391,26 +397,27 @@ export default function CreateStoreReview() {
             )}
 
             {/* CONFIRMAÇÃO */}
-            <section className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 sm:p-8">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white">
                   <Check className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-semibold">
+                  <h2 className="text-lg font-semibold text-black">
                     Tudo pronto
                   </h2>
 
-                  <p className="mt-2 text-sm leading-6 text-neutral-500">
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
                     A tua loja será criada com o nome{" "}
-                    <span className="font-medium text-neutral-300">
+                    <span className="font-medium text-slate-900">
                       {data.storeName}
                     </span>{" "}
-                    e terá o seguinte endereço público:
+                    e terá o seguinte endereço
+                    público:
                   </p>
 
-                  <p className="mt-3 text-sm font-medium text-white">
+                  <p className="mt-3 text-sm font-medium text-black">
                     {getStoreUrlLabel(storeSlug)}
                   </p>
                 </div>
@@ -427,7 +434,7 @@ export default function CreateStoreReview() {
                 disabled={
                   createStoreMutation.isPending
                 }
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-neutral-800 px-6 text-sm font-medium text-neutral-400 transition hover:border-neutral-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Corrigir dados
@@ -440,7 +447,7 @@ export default function CreateStoreReview() {
                   createStoreMutation.isPending ||
                   meQuery.isLoading
                 }
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-sm font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-7 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {createStoreMutation.isPending
                   ? "A criar..."
@@ -454,14 +461,17 @@ export default function CreateStoreReview() {
           </div>
 
           {/* PROGRESSO */}
-          <div className="mt-14 border-t border-neutral-900 pt-5">
-            <div className="flex items-center justify-between text-xs text-neutral-600">
-              <span>Configuração da loja</span>
+          <div className="mt-14 border-t border-slate-200 pt-5">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>
+                Configuração da loja
+              </span>
+
               <span>3 de 3</span>
             </div>
 
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-neutral-900">
-              <div className="h-full w-full rounded-full bg-white" />
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full w-full rounded-full bg-black" />
             </div>
           </div>
         </div>
@@ -482,14 +492,14 @@ function ReviewSection({
   children,
 }: ReviewSectionProps) {
   return (
-    <section className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 sm:p-8">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="mb-7 flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white">
           {icon}
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-lg font-semibold text-black">
             {title}
           </h2>
         </div>
@@ -512,12 +522,12 @@ function ReviewItem({
   value,
 }: ReviewItemProps) {
   return (
-    <div className="flex flex-col gap-1 border-b border-neutral-900 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-sm text-neutral-600">
+    <div className="flex flex-col gap-1 border-b border-slate-100 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-sm text-slate-500">
         {label}
       </span>
 
-      <span className="text-sm font-medium text-neutral-200 sm:text-right">
+      <span className="text-sm font-medium text-slate-900 sm:text-right">
         {value}
       </span>
     </div>

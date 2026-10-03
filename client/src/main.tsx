@@ -10,7 +10,29 @@ import { startLogin } from "./const";
 
 import "./index.css";
 
-const queryClient = new QueryClient();
+/*
+ * Defaults de desempenho:
+ *
+ * - staleTime 30s: navegar entre secções do dashboard não
+ *   refaz as mesmas consultas — dados de menos de 30s são
+ *   reutilizados (React Query continua a deduplicar chaves).
+ * - refetchOnWindowFocus false: voltar ao tab não dispara
+ *   rajadas de refetch; queries que querem frescura no foco
+ *   mantêm refetchOnWindowFocus: true explícito, e polling
+ *   (refetchInterval) fica intacto onde já existia.
+ * - retry 1: falhas transitórias tentam uma vez, sem
+ *   multiplicar pedidos.
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;

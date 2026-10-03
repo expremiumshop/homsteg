@@ -61,7 +61,7 @@ const faqItems = [
   {
     question: "Então o que são os créditos?",
     answer:
-      "Os créditos são o único sistema pago da HOMSTEG. Servem apenas para comprar ou desbloquear funcionalidades, modelos e componentes específicos no Market. Criar e usar a loja continua sempre gratuito.",
+      "Os créditos são o único sistema pago da HOMSTEG. Servem apenas para comprar ou desbloquear funcionalidades, modelos e componentes específicos no Market — e toda loja começa automaticamente com 100.000 créditos gratuitos, sem compra nem ação. Criar e usar a loja continua sempre gratuito.",
   },
   {
     question: "Preciso saber programação para criar uma loja?",
@@ -196,6 +196,8 @@ function ProductMini({
         <img
           src={image}
           alt={name}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {badge && (
@@ -531,6 +533,8 @@ function StorePreview() {
                 <img
                   src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=500&q=80"
                   alt="Moda"
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -761,6 +765,8 @@ function PeopleShopping() {
         <img
           src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=85"
           alt="Pessoa a fazer compras numa loja online"
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
@@ -1401,6 +1407,8 @@ export default function Home() {
                   <img
                     src={theme.image}
                     alt={theme.name}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
                   <div
@@ -1441,9 +1449,9 @@ export default function Home() {
             </h2>
             <p className="mt-5 text-sm leading-7 text-slate-500">
               A HOMSTEG não tem planos nem subscrições: criar e usar a tua loja
-              é completamente gratuito. O único sistema pago é o de créditos —
-              e só precisas deles se quiseres desbloquear funcionalidades
-              específicas no Market.
+              é completamente gratuito. Começas logo com 100.000 créditos
+              gratuitos, sem compra nem ação — e só gastas mais se quiseres
+              desbloquear funcionalidades específicas no Market.
             </p>
           </div>
 
@@ -1494,6 +1502,7 @@ export default function Home() {
               </div>
 
               <p className="mt-4 text-sm leading-7 text-slate-500">
+                Começas com 100.000 créditos gratuitos, sem compra nem ação.
                 Os créditos nunca caducam e nunca são cobrados pela utilização
                 da loja. Usas créditos apenas quando quiseres comprar ou
                 desbloquear algo no Market:

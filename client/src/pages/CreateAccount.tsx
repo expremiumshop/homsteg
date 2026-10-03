@@ -15,17 +15,11 @@ import {
   Store,
 } from "lucide-react";
 
-import {
-  toast,
-} from "sonner";
+import { toast } from "sonner";
 
-import {
-  useLocation,
-} from "wouter";
+import { useLocation } from "wouter";
 
-import {
-  authClient,
-} from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
 import {
   InputOTP,
@@ -38,8 +32,14 @@ type CreateAccountStep = "credentials" | "otp";
 const OTP_COOLDOWN_SECONDS = 60;
 
 function isOtpError(
-  error: { code?: string; message?: string } | null | undefined,
-  token: "OTP_EXPIRED" | "INVALID_OTP" | "TOO_MANY_ATTEMPTS",
+  error:
+    | { code?: string; message?: string }
+    | null
+    | undefined,
+  token:
+    | "OTP_EXPIRED"
+    | "INVALID_OTP"
+    | "TOO_MANY_ATTEMPTS",
 ) {
   if (!error) {
     return false;
@@ -53,7 +53,10 @@ function isOtpError(
 }
 
 function getOtpErrorMessage(
-  error: { code?: string; message?: string } | null | undefined,
+  error:
+    | { code?: string; message?: string }
+    | null
+    | undefined,
 ) {
   if (isOtpError(error, "OTP_EXPIRED")) {
     return "O código expirou. Solicita um novo código.";
@@ -81,23 +84,31 @@ export default function CreateAccount() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] =
+    useState(false);
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  /*
-   * Estado do passo de verificação por OTP.
-   */
   const [otpEmail, setOtpEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] =
+    useState<string | null>(null);
+
+  const [isSendingOtp, setIsSendingOtp] =
+    useState(false);
+
+  const [isVerifyingOtp, setIsVerifyingOtp] =
+    useState(false);
+
   const [resendIn, setResendIn] = useState(0);
 
   const isSubmittingRef = useRef(false);
@@ -139,7 +150,8 @@ export default function CreateAccount() {
       error &&
       typeof error === "object" &&
       "message" in error &&
-      typeof (error as { message?: unknown }).message === "string"
+      typeof (error as { message?: unknown }).message ===
+        "string"
     ) {
       return (error as { message: string }).message;
     }
@@ -147,10 +159,6 @@ export default function CreateAccount() {
     return "Ocorreu um erro. Tenta novamente.";
   }
 
-  /*
-   * Envia o OTP para o email indicado (via Resend, no servidor).
-   * Em caso de sucesso entra no passo de verificação.
-   */
   async function sendOtp(targetEmail: string) {
     setIsSendingOtp(true);
 
@@ -206,11 +214,6 @@ export default function CreateAccount() {
     }
   }
 
-  /*
-   * Verifica o OTP. Código correto continua para
-   * /criar-loja/negocio. Código inválido, expirado ou
-   * já utilizado bloqueia a continuação.
-   */
   async function handleVerifyOtp() {
     if (isVerifyingOtp || isSendingOtp) {
       return;
@@ -225,10 +228,11 @@ export default function CreateAccount() {
     setOtpError(null);
 
     try {
-      const result = await authClient.emailOtp.verifyEmail({
-        email: otpEmail,
-        otp,
-      });
+      const result =
+        await authClient.emailOtp.verifyEmail({
+          email: otpEmail,
+          otp,
+        });
 
       if (result.error) {
         console.error(
@@ -236,7 +240,10 @@ export default function CreateAccount() {
           result.error,
         );
 
-        setOtpError(getOtpErrorMessage(result.error));
+        setOtpError(
+          getOtpErrorMessage(result.error),
+        );
+
         setOtp("");
 
         return;
@@ -316,19 +323,16 @@ export default function CreateAccount() {
     setIsLoading(true);
 
     try {
-      /*
-       * O Better Auth exige um nome no cadastro padrão.
-       * Como o HOMSTEG não pede nome ao utilizador,
-       * usamos temporariamente a parte anterior ao @.
-       */
       const generatedName =
-        cleanEmail.split("@")[0] || "Utilizador";
+        cleanEmail.split("@")[0] ||
+        "Utilizador";
 
-      const result = await authClient.signUp.email({
-        email: cleanEmail,
-        password,
-        name: generatedName,
-      });
+      const result =
+        await authClient.signUp.email({
+          email: cleanEmail,
+          password,
+          name: generatedName,
+        });
 
       if (result.error) {
         console.error(
@@ -337,15 +341,10 @@ export default function CreateAccount() {
         );
 
         if (
-          result.error.code === "USER_ALREADY_EXISTS" ||
+          result.error.code ===
+            "USER_ALREADY_EXISTS" ||
           result.error.status === 422
         ) {
-          /*
-           * A conta pode ter sido criada numa tentativa
-           * anterior sem concluir a verificação do email.
-           * Se existir sessão para este email, continua
-           * o fluxo de verificação em vez de bloquear.
-           */
           const session =
             await authClient.getSession();
 
@@ -355,7 +354,8 @@ export default function CreateAccount() {
               .trim();
 
           if (sessionEmail === cleanEmail) {
-            const sent = await sendOtp(cleanEmail);
+            const sent =
+              await sendOtp(cleanEmail);
 
             if (!sent) {
               toast.error(
@@ -379,10 +379,6 @@ export default function CreateAccount() {
         return;
       }
 
-      /*
-       * Conta criada. Enviar o OTP de verificação
-       * antes de permitir continuar.
-       */
       const sent = await sendOtp(cleanEmail);
 
       if (!sent) {
@@ -407,27 +403,27 @@ export default function CreateAccount() {
 
   if (step === "otp") {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-white text-black">
         <div className="mx-auto flex min-h-screen w-full max-w-7xl">
           <div className="hidden flex-1 items-center justify-center px-12 lg:flex">
             <div className="max-w-lg">
               <div className="mb-8 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-black">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white">
                   <Store className="h-6 w-6" />
                 </div>
 
-                <span className="text-2xl font-bold tracking-tight">
+                <span className="text-2xl font-bold tracking-tight text-black">
                   HOMSTEG
                 </span>
               </div>
 
-              <h2 className="text-5xl font-bold leading-tight tracking-tight">
+              <h2 className="text-5xl font-bold leading-tight tracking-tight text-black">
                 Confirma o teu
                 <br />
                 email.
               </h2>
 
-              <p className="mt-6 max-w-md text-lg leading-8 text-white/50">
+              <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
                 Enviámos um código de 6 dígitos
                 para o teu email. Introduz o
                 código para continuar.
@@ -439,24 +435,24 @@ export default function CreateAccount() {
             <div className="w-full max-w-md">
               <div className="mb-8 lg:hidden">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                     <Store className="h-5 w-5" />
                   </div>
 
-                  <span className="text-xl font-bold tracking-tight">
+                  <span className="text-xl font-bold tracking-tight text-black">
                     HOMSTEG
                   </span>
                 </div>
               </div>
 
               <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">
+                <h1 className="text-3xl font-bold tracking-tight text-black">
                   Verifica o teu email
                 </h1>
 
-                <p className="mt-2 text-sm text-white/50">
+                <p className="mt-2 text-sm text-slate-500">
                   Enviámos um código para{" "}
-                  <span className="font-medium text-white">
+                  <span className="font-medium text-black">
                     {otpEmail}
                   </span>
                   .
@@ -465,7 +461,7 @@ export default function CreateAccount() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
+                  <label className="mb-2 block text-sm font-medium text-slate-900">
                     Código de verificação
                   </label>
 
@@ -476,7 +472,10 @@ export default function CreateAccount() {
                       setOtp(value);
                       setOtpError(null);
                     }}
-                    disabled={isVerifyingOtp || isSendingOtp}
+                    disabled={
+                      isVerifyingOtp ||
+                      isSendingOtp
+                    }
                     containerClassName="justify-center"
                     aria-invalid={Boolean(otpError)}
                   >
@@ -486,7 +485,7 @@ export default function CreateAccount() {
                           <InputOTPSlot
                             key={index}
                             index={index}
-                            className="h-13 w-11 rounded-xl border-white/15 bg-white/5 text-lg font-semibold text-white data-[active=true]:border-white/40 data-[active=true]:ring-white/20 aria-invalid:border-red-400/60"
+                            className="h-13 w-11 rounded-xl border-slate-200 bg-slate-50 text-lg font-semibold text-black data-[active=true]:border-black data-[active=true]:ring-black/10 aria-invalid:border-red-400/60"
                           />
                         ),
                       )}
@@ -494,7 +493,7 @@ export default function CreateAccount() {
                   </InputOTP>
 
                   {otpError && (
-                    <p className="mt-3 text-center text-sm text-red-400">
+                    <p className="mt-3 text-center text-sm text-red-500">
                       {otpError}
                     </p>
                   )}
@@ -508,7 +507,7 @@ export default function CreateAccount() {
                     isSendingOtp ||
                     otp.length !== 6
                   }
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isVerifyingOtp
                     ? "A verificar..."
@@ -527,8 +526,11 @@ export default function CreateAccount() {
                       setOtp("");
                       setOtpError(null);
                     }}
-                    className="flex items-center gap-1.5 text-white/50 transition hover:text-white"
-                    disabled={isVerifyingOtp || isSendingOtp}
+                    className="flex items-center gap-1.5 text-slate-500 transition hover:text-black"
+                    disabled={
+                      isVerifyingOtp ||
+                      isSendingOtp
+                    }
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Voltar
@@ -536,13 +538,15 @@ export default function CreateAccount() {
 
                   <button
                     type="button"
-                    onClick={() => sendOtp(otpEmail)}
+                    onClick={() =>
+                      sendOtp(otpEmail)
+                    }
                     disabled={
                       isVerifyingOtp ||
                       isSendingOtp ||
                       resendIn > 0
                     }
-                    className="font-medium text-white transition hover:text-white/70 disabled:cursor-not-allowed disabled:text-white/35"
+                    className="font-medium text-black transition hover:text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     {resendIn > 0
                       ? `Reenviar código (${resendIn}s)`
@@ -558,27 +562,27 @@ export default function CreateAccount() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-white text-black">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl">
         <div className="hidden flex-1 items-center justify-center px-12 lg:flex">
           <div className="max-w-lg">
             <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-black">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white">
                 <Store className="h-6 w-6" />
               </div>
 
-              <span className="text-2xl font-bold tracking-tight">
+              <span className="text-2xl font-bold tracking-tight text-black">
                 HOMSTEG
               </span>
             </div>
 
-            <h2 className="text-5xl font-bold leading-tight tracking-tight">
+            <h2 className="text-5xl font-bold leading-tight tracking-tight text-black">
               Cria a tua loja
               <br />
               online hoje.
             </h2>
 
-            <p className="mt-6 max-w-md text-lg leading-8 text-white/50">
+            <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
               Cria a tua conta e começa a
               configurar a tua loja no
               HOMSTEG.
@@ -590,22 +594,22 @@ export default function CreateAccount() {
           <div className="w-full max-w-md">
             <div className="mb-8 lg:hidden">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-black">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
                   <Store className="h-5 w-5" />
                 </div>
 
-                <span className="text-xl font-bold tracking-tight">
+                <span className="text-xl font-bold tracking-tight text-black">
                   HOMSTEG
                 </span>
               </div>
             </div>
 
             <div className="mb-8">
-              <h1 className="text-3xl font-bold tracking-tight">
+              <h1 className="text-3xl font-bold tracking-tight text-black">
                 Cria a tua conta
               </h1>
 
-              <p className="mt-2 text-sm text-white/50">
+              <p className="mt-2 text-sm text-slate-500">
                 Cria a tua conta com email
                 e palavra-passe.
               </p>
@@ -616,12 +620,12 @@ export default function CreateAccount() {
               className="space-y-5"
             >
               <div>
-                <label className="mb-2 block text-sm font-medium">
+                <label className="mb-2 block text-sm font-medium text-slate-900">
                   Email
                 </label>
 
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/35" />
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                   <input
                     type="email"
@@ -633,18 +637,18 @@ export default function CreateAccount() {
                     placeholder="teu@email.com"
                     required
                     disabled={isLoading}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pl-12 pr-4 text-white outline-none transition placeholder:text-white/25 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">
+                <label className="mb-2 block text-sm font-medium text-slate-900">
                   Palavra-passe
                 </label>
 
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/35" />
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                   <input
                     type={
@@ -660,7 +664,7 @@ export default function CreateAccount() {
                     placeholder="Mínimo de 8 caracteres"
                     required
                     disabled={isLoading}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pl-12 pr-12 text-white outline-none transition placeholder:text-white/25 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-12 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <button
@@ -671,7 +675,7 @@ export default function CreateAccount() {
                       )
                     }
                     disabled={isLoading}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/35 transition hover:text-white disabled:cursor-not-allowed"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
                     aria-label={
                       showPassword
                         ? "Ocultar palavra-passe"
@@ -686,19 +690,19 @@ export default function CreateAccount() {
                   </button>
                 </div>
 
-                <p className="mt-2 text-xs text-white/35">
+                <p className="mt-2 text-xs text-slate-400">
                   A palavra-passe deve ter
                   pelo menos 8 caracteres.
                 </p>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">
+                <label className="mb-2 block text-sm font-medium text-slate-900">
                   Confirmar palavra-passe
                 </label>
 
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/35" />
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                   <input
                     type={
@@ -716,7 +720,7 @@ export default function CreateAccount() {
                     placeholder="Repete a palavra-passe"
                     required
                     disabled={isLoading}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pl-12 pr-12 text-white outline-none transition placeholder:text-white/25 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-12 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <button
@@ -727,7 +731,7 @@ export default function CreateAccount() {
                       )
                     }
                     disabled={isLoading}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/35 transition hover:text-white disabled:cursor-not-allowed"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
                     aria-label={
                       showConfirmPassword
                         ? "Ocultar confirmação"
@@ -753,10 +757,10 @@ export default function CreateAccount() {
                     )
                   }
                   disabled={isLoading}
-                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 accent-white"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 bg-white accent-black"
                 />
 
-                <span className="text-sm leading-6 text-white/50">
+                <span className="text-sm leading-6 text-slate-500">
                   Aceito os termos e condições
                   e a política de privacidade do
                   HOMSTEG.
@@ -766,7 +770,7 @@ export default function CreateAccount() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoading
                   ? "A criar conta..."
@@ -779,14 +783,14 @@ export default function CreateAccount() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-white/40">
+              <p className="text-sm text-slate-500">
                 Já tens uma conta?{" "}
                 <button
                   type="button"
                   onClick={() =>
                     setLocation("/login")
                   }
-                  className="font-medium text-white transition hover:text-white/70"
+                  className="font-medium text-black transition hover:text-slate-600"
                 >
                   Entrar
                 </button>

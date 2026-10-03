@@ -22,8 +22,8 @@ export function useStorePlan(
     );
 
   /*
-   * Crédito da loja (MZN) — o único sistema pago
-   * da plataforma, usado apenas no Market.
+   * Créditos da loja — unidade interna da
+   * plataforma, usados apenas no Market.
    * NULL/sem dados = 0.
    */
   const creditMzn =

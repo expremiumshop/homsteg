@@ -18,6 +18,7 @@ import { useLocation } from "wouter";
 import DashboardHeader from "@/components/dashboard/layout/DashboardHeader";
 import DashboardSidebar from "@/components/dashboard/layout/DashboardSidebar";
 import PlanSidebarCard from "@/components/dashboard/plan/PlanSidebarCard";
+import CreditsPage from "@/components/dashboard/plan/CreditsPage";
 import OverviewPage from "@/components/dashboard/overview/OverviewPage";
 import ProductsPage from "@/components/dashboard/products/ProductsPage";
 import CategoriesPage from "@/components/dashboard/categories/CategoriesPage";
@@ -33,6 +34,7 @@ import { trpc } from "@/lib/trpc";
 
 export type DashboardSection =
   | "home"
+  | "credits"
   | "market"
   | "products"
   | "categories"
@@ -124,6 +126,8 @@ function getSectionFromPath(path: string): DashboardSection {
   const section = path.split("/")[2];
 
   switch (section) {
+    case "credits":
+      return "credits";
     case "market":
       return "market";
     case "products":
@@ -161,6 +165,9 @@ function DashboardContent({
   storeSlug?: string;
 }) {
   switch (section) {
+    case "credits":
+      return <CreditsPage storeId={storeId} />;
+
     case "market":
       return <MarketPage storeId={storeId} />;
 
@@ -245,6 +252,13 @@ export default function Dashboard() {
   const currentNav =
     mainNav.find((item) => item.id === section) ??
     mainNav[0];
+
+  /*
+   * A área de créditos (/app/credits) não faz parte do
+   * menu principal — recebe o seu próprio título.
+   */
+  const pageTitle =
+    section === "credits" ? "Créditos" : currentNav.label;
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#111713]">
@@ -348,7 +362,7 @@ export default function Dashboard() {
       <div className="lg:pl-[238px]">
         <DashboardHeader
           section={section}
-          title={currentNav.label}
+          title={pageTitle}
           storeSlug={storeSlug}
           storeId={selectedStore?.id}
           onOpenMobileMenu={() =>

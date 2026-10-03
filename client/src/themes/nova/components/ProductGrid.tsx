@@ -20,7 +20,7 @@ interface ProductGridProps {
   storeName?: string;
   storeSlug?: string;
 
-  /** Modelo de cartão escolhido pela loja (1..5). */
+  /** Modelo de cartão escolhido pela loja (1..8). */
   productCardModel?: string | null;
 
   /** WhatsApp para o botão Comprar (modelo 5). */

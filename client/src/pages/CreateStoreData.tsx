@@ -40,9 +40,14 @@ export default function CreateStoreData() {
   const [, navigate] = useLocation();
   const meQuery = trpc.auth.me.useQuery();
 
-  const [form, setForm] = useState<FormData>(initialForm);
-  const [businessTypes, setBusinessTypes] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] =
+    useState<FormData>(initialForm);
+
+  const [businessTypes, setBusinessTypes] =
+    useState<string[]>([]);
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
 
   const userId = meQuery.data?.id;
 
@@ -50,24 +55,28 @@ export default function CreateStoreData() {
     if (!userId) return;
 
     try {
-      const storedBusinessTypes = sessionStorage.getItem(
-        `homsteg_business_types_${userId}`,
-      );
+      const storedBusinessTypes =
+        sessionStorage.getItem(
+          `homsteg_business_types_${userId}`,
+        );
 
-      const storedForm = sessionStorage.getItem(
-        `homsteg_store_data_${userId}`,
-      );
+      const storedForm =
+        sessionStorage.getItem(
+          `homsteg_store_data_${userId}`,
+        );
 
       if (storedBusinessTypes) {
-        const parsedBusinessTypes = JSON.parse(storedBusinessTypes);
+        const parsedBusinessTypes =
+          JSON.parse(storedBusinessTypes);
 
         if (Array.isArray(parsedBusinessTypes)) {
           setBusinessTypes(parsedBusinessTypes);
         }
       } else {
-        const legacyBusinessTypes = sessionStorage.getItem(
-          "homsteg_business_types",
-        );
+        const legacyBusinessTypes =
+          sessionStorage.getItem(
+            "homsteg_business_types",
+          );
 
         if (legacyBusinessTypes) {
           const parsedBusinessTypes =
@@ -82,7 +91,10 @@ export default function CreateStoreData() {
       if (storedForm) {
         const parsedForm = JSON.parse(storedForm);
 
-        if (parsedForm && typeof parsedForm === "object") {
+        if (
+          parsedForm &&
+          typeof parsedForm === "object"
+        ) {
           setForm((current) => ({
             ...current,
             fullName:
@@ -114,7 +126,8 @@ export default function CreateStoreData() {
                 ? parsedForm.district
                 : current.district,
             neighborhood:
-              typeof parsedForm.neighborhood === "string"
+              typeof parsedForm.neighborhood ===
+              "string"
                 ? parsedForm.neighborhood
                 : current.neighborhood,
             notes:
@@ -124,14 +137,18 @@ export default function CreateStoreData() {
           }));
         }
       } else {
-        const legacyForm = sessionStorage.getItem(
-          "homsteg_store_data",
-        );
+        const legacyForm =
+          sessionStorage.getItem(
+            "homsteg_store_data",
+          );
 
         if (legacyForm) {
           const parsedForm = JSON.parse(legacyForm);
 
-          if (parsedForm && typeof parsedForm === "object") {
+          if (
+            parsedForm &&
+            typeof parsedForm === "object"
+          ) {
             setForm((current) => ({
               ...current,
               fullName:
@@ -163,7 +180,8 @@ export default function CreateStoreData() {
                   ? parsedForm.district
                   : current.district,
               neighborhood:
-                typeof parsedForm.neighborhood === "string"
+                typeof parsedForm.neighborhood ===
+                "string"
                   ? parsedForm.neighborhood
                   : current.neighborhood,
               notes:
@@ -217,7 +235,9 @@ export default function CreateStoreData() {
     );
 
     if (hasEmptyField) {
-      alert("Preencha todos os campos obrigatórios.");
+      alert(
+        "Preencha todos os campos obrigatórios.",
+      );
       return;
     }
 
@@ -262,15 +282,17 @@ export default function CreateStoreData() {
   };
 
   const inputClassName =
-    "w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-white placeholder:text-zinc-500 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20";
+    "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black placeholder:text-slate-400 outline-none transition focus:border-black focus:bg-white focus:ring-2 focus:ring-black/10";
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-white text-black">
       <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <button
           type="button"
-          onClick={() => navigate("/criar-loja/negocio")}
-          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+          onClick={() =>
+            navigate("/criar-loja/negocio")
+          }
+          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-black"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar
@@ -278,25 +300,26 @@ export default function CreateStoreData() {
 
         <div className="mb-8">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
               <Store className="h-5 w-5" />
             </div>
 
             <div>
-              <p className="text-sm font-medium text-zinc-400">
+              <p className="text-sm font-medium text-slate-500">
                 Criar loja
               </p>
 
-              <h1 className="text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-2xl font-bold tracking-tight text-black">
                 Dados da loja
               </h1>
             </div>
           </div>
 
-          <p className="max-w-2xl text-zinc-400">
-            Preencha os seus dados e as informações da sua loja.
-            O nome da loja será usado posteriormente para criar
-            o endereço público da loja.
+          <p className="max-w-2xl text-slate-500">
+            Preencha os seus dados e as informações
+            da sua loja. O nome da loja será usado
+            posteriormente para criar o endereço
+            público da loja.
           </p>
         </div>
 
@@ -304,14 +327,15 @@ export default function CreateStoreData() {
           onSubmit={handleSubmit}
           className="space-y-8"
         >
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-black">
                 Os teus dados
               </h2>
 
-              <p className="mt-1 text-sm text-zinc-400">
-                Estes dados pertencem ao proprietário da conta.
+              <p className="mt-1 text-sm text-slate-500">
+                Estes dados pertencem ao proprietário
+                da conta.
               </p>
             </div>
 
@@ -319,7 +343,7 @@ export default function CreateStoreData() {
               <div className="md:col-span-2">
                 <label
                   htmlFor="fullName"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Nome completo *
                 </label>
@@ -343,7 +367,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="phone"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Número de telefone *
                 </label>
@@ -367,7 +391,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="whatsapp"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Número do WhatsApp *
                 </label>
@@ -390,22 +414,22 @@ export default function CreateStoreData() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-black">
                 A tua loja
               </h2>
 
-              <p className="mt-1 text-sm text-zinc-400">
-                O nome da loja será a identidade pública da sua
-                loja.
+              <p className="mt-1 text-sm text-slate-500">
+                O nome da loja será a identidade
+                pública da sua loja.
               </p>
             </div>
 
             <div>
               <label
                 htmlFor="storeName"
-                className="mb-2 block text-sm font-medium text-white"
+                className="mb-2 block text-sm font-medium text-slate-900"
               >
                 Nome da loja *
               </label>
@@ -425,26 +449,27 @@ export default function CreateStoreData() {
                 required
               />
 
-              <p className="mt-2 text-xs text-zinc-500">
-                Este nome será usado para gerar o endereço
-                público da loja.
+              <p className="mt-2 text-xs text-slate-400">
+                Este nome será usado para gerar o
+                endereço público da loja.
               </p>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-black">
                 <MapPin className="h-5 w-5" />
               </div>
 
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-black">
                   Localização
                 </h2>
 
-                <p className="mt-1 text-sm text-zinc-400">
-                  Informe a localização da sua atividade comercial.
+                <p className="mt-1 text-sm text-slate-500">
+                  Informe a localização da sua atividade
+                  comercial.
                 </p>
               </div>
             </div>
@@ -453,7 +478,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="country"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   País *
                 </label>
@@ -476,7 +501,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="province"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Província *
                 </label>
@@ -500,7 +525,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="district"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Distrito *
                 </label>
@@ -524,7 +549,7 @@ export default function CreateStoreData() {
               <div>
                 <label
                   htmlFor="neighborhood"
-                  className="mb-2 block text-sm font-medium text-white"
+                  className="mb-2 block text-sm font-medium text-slate-900"
                 >
                   Bairro *
                 </label>
@@ -547,14 +572,15 @@ export default function CreateStoreData() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-black">
                 Observações
               </h2>
 
-              <p className="mt-1 text-sm text-zinc-400">
-                Adicione alguma informação adicional, se necessário.
+              <p className="mt-1 text-sm text-slate-500">
+                Adicione alguma informação adicional,
+                se necessário.
               </p>
             </div>
 
@@ -574,14 +600,15 @@ export default function CreateStoreData() {
           </section>
 
           {businessTypes.length > 0 && (
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-black">
                   Tipos de negócio selecionados
                 </h2>
 
-                <p className="mt-1 text-sm text-zinc-400">
-                  Estes dados foram selecionados na etapa anterior.
+                <p className="mt-1 text-sm text-slate-500">
+                  Estes dados foram selecionados na
+                  etapa anterior.
                 </p>
               </div>
 
@@ -589,7 +616,7 @@ export default function CreateStoreData() {
                 {businessTypes.map((type) => (
                   <div
                     key={type}
-                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-sm font-medium text-slate-800"
                   >
                     <Check className="h-4 w-4" />
                     {type}
@@ -605,7 +632,7 @@ export default function CreateStoreData() {
               onClick={() =>
                 navigate("/criar-loja/negocio")
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800 px-5 py-3 text-sm font-medium text-white transition hover:bg-zinc-900"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
@@ -614,9 +641,11 @@ export default function CreateStoreData() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "A guardar..." : "Continuar"}
+              {isSubmitting
+                ? "A guardar..."
+                : "Continuar"}
 
               {!isSubmitting && (
                 <ArrowRight className="h-4 w-4" />

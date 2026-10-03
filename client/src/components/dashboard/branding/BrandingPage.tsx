@@ -18,10 +18,30 @@ import type { ProductCardModel } from "@/themes/nova/productCardModels";
 import { MODEL_PURCHASE_TO_CARD } from "@/themes/nova/productCardModels";
 import type { NavButtonModel } from "@/themes/nova/navButtonModels";
 import { NAV_PURCHASE_TO_BUTTON } from "@/themes/nova/navButtonModels";
+import type { BannerModel } from "@/themes/nova/bannerModels";
+import {
+  BANNER_PURCHASE_TO_MODEL,
+  BANNER_FEATURES_PURCHASE_KEY,
+  isBannerModel,
+} from "@/themes/nova/bannerModels";
+
+import BannerElementsManager from "./BannerElementsManager";
+import type { HeaderModel } from "@/themes/nova/headerModels";
+import { HEADER_PURCHASE_TO_MODEL } from "@/themes/nova/headerModels";
+import type { FooterModel } from "@/themes/nova/footerModels";
+import { FOOTER_PURCHASE_TO_MODEL } from "@/themes/nova/footerModels";
+import type { CategoryCardModel } from "@/themes/nova/categoryCardModels";
+import { CATEGORY_PURCHASE_TO_MODEL } from "@/themes/nova/categoryCardModels";
 import {
   ProductCardModelSelector,
   NavButtonModelSelector,
 } from "@/themes/nova/components/ModelCardPreview";
+import { BannerModelSelector } from "@/themes/nova/components/BannerModelPreview";
+import {
+  HeaderModelSelector,
+  FooterModelSelector,
+  CategoryCardModelSelector,
+} from "@/themes/nova/components/SectionModelPreview";
 
 const MAX_LOGO_SIZE = 1 * 1024 * 1024;
 const MAX_BANNER_SIZE = 3 * 1024 * 1024;
@@ -220,6 +240,34 @@ export default function BrandingPage({
       },
     });
 
+  const setBannerModelMut =
+    trpc.stores.branding.setBannerModel.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
+  const setHeaderModelMut =
+    trpc.stores.branding.setHeaderModel.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
+  const setFooterModelMut =
+    trpc.stores.branding.setFooterModel.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
+  const setCategoryModelMut =
+    trpc.stores.branding.setCategoryCardModel.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
   const [uploadingAsset, setUploadingAsset] =
     useState<"logo" | "banner" | null>(null);
 
@@ -372,6 +420,18 @@ export default function BrandingPage({
   const selectedNavModel =
     brandingQuery.data?.navButtonModel ?? null;
 
+  const selectedBannerModel =
+    brandingQuery.data?.bannerModel ?? null;
+
+  const selectedHeaderModel =
+    brandingQuery.data?.headerModel ?? null;
+
+  const selectedFooterModel =
+    brandingQuery.data?.footerModel ?? null;
+
+  const selectedCategoryModel =
+    brandingQuery.data?.categoryCardModel ?? null;
+
   /*
    * Desbloqueios da loja (Market → store_market_features).
    * Apenas os modelos comprados aparecem em
@@ -425,6 +485,95 @@ export default function BrandingPage({
     [unlockQuery.data],
   );
 
+  /*
+   * Desbloqueios dos banners do carrossel (Market →
+   * store_market_features). Apenas os modelos comprados
+   * aparecem em "Banners". Fonte: base de dados.
+   */
+  const unlockedBannerModels = useMemo<BannerModel[]>(
+    () =>
+      (unlockQuery.data?.featureKeys ?? [])
+        .map(
+          (
+            featureKey,
+          ): BannerModel | "features" | null =>
+            BANNER_PURCHASE_TO_MODEL[featureKey] ?? null,
+        )
+        .filter(isBannerModel),
+    [unlockQuery.data],
+  );
+
+  /*
+   * O 4banner (Banner Personalizado) desbloqueia a
+   * gestão de elementos por banner (texto, botão,
+   * animação, contagem e publicação) — não um modelo
+   * visual do carrossel.
+   */
+  const hasBannerElements = (
+    unlockQuery.data?.featureKeys ?? []
+  ).includes(BANNER_FEATURES_PURCHASE_KEY);
+
+  /*
+   * Desbloqueios dos headers (Market →
+   * store_market_features). Apenas os modelos comprados
+   * aparecem em "Navegação (Header)". Fonte: base de dados.
+   */
+  const unlockedHeaderModels = useMemo<HeaderModel[]>(
+    () =>
+      (unlockQuery.data?.featureKeys ?? [])
+        .map(
+          (featureKey): HeaderModel | null =>
+            HEADER_PURCHASE_TO_MODEL[featureKey] ?? null,
+        )
+        .filter(
+          (model): model is HeaderModel => model !== null,
+        ),
+    [unlockQuery.data],
+  );
+
+  /*
+   * Desbloqueios dos rodapés (Market →
+   * store_market_features). Apenas os modelos comprados
+   * aparecem em "Rodapés". Fonte: base de dados.
+   */
+  const unlockedFooterModels = useMemo<FooterModel[]>(
+    () =>
+      (unlockQuery.data?.featureKeys ?? [])
+        .map(
+          (featureKey): FooterModel | null =>
+            FOOTER_PURCHASE_TO_MODEL[featureKey] ?? null,
+        )
+        .filter(
+          (model): model is FooterModel => model !== null,
+        ),
+    [unlockQuery.data],
+  );
+
+  /*
+   * Desbloqueios dos cartões de categoria/Seções
+   * (Market → store_market_features). Apenas os modelos
+   * comprados aparecem em "Seções". Fonte: base de dados.
+   */
+  const unlockedCategoryModels =
+    useMemo<CategoryCardModel[]>(
+      () =>
+        (unlockQuery.data?.featureKeys ?? [])
+          .map(
+            (
+              featureKey,
+            ): CategoryCardModel | null =>
+              CATEGORY_PURCHASE_TO_MODEL[featureKey] ??
+              null,
+          )
+          .filter(
+            (
+              model,
+            ): model is CategoryCardModel =>
+              model !== null,
+          ),
+      [unlockQuery.data],
+    );
+
   async function handleSelectCardModel(
     model: ProductCardModel,
   ) {
@@ -472,6 +621,118 @@ export default function BrandingPage({
     } catch (error) {
       console.error(
         "[Branding] Erro ao definir modelo de navegação:",
+        error,
+      );
+
+      toast.error(
+        "Não foi possível guardar o modelo. Tenta novamente.",
+      );
+    }
+  }
+
+  async function handleSelectBannerModel(
+    model: BannerModel,
+  ) {
+    if (!storeId) {
+      return;
+    }
+
+    try {
+      await setBannerModelMut.mutateAsync({
+        storeId,
+        model,
+      });
+
+      toast.success(
+        "Modelo do banner atualizado.",
+      );
+    } catch (error) {
+      console.error(
+        "[Branding] Erro ao definir modelo de banner:",
+        error,
+      );
+
+      toast.error(
+        "Não foi possível guardar o modelo. Tenta novamente.",
+      );
+    }
+  }
+
+  async function handleSelectHeaderModel(
+    model: HeaderModel,
+  ) {
+    if (!storeId) {
+      return;
+    }
+
+    try {
+      await setHeaderModelMut.mutateAsync({
+        storeId,
+        model,
+      });
+
+      toast.success(
+        "Modelo do cabeçalho atualizado.",
+      );
+    } catch (error) {
+      console.error(
+        "[Branding] Erro ao definir modelo de header:",
+        error,
+      );
+
+      toast.error(
+        "Não foi possível guardar o modelo. Tenta novamente.",
+      );
+    }
+  }
+
+  async function handleSelectFooterModel(
+    model: FooterModel,
+  ) {
+    if (!storeId) {
+      return;
+    }
+
+    try {
+      await setFooterModelMut.mutateAsync({
+        storeId,
+        model,
+      });
+
+      toast.success(
+        "Modelo do rodapé atualizado.",
+      );
+    } catch (error) {
+      console.error(
+        "[Branding] Erro ao definir modelo de footer:",
+        error,
+      );
+
+      toast.error(
+        "Não foi possível guardar o modelo. Tenta novamente.",
+      );
+    }
+  }
+
+  async function handleSelectCategoryModel(
+    model: CategoryCardModel,
+  ) {
+    if (!storeId) {
+      return;
+    }
+
+    try {
+      await setCategoryModelMut.mutateAsync({
+        storeId,
+        model,
+      });
+
+      toast.success(
+        "Modelo das seções (categorias) atualizado.",
+      );
+    } catch (error) {
+      console.error(
+        "[Branding] Erro ao definir modelo de categorias:",
         error,
       );
 
@@ -642,6 +903,236 @@ export default function BrandingPage({
                   Os modelos de botões de navegação estão
                   disponíveis no Market. Compra um modelo
                   para o desbloquear aqui.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ============ 5. BANNERS (carrossel) ============ */}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-[#111713]">
+                Banners
+              </h3>
+
+              {hasBannerElements && (
+                <p className="mt-1 text-xs leading-5 text-emerald-700">
+                  Banner Personalizado ativo: configures os
+                  elementos de cada banner abaixo.
+                </p>
+              )}
+
+              {unlockedBannerModels.length === 0 ? (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Ainda não há modelos de banner
+                  desbloqueados. Compra modelos no Market
+                  para os usar aqui.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Escolhe o modelo do carrossel de banners
+                  da tua loja (tema Nova). A alteração é
+                  aplicada imediatamente.
+                </p>
+              )}
+            </div>
+
+            {unlockedBannerModels.length > 0 && (
+              <BannerModelSelector
+                value={selectedBannerModel}
+                onChange={handleSelectBannerModel}
+                disabled={setBannerModelMut.isPending}
+                unlockedModels={unlockedBannerModels}
+              />
+            )}
+
+            {unlockedBannerModels.length === 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5">
+                <Store className="h-5 w-5 shrink-0 text-gray-400" />
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Os modelos de banners do carrossel estão
+                  disponíveis no Market. Compra um modelo
+                  para o desbloquear aqui.
+                </p>
+              </div>
+            )}
+
+            {/*
+              GESTÃO DE ELEMENTOS (Market 4banner):
+              texto, botão, animação, contagem e
+              publicação por banner. Fiel à demo do
+              Market (Banner Personalizado).
+            */}
+            {hasBannerElements && (
+              <div className="mt-5 border-t border-gray-100 pt-5">
+                <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Elementos por banner
+                </h4>
+
+                <BannerElementsManager
+                  storeId={storeId}
+                  banners={
+                    [
+                      brandingQuery.data?.bannerKey
+                        ? [
+                            {
+                              key: brandingQuery.data
+                                .bannerKey,
+                              url:
+                                brandingQuery.data
+                                  ?.bannerUrl ?? null,
+                            },
+                          ]
+                        : [],
+                      (brandingQuery.data?.bannerKeys ?? []).map(
+                        (key, index) => ({
+                          key,
+                          url:
+                            brandingQuery.data
+                              ?.bannerUrls?.[index] ??
+                            null,
+                        }),
+                      ),
+                    ].flat()
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ============ 6. NAVEGAÇÃO (HEADER) ============ */}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-[#111713]">
+                Navegação (Header)
+              </h3>
+
+              {unlockedHeaderModels.length === 0 ? (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Ainda não há cabeçalhos desbloqueados.
+                  Compra modelos no Market para os usar
+                  aqui.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Escolhe o cabeçalho da tua loja (tema
+                  Nova). A alteração é aplicada
+                  imediatamente.
+                </p>
+              )}
+            </div>
+
+            {unlockedHeaderModels.length > 0 && (
+              <HeaderModelSelector
+                value={selectedHeaderModel}
+                onChange={handleSelectHeaderModel}
+                disabled={setHeaderModelMut.isPending}
+                unlockedModels={unlockedHeaderModels}
+              />
+            )}
+
+            {unlockedHeaderModels.length === 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5">
+                <Store className="h-5 w-5 shrink-0 text-gray-400" />
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Os modelos de cabeçalho estão
+                  disponíveis no Market. Compra um modelo
+                  para o desbloquear aqui.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ============ 7. SEÇÕES (CARTÕES DE CATEGORIA) ============ */}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-[#111713]">
+                Seções
+              </h3>
+
+              {unlockedCategoryModels.length === 0 ? (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Ainda não há cartões de categoria
+                  desbloqueados. Compra modelos no Market
+                  para os usar aqui.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Escolhe como as categorias aparecem em
+                  destaque na tua loja (tema Nova). A
+                  alteração é aplicada imediatamente.
+                </p>
+              )}
+            </div>
+
+            {unlockedCategoryModels.length > 0 && (
+              <CategoryCardModelSelector
+                value={selectedCategoryModel}
+                onChange={handleSelectCategoryModel}
+                disabled={setCategoryModelMut.isPending}
+                unlockedModels={unlockedCategoryModels}
+              />
+            )}
+
+            {unlockedCategoryModels.length === 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5">
+                <Store className="h-5 w-5 shrink-0 text-gray-400" />
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Os modelos de seções (cartões de
+                  categoria) estão disponíveis no Market.
+                  Compra um modelo para o desbloquear
+                  aqui.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ============ 8. RODAPÉS ============ */}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-[#111713]">
+                Rodapés
+              </h3>
+
+              {unlockedFooterModels.length === 0 ? (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Ainda não há rodapés desbloqueados.
+                  Compra modelos no Market para os usar
+                  aqui.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Escolhe o rodapé da tua loja (tema
+                  Nova). A alteração é aplicada
+                  imediatamente.
+                </p>
+              )}
+            </div>
+
+            {unlockedFooterModels.length > 0 && (
+              <FooterModelSelector
+                value={selectedFooterModel}
+                onChange={handleSelectFooterModel}
+                disabled={setFooterModelMut.isPending}
+                unlockedModels={unlockedFooterModels}
+              />
+            )}
+
+            {unlockedFooterModels.length === 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5">
+                <Store className="h-5 w-5 shrink-0 text-gray-400" />
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Os modelos de rodapé estão disponíveis
+                  no Market. Compra um modelo para o
+                  desbloquear aqui.
                 </p>
               </div>
             )}

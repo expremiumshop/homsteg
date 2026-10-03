@@ -131,15 +131,50 @@
     {
       "idx": 18,
       "version": "7",
-      "when": 1790844884513,
+      "when": 1791322800000,
       "tag": "0018_remove_plans",
       "breakpoints": true
     },
     {
       "idx": 19,
       "version": "7",
-      "when": 1790864244495,
+      "when": 1791409200000,
       "tag": "0019_stock_capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791495600000,
+      "tag": "0020_store_section_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791582000000,
+      "tag": "0021_store_initial_credit",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791668400000,
+      "tag": "0022_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791754800000,
+      "tag": "0023_store_code_commission_bonus",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791841200000,
+      "tag": "0024_store_code_rewards",
       "breakpoints": true
     }
   ]

@@ -5,7 +5,11 @@
  * 2 — Grande (área maior, título + subtítulo + área de conteúdo);
  * 3 — Duplo (duas áreas visuais/conteúdo no mesmo slide);
  * 4 — Split (duas metades lado a lado no mesmo slide);
- * 5 — Overlay (texto em destaque sobre a imagem).
+ * 5 — Overlay (texto em destaque sobre a imagem);
+ * 6 — Gradiente (faixa com fundo em gradiente e CTA);
+ * 7 — Split claro (texto à esquerda, imagem à direita);
+ * 8 — Faixa (faixa compacta com chamada e seta);
+ * 9 — Simples (imagem única, sem carrossel — Market 10banner).
  *
  * Sem dependências de React: partilhado entre o
  * dashboard (seletor/inputs) e o storefront.
@@ -17,6 +21,10 @@ export const BANNER_MODELS = [
   "3",
   "4",
   "5",
+  "6",
+  "7",
+  "8",
+  "9",
 ] as const;
 
 export type BannerModel = (typeof BANNER_MODELS)[number];
@@ -31,13 +39,23 @@ export type BannerModel = (typeof BANNER_MODELS)[number];
 export const BANNER_SIMPLE_PURCHASE_KEY = "10banner";
 
 /**
+ * FeatureKey do 4banner (Banner Personalizado): não
+ * desbloqueia um modelo visual de carrossel, mas sim
+ * a GESTÃO DE ELEMENTOS por banner (texto, botão,
+ * animação, contagem decrescente e publicação) — a
+ * mesma configuração demonstrada na página do Market.
+ */
+export const BANNER_FEATURES_PURCHASE_KEY = "4banner";
+
+/**
  * Modelos vendidos no Market como banners isolados
- * (5banner–9banner) e desbloqueados por compra.
+ * (5banner–9banner, 1banner–3banner, 10banner) e
+ * desbloqueados por compra.
  *
  * Na "Personalizar Loja", quando a loja fornece a lista
  * de desbloqueios, APENAS estes modelos podem aparecer —
  * e só os efetivamente comprados. Sem compras, a secção
- * fica vazia.
+ * fica vazia (o modelo 9/Simples segue a mesma regra).
  */
 export const BANNER_UNLOCKABLE_MODELS = [
   "1",
@@ -45,23 +63,41 @@ export const BANNER_UNLOCKABLE_MODELS = [
   "3",
   "4",
   "5",
+  "6",
+  "7",
+  "8",
+  "9",
 ] as const;
 
 /**
  * Mapa featureKey Market → modelo de banner.
  * As compras no Market guardam featureKeys ("5banner"…
- * "9banner"); a Personalização consome o modelo
- * ("1"…"5") através deste mapa.
+ * "9banner", "1banner"–"3banner", "10banner"); a
+ * Personalização consome o modelo ("1"…"9") através
+ * deste mapa.
+ *
+ * O 4banner (Banner Personalizado) também está
+ * registado, com o valor "features": não desbloqueia
+ * um modelo visual — desbloqueia a gestão de elementos
+ * por banner. O cliente trata este valor à parte
+ * (BANNER_FEATURES_PURCHASE_KEY / hasBannerElements);
+ * nunca chegar ao seletor porque isBannerModel("features")
+ * é false.
  */
 export const BANNER_PURCHASE_TO_MODEL: Record<
   string,
-  BannerModel
+  BannerModel | "features"
 > = {
   "5banner": "1",
   "6banner": "2",
   "7banner": "3",
   "8banner": "4",
   "9banner": "5",
+  "1banner": "6",
+  "2banner": "7",
+  "3banner": "8",
+  "10banner": "9",
+  "4banner": "features",
 };
 
 /**
@@ -76,6 +112,10 @@ export const BANNER_TO_MARKET_FEATURE: Record<
   "3": "7banner",
   "4": "8banner",
   "5": "9banner",
+  "6": "1banner",
+  "7": "2banner",
+  "8": "3banner",
+  "9": "10banner",
 };
 
 export function isBannerModel(
@@ -126,6 +166,14 @@ export function getBannerModelLabel(
       return "Split";
     case "5":
       return "Overlay";
+    case "6":
+      return "Gradiente";
+    case "7":
+      return "Split claro";
+    case "8":
+      return "Faixa";
+    case "9":
+      return "Simples";
   }
 }
 
@@ -143,6 +191,14 @@ export function getBannerModelDescription(
       return "Duas metades lado a lado (imagem + texto).";
     case "5":
       return "Título e subtítulo em destaque sobre a imagem.";
+    case "6":
+      return "Faixa com fundo em gradiente e botão de ação.";
+    case "7":
+      return "Texto à esquerda, imagem à direita, fundo claro.";
+    case "8":
+      return "Faixa compacta com chamada e seta.";
+    case "9":
+      return "Imagem única, sem carrossel nem configurações.";
   }
 }
 
@@ -153,7 +209,7 @@ export function getBannerModelDescription(
 export function bannerModelUsesText(
   model: BannerModel,
 ): boolean {
-  return model !== "1";
+  return model !== "1" && model !== "9";
 }
 
 /* ============================================================
