@@ -35,13 +35,22 @@ const OFFICIAL_PRODUCTION_URL = "https://www.homsteg.com";
 const configuredBaseURL = process.env.BETTER_AUTH_URL?.trim();
 
 /*
+ * Verdadeiro em produção. A Vercel assinala sempre os deployments com
+ * VERCEL=1, pelo que usamos também esse sinal — evita depender apenas
+ * de NODE_ENV para as decisões de HTTPS/domínio.
+ */
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL === "1";
+
+/*
  * URL de recurso usada quando o host do pedido não está na
  * allowlist (ou não é resolvível). Mantém o comportamento
  * anterior: BETTER_AUTH_URL em dev, domínio oficial em produção.
  */
 const fallbackBaseURL = (
   configuredBaseURL ||
-  (process.env.NODE_ENV === "production"
+  (isProduction
     ? OFFICIAL_PRODUCTION_URL
     : "http://localhost:3000")
 ).replace(/\/+$/, "");
@@ -91,9 +100,22 @@ const baseURLHosts = Array.from(
   ),
 );
 
+/*
+ * Em produção a app é sempre servida sobre HTTPS (Vercel). O
+ * protocolo é fixado em "https" para que o `redirect_uri` do OAuth
+ * NUNCA nasça como `http://`: o adapter Node do Better Auth deriva o
+ * esquema de `x-forwarded-proto` (o socket do serverless não é TLS),
+ * pelo que, quando esse header não chega ao handler, o `redirect_uri`
+ * saía como `http://…/api/auth/callback/google` — um valor que o
+ * Google rejeita com `redirect_uri_mismatch` porque só o URI HTTPS
+ * está registado.
+ *
+ * Em desenvolvimento mantém-se "auto" para o loopback em HTTP
+ * (localhost/127.0.0.1) continuar a funcionar.
+ */
 const baseURL = {
   allowedHosts: baseURLHosts,
-  protocol: "auto" as const,
+  protocol: (isProduction ? "https" : "auto") as "https" | "auto",
   fallback: fallbackBaseURL,
 };
 
@@ -131,7 +153,13 @@ const trustedOrigins = Array.from(
  * - Google:
  *     GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET
  *     (Google Cloud Console → OAuth 2.0 Client ID, tipo Web.
- *      Redirect URI a registar: {baseURL}/api/auth/callback/google)
+ *      Redirect URIs a registar (tem de bater EXATO):
+ *        http://localhost:3000/api/auth/callback/google
+ *        https://www.homsteg.com/api/auth/callback/google
+ *      (O www é o domínio canónico — o apex 308-redireciona para
+ *       o www, pelo que a produção envia SEMPRE o URI com www.
+ *       Ter apenas https://homsteg.com/... registado dá Erro 400
+ *       redirect_uri_mismatch.)
  *
  * - Apple:
  *     APPLE_CLIENT_ID (o "Services ID") e APPLE_CLIENT_SECRET
@@ -203,6 +231,18 @@ export const auth = betterAuth({
   baseURL,
 
   trustedOrigins,
+
+  /*
+   * A app corre atrás do proxy da Vercel. Sem isto, o Better Auth
+   * ignora `x-forwarded-host`/`x-forwarded-proto` ao resolver a
+   * baseURL dinâmica e pode derivar o host/protocolo internos do
+   * deployment (ex.: `http://…` ou o URL `*.vercel.app`), enviando ao
+   * Google um `redirect_uri` diferente do registado. O host derivado
+   * continua a ser validado contra `allowedHosts` acima.
+   */
+  advanced: {
+    trustedProxyHeaders: true,
+  },
 
   database: drizzleAdapter(authDb, {
     provider: "pg",
