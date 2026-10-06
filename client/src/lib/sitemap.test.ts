@@ -9,7 +9,8 @@
  * Estes testes garantem que:
  *  - o XML é estruturalmente válido (declaração, urlset, tags fechadas);
  *  - TODAS as URLs são do domínio canónico https://www.homsteg.com;
- *  - NENHUMA URL privada/transacional entra (admin, app, callback,
+ *  - NENHUMA URL privada/transacional entra (admin, app, autenticação
+ *    como login/criar-conta/recuperar-palavra-passe, callback,
  *    onboarding, carrinho, checkout, conta, mensagens, produto, lojas
  *    dinâmicas);
  *  - o robots.txt aponta para o sitemap canónico.
@@ -32,8 +33,11 @@ const FORBIDDEN_SEGMENTS = new Set([
   "admin",
   "app",
   "api",
+  "login",
   "social",
   "callback",
+  "criar-conta",
+  "recuperar-palavra-passe",
   "criar-loja",
   "carrinho",
   "checkout",
@@ -88,9 +92,29 @@ describe("client/public/sitemap.xml", () => {
     const locs = extractLocs(sitemapXml);
 
     expect(locs).toContain(`${CANONICAL_ORIGIN}/`);
-    expect(locs).toContain(`${CANONICAL_ORIGIN}/login`);
-    expect(locs).toContain(`${CANONICAL_ORIGIN}/criar-conta`);
-    expect(locs).toContain(`${CANONICAL_ORIGIN}/recuperar-palavra-passe`);
+
+    for (const theme of [
+      "nova",
+      "market",
+      "essenza",
+      "caliza",
+      "urban",
+      "prime",
+      "luxe",
+      "chazuca",
+    ]) {
+      expect(locs).toContain(`${CANONICAL_ORIGIN}/themes/${theme}`);
+    }
+  });
+
+  it("exclui as páginas de autenticação", () => {
+    const locs = extractLocs(sitemapXml);
+
+    expect(locs).not.toContain(`${CANONICAL_ORIGIN}/login`);
+    expect(locs).not.toContain(`${CANONICAL_ORIGIN}/criar-conta`);
+    expect(locs).not.toContain(
+      `${CANONICAL_ORIGIN}/recuperar-palavra-passe`
+    );
   });
 });
 
