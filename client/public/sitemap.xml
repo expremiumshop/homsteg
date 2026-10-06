@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sitemap HOMSTEG (estático, servido por /sitemap.xml).
+
+  Regras:
+  - Apenas URLs PÚBLICAS e estáticas, sempre no domínio canónico
+    https://www.homsteg.com (o apex 308-redireciona para o www).
+  - Excluídos: /app (dashboard privado), /admin, /login/social/callback,
+    passos de onboarding (/criar-loja/*), transações (carrinho, checkout,
+    conta, mensagens, produto) e URLs dinâmicas (/store/:slug) — estas
+    últimas só podem entrar num sitemap gerado a partir da base de dados.
+  - Ficheiro copiado de client/public → dist/public pelo build do Vite;
+    a Vercel serve a filesystem antes das rewrites, tal como /favicon.png.
+  - Validação automática: client/src/lib/sitemap.test.ts (pnpm test).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.homsteg.com/</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/login</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/criar-conta</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/recuperar-palavra-passe</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/nova</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/market</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/essenza</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/caliza</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/urban</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/prime</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/luxe</loc>
+  </url>
+  <url>
+    <loc>https://www.homsteg.com/themes/chazuca</loc>
+  </url>
+</urlset>

@@ -1,0 +1,8 @@
+# HOMSTEG — robots.txt (servido em https://www.homsteg.com/robots.txt)
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /admin
+Disallow: /login/social/callback
+
+Sitemap: https://www.homsteg.com/sitemap.xml
