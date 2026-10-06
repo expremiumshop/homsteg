@@ -40,7 +40,7 @@ export default function PlanUsageCard({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#16221a] via-[#111713] to-[#0b100c] p-5 text-white shadow-xl sm:p-6">
+    <section className="rounded-xl border border-[#34483d] bg-[#283b31] p-5 text-white sm:p-6">
       {/* Brilho de fundo (vermelho = herói) */}
       <div
         aria-hidden
@@ -61,11 +61,11 @@ export default function PlanUsageCard({
       </header>
 
       <p className="relative mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-4xl font-black leading-none tracking-tight text-red-400 drop-shadow-[0_0_24px_rgba(248,113,113,0.35)] sm:text-5xl">
+        <span className="text-4xl font-semibold leading-none tracking-tight text-white sm:text-5xl">
           {formatCreditAmount(creditMzn)}
         </span>
 
-        <span className="text-sm font-bold uppercase tracking-[0.16em] text-red-200/80">
+        <span className="text-sm font-medium uppercase tracking-[0.12em] text-white/70">
           créditos
         </span>
       </p>

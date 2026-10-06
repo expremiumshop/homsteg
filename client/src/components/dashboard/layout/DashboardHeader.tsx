@@ -5,6 +5,7 @@ import {
   Store,
 } from "lucide-react";
 import { Link } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 import { trpc } from "@/lib/trpc";
 import { getPublicStoreUrl } from "@/lib/store-url";
 import { useStorePlan } from "@/components/dashboard/plan/useStorePlan";
@@ -46,7 +47,7 @@ export default function DashboardHeader({
         : "Boa noite";
 
   return (
-    <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="dashboard-header sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
@@ -76,8 +77,9 @@ export default function DashboardHeader({
           )}
         </div>
 
-        <div className="sm:hidden">
-          <p className="text-sm font-bold text-slate-950">
+        <div className="flex min-w-0 items-center gap-2 sm:hidden">
+          <HomstegLogo size={30} iconOnly />
+          <p className="truncate text-sm font-bold text-slate-950">
             {title}
           </p>
         </div>

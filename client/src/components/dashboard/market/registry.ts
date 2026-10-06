@@ -115,8 +115,14 @@ export type MarketVariantProps = {
  * type-checked (sem casts).
  */
 export type MarketDemoProduct = {
+  slug?: string;
   name: string;
+  description?: string;
   price: number;
+  compareAtPrice?: number | null;
+  featured?: boolean;
+  storeName?: string;
+  image?: string | null;
   imageUrl?: string | null;
   category?: string | null;
 };

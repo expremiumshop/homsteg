@@ -61,7 +61,7 @@ import { findMarketCatalogEntry } from "../shared/market-catalog.js";
 
 import { fromNodeHeaders } from "better-auth/node";
 
-import { auth, getBetterAuthUserById } from "./auth.js";
+import { auth, activeSocialProviders, getBetterAuthUserById } from "./auth.js";
 
 import { createStoreDownloadUrl, createStoreUploadUrl } from "./r2.js";
 
@@ -262,6 +262,17 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query(({ ctx }) => ctx.user),
+
+    /*
+     * Providers sociais ativos (Google/Apple), derivados das
+     * variáveis de ambiente no arranque. O frontend usa esta
+     * lista para mostrar/esconder os botões "Continuar com
+     * Google" e "Continuar com Apple". Leitura apenas —
+     * não expõe credenciais, só disponibilidade.
+     */
+    socialProviders: publicProcedure.query(
+      () => activeSocialProviders,
+    ),
 
     /*
      * Repõe a credencial de palavra-passe da sessão atual

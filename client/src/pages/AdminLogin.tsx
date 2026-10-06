@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useLocation } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
@@ -139,19 +140,10 @@ export default function AdminLogin() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f7f6ef] px-4 py-10 text-[#173b2a]">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#173b2a] shadow-sm">
-            <Store className="h-5 w-5 text-lime-300" />
-          </div>
-
-          <div className="text-left">
-            <div className="text-xl font-bold tracking-tight">
-              HOMSTEG.
-            </div>
-
-            <div className="text-xs font-medium uppercase tracking-[0.16em] text-[#6b756e]">
-              Platform admin
-            </div>
+        <div className="mb-6 flex flex-col items-center gap-2">
+          <HomstegLogo size={48} />
+          <div className="text-xs font-medium uppercase tracking-[0.16em] text-[#6b756e]">
+            Platform admin
           </div>
         </div>
 

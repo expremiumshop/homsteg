@@ -7,12 +7,15 @@ import {
   EyeOff,
   Lock,
   Mail,
-  Store,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
 import { useLocation } from "wouter";
+
+import { SocialAuthButtons } from "@/components/SocialAuthButtons";
+
+import HomstegLogo from "@/components/HomstegLogo";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -29,8 +32,14 @@ type CreateAccountStep = "credentials" | "otp";
 const OTP_COOLDOWN_SECONDS = 60;
 
 function isOtpError(
-  error: { code?: string; message?: string } | null | undefined,
-  token: "OTP_EXPIRED" | "INVALID_OTP" | "TOO_MANY_ATTEMPTS"
+  error:
+    | { code?: string; message?: string }
+    | null
+    | undefined,
+  token:
+    | "OTP_EXPIRED"
+    | "INVALID_OTP"
+    | "TOO_MANY_ATTEMPTS",
 ) {
   if (!error) {
     return false;
@@ -44,7 +53,10 @@ function isOtpError(
 }
 
 function getOtpErrorMessage(
-  error: { code?: string; message?: string } | null | undefined
+  error:
+    | { code?: string; message?: string }
+    | null
+    | undefined,
 ) {
   if (isOtpError(error, "OTP_EXPIRED")) {
     return "O código expirou. Solicita um novo código.";
@@ -59,48 +71,64 @@ function getOtpErrorMessage(
   }
 
   return (
-    error?.message || "Não foi possível validar o código. Tenta novamente."
+    error?.message ||
+    "Não foi possível validar o código. Tenta novamente."
   );
 }
 
 export default function CreateAccount() {
   const [, setLocation] = useLocation();
 
-  const [step, setStep] = useState<CreateAccountStep>("credentials");
+  const [step, setStep] =
+    useState<CreateAccountStep>("credentials");
 
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] =
+    useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
   const [otpEmail, setOtpEmail] = useState("");
+
   const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState<string | null>(null);
 
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpError, setOtpError] =
+    useState<string | null>(null);
 
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] =
+    useState(false);
+
+  const [isVerifyingOtp, setIsVerifyingOtp] =
+    useState(false);
 
   const [resendIn, setResendIn] = useState(0);
 
   /*
    * Verdadeiro quando o email submetido já tinha conta
    * (ex.: tentativa anterior sem concluir a verificação).
+   *
    * O fluxo passa a enviar o código na mesma, em vez de
    * bloquear com "email já registado".
    */
-  const [accountExisted, setAccountExisted] = useState(false);
+  const [accountExisted, setAccountExisted] =
+    useState(false);
 
   const isSubmittingRef = useRef(false);
 
-  const restorePasswordMutation = trpc.auth.restorePassword.useMutation();
+  const restorePasswordMutation =
+    trpc.auth.restorePassword.useMutation();
 
   useEffect(() => {
     if (resendIn <= 0) {
@@ -108,14 +136,20 @@ export default function CreateAccount() {
     }
 
     const timer = window.setTimeout(() => {
-      setResendIn(current => current - 1);
+      setResendIn(
+        (current) => current - 1,
+      );
     }, 1000);
 
     return () => window.clearTimeout(timer);
   }, [resendIn]);
 
   function getErrorMessage(error: unknown): string {
-    if (error && typeof error === "object" && "error" in error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "error" in error
+    ) {
       const responseError = (
         error as {
           error?: {
@@ -135,9 +169,12 @@ export default function CreateAccount() {
       error &&
       typeof error === "object" &&
       "message" in error &&
-      typeof (error as { message?: unknown }).message === "string"
+      typeof (error as { message?: unknown }).message ===
+        "string"
     ) {
-      return (error as { message: string }).message;
+      return (
+        error as { message: string }
+      ).message;
     }
 
     return "Ocorreu um erro. Tenta novamente.";
@@ -147,20 +184,26 @@ export default function CreateAccount() {
     setIsSendingOtp(true);
 
     try {
-      const result = await authClient.emailOtp.sendVerificationOtp({
-        email: targetEmail,
-        type: "email-verification",
-      });
+      const result =
+        await authClient.emailOtp.sendVerificationOtp({
+          email: targetEmail,
+          type: "email-verification",
+        });
 
       if (result.error) {
-        console.error("[CreateAccount] Erro ao enviar OTP:", result.error);
+        console.error(
+          "[CreateAccount] Erro ao enviar OTP:",
+          result.error,
+        );
 
         if (result.error.status === 429) {
-          toast.error("Aguarda um momento antes de pedir outro código.");
+          toast.error(
+            "Aguarda um momento antes de pedir outro código.",
+          );
         } else {
           toast.error(
             result.error.message ||
-              "Não foi possível enviar o código. Tenta novamente."
+              "Não foi possível enviar o código. Tenta novamente.",
           );
         }
 
@@ -173,11 +216,16 @@ export default function CreateAccount() {
       setResendIn(OTP_COOLDOWN_SECONDS);
       setStep("otp");
 
-      toast.success("Enviamos um código para o teu email.");
+      toast.success(
+        "Enviamos um código para o teu email.",
+      );
 
       return true;
     } catch (error: unknown) {
-      console.error("[CreateAccount] Erro inesperado ao enviar OTP:", error);
+      console.error(
+        "[CreateAccount] Erro inesperado ao enviar OTP:",
+        error,
+      );
 
       toast.error(getErrorMessage(error));
 
@@ -193,7 +241,9 @@ export default function CreateAccount() {
     }
 
     if (otp.length !== 6) {
-      setOtpError("Introduz o código de 6 dígitos.");
+      setOtpError(
+        "Introduz o código de 6 dígitos.",
+      );
       return;
     }
 
@@ -201,26 +251,38 @@ export default function CreateAccount() {
     setOtpError(null);
 
     try {
-      const result = await authClient.emailOtp.verifyEmail({
-        email: otpEmail,
-        otp,
-      });
+      const result =
+        await authClient.emailOtp.verifyEmail({
+          email: otpEmail,
+          otp,
+        });
 
       if (result.error) {
-        console.error("[CreateAccount] Erro ao verificar OTP:", result.error);
+        console.error(
+          "[CreateAccount] Erro ao verificar OTP:",
+          result.error,
+        );
 
-        setOtpError(getOtpErrorMessage(result.error));
+        setOtpError(
+          getOtpErrorMessage(result.error),
+        );
 
         setOtp("");
 
         return;
       }
 
-      sessionStorage.removeItem("homsteg_business_types");
+      sessionStorage.removeItem(
+        "homsteg_business_types",
+      );
 
-      sessionStorage.removeItem("homsteg_store_data");
+      sessionStorage.removeItem(
+        "homsteg_store_data",
+      );
 
-      toast.success("Email verificado com sucesso!");
+      toast.success(
+        "Email verificado com sucesso!",
+      );
 
       /*
        * A verificação por OTP (Better Auth 1.7,
@@ -231,40 +293,55 @@ export default function CreateAccount() {
        * a funcionar.
        */
       try {
-        const restore = await restorePasswordMutation.mutateAsync({
-          newPassword: password,
-        });
+        const restore =
+          await restorePasswordMutation.mutateAsync({
+            newPassword: password,
+          });
 
         if (restore.alreadyHadPassword) {
           toast.info(
-            "Este email já tinha palavra-passe. Usa a tua palavra-passe habitual para entrar."
+            "Este email já tinha palavra-passe. Usa a tua palavra-passe habitual para entrar.",
           );
         }
       } catch {
         toast.error(
-          "A conta foi verificada, mas não foi possível repor a palavra-passe. Usa “Recuperar conta” para definir uma nova."
+          "A conta foi verificada, mas não foi possível repor a palavra-passe. Usa “Recuperar conta” para definir uma nova.",
         );
       }
 
-      window.location.assign("/criar-loja/negocio");
+      window.location.assign(
+        "/criar-loja/negocio",
+      );
     } catch (error: unknown) {
-      console.error("[CreateAccount] Erro inesperado ao verificar OTP:", error);
+      console.error(
+        "[CreateAccount] Erro inesperado ao verificar OTP:",
+        error,
+      );
 
-      setOtpError(getErrorMessage(error));
+      setOtpError(
+        getErrorMessage(error),
+      );
+
       setOtp("");
     } finally {
       setIsVerifyingOtp(false);
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    if (isSubmittingRef.current || isLoading) {
+    if (
+      isSubmittingRef.current ||
+      isLoading
+    ) {
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail =
+      email.trim().toLowerCase();
 
     if (!cleanEmail) {
       toast.error("Introduz o teu email.");
@@ -272,22 +349,30 @@ export default function CreateAccount() {
     }
 
     if (!password) {
-      toast.error("Introduz uma palavra-passe.");
+      toast.error(
+        "Introduz uma palavra-passe.",
+      );
       return;
     }
 
     if (password.length < 8) {
-      toast.error("A palavra-passe deve ter pelo menos 8 caracteres.");
+      toast.error(
+        "A palavra-passe deve ter pelo menos 8 caracteres.",
+      );
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("As palavras-passe não coincidem.");
+      toast.error(
+        "As palavras-passe não coincidem.",
+      );
       return;
     }
 
     if (!acceptedTerms) {
-      toast.error("Aceita os termos e condições para continuar.");
+      toast.error(
+        "Aceita os termos e condições para continuar.",
+      );
       return;
     }
 
@@ -295,208 +380,283 @@ export default function CreateAccount() {
     setIsLoading(true);
 
     try {
-      const generatedName = cleanEmail.split("@")[0] || "Utilizador";
+      const generatedName =
+        cleanEmail.split("@")[0] ||
+        "Utilizador";
 
-      const result = await authClient.signUp.email({
-        email: cleanEmail,
-        password,
-        name: generatedName,
-      });
+      const result =
+        await authClient.signUp.email({
+          email: cleanEmail,
+          password,
+          name: generatedName,
+        });
 
       if (result.error) {
-        console.error("[CreateAccount] Better Auth error:", result.error);
+        console.error(
+          "[CreateAccount] Better Auth error:",
+          result.error,
+        );
 
-        const errorCode = result.error.code ?? "";
+        const errorCode =
+          result.error.code ?? "";
 
-        const errorMessage = result.error.message ?? "";
+        const errorMessage =
+          result.error.message ?? "";
 
         const isUserAlreadyExists =
-          errorCode.includes("USER_ALREADY_EXISTS") ||
-          errorMessage.toLowerCase().includes("already exists");
+          errorCode.includes(
+            "USER_ALREADY_EXISTS",
+          ) ||
+          errorMessage
+            .toLowerCase()
+            .includes("already exists");
 
         if (isUserAlreadyExists) {
           /*
            * O email já tem conta (ex.: tentativa
            * anterior sem concluir a verificação).
+           *
            * Em vez de bloquear, envia o código de
            * verificação — quem controla a caixa de
            * email consegue confirmar e continuar.
            */
           setAccountExisted(true);
 
-          const sent = await sendOtp(cleanEmail);
+          const sent =
+            await sendOtp(cleanEmail);
 
           if (!sent) {
             toast.error(
-              "Este email já está registado. Entra na tua conta ou tenta pedir o código novamente."
+              "Este email já está registado. Entra na tua conta ou tenta pedir o código novamente.",
             );
           }
 
           return;
         }
 
-        toast.error(result.error.message || "Não foi possível criar a conta.");
+        toast.error(
+          result.error.message ||
+            "Não foi possível criar a conta.",
+        );
 
         return;
       }
 
       setAccountExisted(false);
 
-      const sent = await sendOtp(cleanEmail);
+      const sent =
+        await sendOtp(cleanEmail);
 
       if (!sent) {
         toast.error(
-          "A conta foi criada, mas não foi possível enviar o código. Tenta novamente."
+          "A conta foi criada, mas não foi possível enviar o código. Tenta novamente.",
         );
       }
     } catch (error: unknown) {
-      console.error("[CreateAccount] Unexpected error:", error);
+      console.error(
+        "[CreateAccount] Unexpected error:",
+        error,
+      );
 
-      toast.error(getErrorMessage(error));
+      toast.error(
+        getErrorMessage(error),
+      );
     } finally {
       setIsLoading(false);
       isSubmittingRef.current = false;
     }
   }
 
+  /*
+   * =====================================================
+   * OTP
+   * =====================================================
+   */
+
   if (step === "otp") {
     return (
       <div className="min-h-screen bg-white text-black">
-        <div className="mx-auto flex min-h-screen w-full max-w-7xl">
-          <div className="hidden flex-1 items-center justify-center px-12 lg:flex">
-            <div className="max-w-lg">
-              <div className="mb-8 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white">
-                  <Store className="h-6 w-6" />
-                </div>
+        <div className="relative mx-auto flex min-h-screen w-full max-w-7xl overflow-hidden">
+          {/* Decoração */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/4 top-[-180px] h-[420px] w-[420px] rounded-full bg-slate-100/80 blur-3xl"
+          />
 
-                <span className="text-2xl font-bold tracking-tight text-black">
-                  HOMSTEG
-                </span>
+          {/* Painel esquerdo */}
+          <div className="relative hidden flex-1 items-center px-12 lg:flex xl:px-20">
+            <div className="relative z-10 max-w-lg">
+              <div className="mb-10">
+                <HomstegLogo size={58} />
               </div>
 
-              <h2 className="text-5xl font-bold leading-tight tracking-tight text-black">
-                Confirma o teu
+              <div className="mb-5 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm">
+                Verificação segura
+              </div>
+
+              <h2 className="text-5xl font-black leading-[1.02] tracking-[-0.05em] text-black xl:text-6xl">
+                Confirma
                 <br />
-                email.
+                o teu email.
               </h2>
 
-              <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
-                Enviámos um código de 6 dígitos para o teu email. Introduz o
-                código para continuar.
+              <p className="mt-7 max-w-md text-[17px] leading-8 text-slate-500">
+                Enviámos um código de 6 dígitos
+                para o teu email. Introduz o código
+                para continuar a criar a tua loja.
               </p>
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-center px-6 py-10 lg:w-[520px]">
+          {/* Formulário */}
+          <div className="relative z-10 flex w-full items-center justify-center px-5 py-8 sm:px-8 lg:w-[540px]">
             <div className="w-full max-w-md">
+              {/* Logo mobile */}
               <div className="mb-8 lg:hidden">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-                    <Store className="h-5 w-5" />
+                <HomstegLogo size={48} />
+              </div>
+
+              <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+                <div className="h-1.5 w-full bg-black" />
+
+                <div className="p-6 sm:p-8">
+                  <div className="mb-8">
+                    <h1 className="text-3xl font-black tracking-[-0.04em] text-black">
+                      Verifica o teu email
+                    </h1>
+
+                    <p className="mt-3 text-sm leading-6 text-slate-500">
+                      Enviámos um código para{" "}
+                      <span className="font-bold text-black">
+                        {otpEmail}
+                      </span>
+                      .
+                    </p>
+
+                    {accountExisted && (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm leading-6 text-slate-600">
+                          Este email já tem uma
+                          conta HOMSTEG. Confirma o
+                          código para continuar.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <span className="text-xl font-bold tracking-tight text-black">
-                    HOMSTEG
-                  </span>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="mb-3 block text-[13px] font-bold text-slate-900">
+                        Código de verificação
+                      </label>
+
+                      <InputOTP
+                        maxLength={6}
+                        value={otp}
+                        onChange={(value) => {
+                          setOtp(value);
+                          setOtpError(null);
+                        }}
+                        disabled={
+                          isVerifyingOtp ||
+                          isSendingOtp
+                        }
+                        containerClassName="justify-center"
+                        aria-invalid={Boolean(
+                          otpError,
+                        )}
+                      >
+                        <InputOTPGroup className="gap-2">
+                          {Array.from({
+                            length: 6,
+                          }).map((_, index) => (
+                            <InputOTPSlot
+                              key={index}
+                              index={index}
+                              className="h-14 w-11 rounded-2xl border-slate-200 bg-slate-50 text-lg font-bold text-black transition-all data-[active=true]:border-black data-[active=true]:bg-white data-[active=true]:ring-4 data-[active=true]:ring-black/[0.04] aria-invalid:border-red-400/60 sm:h-15 sm:w-12"
+                            />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+
+                      {otpError && (
+                        <p className="mt-3 text-center text-sm font-medium text-red-500">
+                          {otpError}
+                        </p>
+                      )}
+
+                      <p className="mt-4 text-center text-xs leading-5 text-slate-400">
+                        Não recebeste? Verifica a
+                        caixa de spam ou as promoções.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={
+                        isVerifyingOtp ||
+                        isSendingOtp ||
+                        otp.length !== 6
+                      }
+                      className="group flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 text-sm font-bold text-white shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isVerifyingOtp
+                        ? "A verificar..."
+                        : "Confirmar código"}
+
+                      {!isVerifyingOtp && (
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      )}
+                    </button>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep("credentials");
+                          setOtp("");
+                          setOtpError(null);
+                        }}
+                        className="flex items-center gap-1.5 font-medium text-slate-500 transition hover:text-black"
+                        disabled={
+                          isVerifyingOtp ||
+                          isSendingOtp
+                        }
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Voltar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          sendOtp(otpEmail)
+                        }
+                        disabled={
+                          isVerifyingOtp ||
+                          isSendingOtp ||
+                          resendIn > 0
+                        }
+                        className="font-bold text-black transition hover:text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
+                      >
+                        {resendIn > 0
+                          ? `Reenviar código (${resendIn}s)`
+                          : "Reenviar código"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-black">
-                  Verifica o teu email
-                </h1>
-
-                <p className="mt-2 text-sm text-slate-500">
-                  Enviámos um código para{" "}
-                  <span className="font-medium text-black">{otpEmail}</span>.
-                </p>
-
-                {accountExisted && (
-                  <p className="mt-2 text-sm text-slate-500">
-                    Este email já tem uma conta HOMSTEG. Confirma o código para
-                    continuar.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-5">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-900">
-                    Código de verificação
-                  </label>
-
-                  <InputOTP
-                    maxLength={6}
-                    value={otp}
-                    onChange={value => {
-                      setOtp(value);
-                      setOtpError(null);
-                    }}
-                    disabled={isVerifyingOtp || isSendingOtp}
-                    containerClassName="justify-center"
-                    aria-invalid={Boolean(otpError)}
-                  >
-                    <InputOTPGroup className="gap-2">
-                      {Array.from({ length: 6 }).map((_, index) => (
-                        <InputOTPSlot
-                          key={index}
-                          index={index}
-                          className="h-13 w-11 rounded-xl border-slate-200 bg-slate-50 text-lg font-semibold text-black data-[active=true]:border-black data-[active=true]:ring-black/10 aria-invalid:border-red-400/60"
-                        />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
-
-                  {otpError && (
-                    <p className="mt-3 text-center text-sm text-red-500">
-                      {otpError}
-                    </p>
-                  )}
-
-                  <p className="mt-3 text-center text-xs text-slate-400">
-                    Não recebeste? Verifica a caixa de spam ou as promoções.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  disabled={isVerifyingOtp || isSendingOtp || otp.length !== 6}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isVerifyingOtp ? "A verificar..." : "Confirmar código"}
-
-                  {!isVerifyingOtp && <ArrowRight className="h-5 w-5" />}
-                </button>
-
-                <div className="flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("credentials");
-                      setOtp("");
-                      setOtpError(null);
-                    }}
-                    className="flex items-center gap-1.5 text-slate-500 transition hover:text-black"
-                    disabled={isVerifyingOtp || isSendingOtp}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => sendOtp(otpEmail)}
-                    disabled={isVerifyingOtp || isSendingOtp || resendIn > 0}
-                    className="font-medium text-black transition hover:text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
-                  >
-                    {resendIn > 0
-                      ? `Reenviar código (${resendIn}s)`
-                      : "Reenviar código"}
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setLocation("/")}
+                className="mx-auto mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition hover:text-black"
+              >
+                <span>←</span>
+                <span>Voltar para a HOMSTEG</span>
+              </button>
             </div>
           </div>
         </div>
@@ -504,199 +664,295 @@ export default function CreateAccount() {
     );
   }
 
+  /*
+   * =====================================================
+   * CRIAR CONTA
+   * =====================================================
+   */
+
   return (
     <div className="min-h-screen bg-white text-black">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl">
-        <div className="hidden flex-1 items-center justify-center px-12 lg:flex">
-          <div className="max-w-lg">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white">
-                <Store className="h-6 w-6" />
-              </div>
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl overflow-hidden">
+        {/* Decoração discreta */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/4 top-[-180px] h-[420px] w-[420px] rounded-full bg-slate-100/80 blur-3xl"
+        />
 
-              <span className="text-2xl font-bold tracking-tight text-black">
-                HOMSTEG
-              </span>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-[-220px] right-[-100px] h-[360px] w-[360px] rounded-full bg-slate-100/60 blur-3xl"
+        />
+
+        {/* Painel esquerdo */}
+        <div className="relative hidden flex-1 items-center px-12 lg:flex xl:px-20">
+          <div className="relative z-10 max-w-lg">
+            <div className="mb-10">
+              <HomstegLogo size={58} />
             </div>
 
-            <h2 className="text-5xl font-bold leading-tight tracking-tight text-black">
-              Cria a tua loja
+            <div className="mb-5 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm">
+              Começa gratuitamente
+            </div>
+
+            <h2 className="text-5xl font-black leading-[1.02] tracking-[-0.05em] text-black xl:text-6xl">
+              Cria a tua
               <br />
-              online hoje.
+              loja online.
             </h2>
 
-            <p className="mt-6 max-w-md text-lg leading-8 text-slate-500">
-              Cria a tua conta e começa a configurar a tua loja no HOMSTEG.
+            <p className="mt-7 max-w-md text-[17px] leading-8 text-slate-500">
+              Cria a tua conta e começa a
+              configurar a tua loja no HOMSTEG.
+              Sem mensalidade e sem complicação.
             </p>
+
+            <div className="mt-10 flex flex-wrap gap-3">
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 shadow-sm">
+                100% grátis
+              </div>
+
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 shadow-sm">
+                Sem mensalidade
+              </div>
+
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 shadow-sm">
+                Sem cartão
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex w-full items-center justify-center px-6 py-10 lg:w-[520px]">
+        {/* Área do formulário */}
+        <div className="relative z-10 flex w-full items-center justify-center px-5 py-8 sm:px-8 lg:w-[540px]">
           <div className="w-full max-w-md">
+            {/* Logo mobile */}
             <div className="mb-8 lg:hidden">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-                  <Store className="h-5 w-5" />
-                </div>
-
-                <span className="text-xl font-bold tracking-tight text-black">
-                  HOMSTEG
-                </span>
-              </div>
+              <HomstegLogo size={48} />
             </div>
 
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold tracking-tight text-black">
-                Cria a tua conta
-              </h1>
+            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+              <div className="h-1.5 w-full bg-black" />
 
-              <p className="mt-2 text-sm text-slate-500">
-                Cria a tua conta com email e palavra-passe.
-              </p>
-            </div>
+              <div className="p-6 sm:p-8">
+                <div className="mb-8">
+                  <h1 className="text-3xl font-black tracking-[-0.04em] text-black">
+                    Cria a tua conta
+                  </h1>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-900">
-                  Email
-                </label>
-
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={event => setEmail(event.target.value)}
-                    placeholder="teu@email.com"
-                    required
-                    disabled={isLoading}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-900">
-                  Palavra-passe
-                </label>
-
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={event => setPassword(event.target.value)}
-                    placeholder="Mínimo de 8 caracteres"
-                    required
-                    disabled={isLoading}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-12 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(current => !current)}
-                    disabled={isLoading}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
-                    aria-label={
-                      showPassword
-                        ? "Ocultar palavra-passe"
-                        : "Mostrar palavra-passe"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">
+                    Cria a tua conta com email e
+                    palavra-passe.
+                  </p>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-400">
-                  A palavra-passe deve ter pelo menos 8 caracteres.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-900">
-                  Confirmar palavra-passe
-                </label>
-
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={event => setConfirmPassword(event.target.value)}
-                    placeholder="Repete a palavra-passe"
-                    required
-                    disabled={isLoading}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-12 text-black outline-none transition placeholder:text-slate-400 focus:border-black focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(current => !current)}
-                    disabled={isLoading}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-black disabled:cursor-not-allowed"
-                    aria-label={
-                      showConfirmPassword
-                        ? "Ocultar confirmação"
-                        : "Mostrar confirmação"
-                    }
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={event => setAcceptedTerms(event.target.checked)}
-                  disabled={isLoading}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 bg-white accent-black"
-                />
-
-                <span className="text-sm leading-6 text-slate-500">
-                  Aceito os termos e condições e a política de privacidade do
-                  HOMSTEG.
-                </span>
-              </label>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isLoading ? "A criar conta..." : "Criar conta"}
-
-                {!isLoading && <ArrowRight className="h-5 w-5" />}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-slate-500">
-                Já tens uma conta?{" "}
-                <button
-                  type="button"
-                  onClick={() => setLocation("/login")}
-                  className="font-medium text-black transition hover:text-slate-600"
+                <form
+                  onSubmit={handleSubmit}
+                  className="space-y-5"
                 >
-                  Entrar
-                </button>
-              </p>
+                  {/* Email */}
+                  <div>
+                    <label className="mb-2.5 block text-[13px] font-bold text-slate-900">
+                      Email
+                    </label>
+
+                    <div className="group relative">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-black" />
+
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) =>
+                          setEmail(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="teu@email.com"
+                        required
+                        disabled={isLoading}
+                        className="h-[54px] w-full rounded-2xl border border-slate-200 bg-slate-50/80 pl-12 pr-4 text-[14px] text-black outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-black focus:bg-white focus:ring-4 focus:ring-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="mb-2.5 block text-[13px] font-bold text-slate-900">
+                      Palavra-passe
+                    </label>
+
+                    <div className="group relative">
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-black" />
+
+                      <input
+                        type={
+                          showPassword
+                            ? "text"
+                            : "password"
+                        }
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={(event) =>
+                          setPassword(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Mínimo de 8 caracteres"
+                        required
+                        disabled={isLoading}
+                        className="h-[54px] w-full rounded-2xl border border-slate-200 bg-slate-50/80 pl-12 pr-14 text-[14px] text-black outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-black focus:bg-white focus:ring-4 focus:ring-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowPassword(
+                            (current) => !current,
+                          )
+                        }
+                        disabled={isLoading}
+                        className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-black disabled:cursor-not-allowed"
+                        aria-label={
+                          showPassword
+                            ? "Ocultar palavra-passe"
+                            : "Mostrar palavra-passe"
+                        }
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-[18px] w-[18px]" />
+                        ) : (
+                          <Eye className="h-[18px] w-[18px]" />
+                        )}
+                      </button>
+                    </div>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      A palavra-passe deve ter pelo
+                      menos 8 caracteres.
+                    </p>
+                  </div>
+
+                  {/* Confirmar password */}
+                  <div>
+                    <label className="mb-2.5 block text-[13px] font-bold text-slate-900">
+                      Confirmar palavra-passe
+                    </label>
+
+                    <div className="group relative">
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-black" />
+
+                      <input
+                        type={
+                          showConfirmPassword
+                            ? "text"
+                            : "password"
+                        }
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(event) =>
+                          setConfirmPassword(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Repete a palavra-passe"
+                        required
+                        disabled={isLoading}
+                        className="h-[54px] w-full rounded-2xl border border-slate-200 bg-slate-50/80 pl-12 pr-14 text-[14px] text-black outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-black focus:bg-white focus:ring-4 focus:ring-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowConfirmPassword(
+                            (current) => !current,
+                          )
+                        }
+                        disabled={isLoading}
+                        className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-black disabled:cursor-not-allowed"
+                        aria-label={
+                          showConfirmPassword
+                            ? "Ocultar confirmação"
+                            : "Mostrar confirmação"
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-[18px] w-[18px]" />
+                        ) : (
+                          <Eye className="h-[18px] w-[18px]" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Termos */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-transparent p-1">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(event) =>
+                        setAcceptedTerms(
+                          event.target.checked,
+                        )
+                      }
+                      disabled={isLoading}
+                      className="mt-1 h-4 w-4 rounded border-slate-300 bg-white accent-black"
+                    />
+
+                    <span className="text-[13px] leading-6 text-slate-500">
+                      Aceito os termos e condições e
+                      a política de privacidade do
+                      HOMSTEG.
+                    </span>
+                  </label>
+
+                  {/* Criar conta */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="group flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 text-[14px] font-bold text-white shadow-lg shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl hover:shadow-black/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoading
+                      ? "A criar conta..."
+                      : "Criar conta"}
+
+                    {!isLoading && (
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    )}
+                  </button>
+                </form>
+
+                {/* Login social */}
+                <div className="mt-6">
+                  <SocialAuthButtons />
+                </div>
+
+                {/* Login */}
+                <div className="mt-7 border-t border-slate-100 pt-6 text-center">
+                  <p className="text-[13px] text-slate-500">
+                    Já tens uma conta?{" "}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLocation("/login")
+                      }
+                      className="font-bold text-black transition hover:text-slate-600"
+                    >
+                      Entrar
+                    </button>
+                  </p>
+                </div>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setLocation("/")}
+              className="mx-auto mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition hover:text-black"
+            >
+              <span>←</span>
+              <span>Voltar para a HOMSTEG</span>
+            </button>
           </div>
         </div>
       </div>

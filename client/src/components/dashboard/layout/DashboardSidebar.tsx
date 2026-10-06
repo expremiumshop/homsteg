@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 
 import {
   formatStoreCredit,
@@ -32,16 +33,8 @@ export default function DashboardSidebar({
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[238px] flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-[68px] items-center border-b border-gray-100 px-5">
-        <Link href="/app" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111713] text-lg font-black text-white">
-            H
-          </div>
-
-          <span className="text-lg font-black tracking-tight text-[#111713]">
-            HOMSTEG
-          </span>
-
-          <span className="h-2 w-2 rounded-full bg-lime-400" />
+        <Link href="/app" aria-label="HOMSTEG — painel" className="flex min-w-0 items-center">
+          <HomstegLogo size={38} className="max-w-full" />
         </Link>
       </div>
 
@@ -63,7 +56,7 @@ export default function DashboardSidebar({
                 className={[
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   active
-                    ? "bg-lime-100 text-[#111713]"
+                    ? "bg-[#e8eee9] text-[#283b31]"
                     : "text-gray-600 hover:bg-gray-100 hover:text-[#111713]",
                 ].join(" ")}
               >

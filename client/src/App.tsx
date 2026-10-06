@@ -32,6 +32,9 @@ const CreateStoreBusiness = lazy(() => import("./pages/CreateStoreBusiness"));
 const CreateStoreData = lazy(() => import("./pages/CreateStoreData"));
 const CreateStoreReview = lazy(() => import("./pages/CreateStoreReview"));
 const Login = lazy(() => import("./pages/Login"));
+const SocialAuthCallback = lazy(
+  () => import("./pages/SocialAuthCallback"),
+);
 const RecoverPassword = lazy(() => import("./pages/RecoverPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -206,6 +209,11 @@ function Router() {
       />
 
       <Route path="/login" component={Login} />
+
+      <Route
+        path="/login/social/callback"
+        component={SocialAuthCallback}
+      />
 
       <Route
         path="/recuperar-palavra-passe"

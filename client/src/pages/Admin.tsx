@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import HomstegLogo from "@/components/HomstegLogo";
 import {
   ArrowUpRight,
   LogOut,
@@ -132,10 +133,10 @@ export default function Admin() {
         <div className="mb-9 flex items-center justify-between px-2">
           <a
             href="/"
-            className="font-display text-[18px] font-bold tracking-[-.07em]"
+            aria-label="HOMSTEG"
+            className="inline-flex"
           >
-            HOMSTEG
-            <span className="text-[#c8ff4a]">.</span>
+            <HomstegLogo size={40} className="text-white" />
           </a>
 
           <button

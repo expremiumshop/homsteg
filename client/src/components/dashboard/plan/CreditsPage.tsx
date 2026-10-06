@@ -181,7 +181,7 @@ export default function CreditsPage({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#16221a] via-[#111713] to-[#0b100c] p-5 text-white shadow-xl sm:p-6">
+    <section className="relative overflow-hidden rounded-xl border border-[#34483d] bg-[#283b31] p-5 text-white sm:p-6">
       {/* Brilhos de fundo (vermelho = herói, lima = ganhos) */}
       <div
         aria-hidden

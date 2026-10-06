@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useLocation } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 
 import {
   ArrowLeft,
@@ -231,15 +232,7 @@ export default function CreateStoreReview() {
             Voltar
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white">
-              <Store className="h-5 w-5" />
-            </div>
-
-            <span className="text-xl font-bold tracking-tight text-black">
-              HOMSTEG
-            </span>
-          </div>
+          <HomstegLogo size={42} />
         </div>
 
         <div className="mx-auto w-full max-w-3xl">

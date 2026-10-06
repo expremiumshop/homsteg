@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
+import HomstegLogo from "@/components/HomstegLogo";
 import DashboardHeader from "@/components/dashboard/layout/DashboardHeader";
 import DashboardSidebar from "@/components/dashboard/layout/DashboardSidebar";
 import PlanSidebarCard from "@/components/dashboard/plan/PlanSidebarCard";
@@ -286,17 +287,7 @@ export default function Dashboard() {
 
           <aside className="relative z-10 h-full w-[280px] bg-white shadow-2xl">
             <div className="flex h-16 items-center justify-between border-b px-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111713] text-lg font-black text-white">
-                  H
-                </div>
-
-                <span className="text-lg font-black tracking-tight">
-                  HOMSTEG
-                </span>
-
-                <span className="h-2 w-2 rounded-full bg-lime-400" />
-              </div>
+              <HomstegLogo size={38} />
 
               <button
                 type="button"

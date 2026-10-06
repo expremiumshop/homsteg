@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -86,42 +87,42 @@ const features: Feature[] = [
     title: "Painel completo",
     description:
       "Controla produtos, pedidos, clientes, stock, vendas e aparência da tua loja num único lugar.",
-    accent: "from-violet-500 to-indigo-500",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
     icon: <Palette className="h-6 w-6" />,
     title: "Temas profissionais",
     description:
       "Escolhe entre Nova, Luxe, Urban e Prime e adapta a experiência à identidade do teu negócio.",
-    accent: "from-cyan-400 to-blue-500",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
     icon: <Package className="h-6 w-6" />,
     title: "Produtos e stock",
     description:
       "Adiciona produtos, variantes, imagens, preços, stock e categorias sem complicações.",
-    accent: "from-fuchsia-500 to-purple-500",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
     icon: <BarChart3 className="h-6 w-6" />,
     title: "Analytics",
     description:
       "Acompanha vendas, pedidos e desempenho da tua loja através de informação clara.",
-    accent: "from-blue-500 to-cyan-400",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
     icon: <Users className="h-6 w-6" />,
     title: "Equipa",
     description:
       "Dá acesso à tua equipa e organiza permissões de acordo com cada função.",
-    accent: "from-violet-500 to-fuchsia-500",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
     icon: <Globe2 className="h-6 w-6" />,
     title: "A tua própria presença",
     description:
       "Publica a tua loja com um endereço profissional e prepara-a para crescer.",
-    accent: "from-cyan-400 to-violet-500",
+    accent: "bg-[#e8eee9] text-[#34483d]",
   },
 ];
 
@@ -138,11 +139,11 @@ function Button({
 }) {
   const styles = {
     primary:
-      "bg-violet-600 text-white shadow-[0_14px_40px_rgba(124,58,237,.28)] hover:bg-violet-500 hover:-translate-y-0.5",
+      "bg-[#34483d] text-white hover:bg-[#26382f]",
     secondary:
-      "bg-white text-slate-900 shadow-[0_12px_35px_rgba(15,23,42,.10)] hover:-translate-y-0.5",
+      "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50",
     dark:
-      "bg-slate-950 text-white shadow-[0_12px_35px_rgba(15,23,42,.18)] hover:bg-slate-800 hover:-translate-y-0.5",
+      "bg-[#283b31] text-white hover:bg-[#26382f]",
     ghost:
       "bg-white/10 text-white hover:bg-white/15 border border-white/10",
   };
@@ -151,31 +152,10 @@ function Button({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold transition-all duration-300 ${styles[variant]} ${className}`}
+      className={`group inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${styles[variant]} ${className}`}
     >
       {children}
     </button>
-  );
-}
-
-function Logo({ dark = false }: { dark?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div
-        className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-          dark ? "bg-white text-slate-950" : "bg-slate-950 text-white"
-        } shadow-lg`}
-      >
-        <Store className="h-5 w-5" strokeWidth={2.3} />
-      </div>
-      <span
-        className={`text-[18px] font-black tracking-[-0.04em] ${
-          dark ? "text-white" : "text-slate-950"
-        }`}
-      >
-        HOMSTEG
-      </span>
-    </div>
   );
 }
 
@@ -217,15 +197,17 @@ function ProductMini({
 }
 
 /*
- * SHOWCASE DE HERO — vitrine animada "loja premium".
+ * SHOWCASE DE HERO — vitrine editorial premium.
  *
- * Sequência em loop (CSS only, sem JS de timing):
- *   STORE → HOMSTEG (logotipo como sinal da loja, ao centro)
- *        → STORE ABRE (portas corredicas) → CONTEÚDO APARECE
- *        → STORE FECHA → PRÓXIMA CENA (novos produtos/título).
+ * Composição de revista: "folha" em papel osso sobre o
+ * vídeo escuro do hero, coluna de texto com serifada
+ * (Playfair Display), fotografia do produto a sangrar
+ * com zoom lento, filete de progresso e índice de
+ * cenas clicável. Sem portas, sem néon — apenas tinta,
+ * espaço em branco e movimento subtil.
  *
- * O HOMSTEG vive DENTRO da fachada (faixa central da loja),
- * como o letreiro real de uma loja — nunca flutuando acima.
+ * Roda em loop (CSS + um único interval) e pausa ao
+ * passar o rato por cima.
  */
 const showcaseScenes = [
   {
@@ -233,241 +215,213 @@ const showcaseScenes = [
     kicker: "NOVA COLEÇÃO",
     title: "Estilo que acompanha",
     title2: "o teu ritmo",
-    image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=700&q=80",
+    image:
+      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=700&q=80",
     product: "Sneaker Urban",
     price: "MT 2.490",
-    productImage: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80",
+    productImage:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
   },
   {
     id: "tech",
     kicker: "LANÇAMENTO",
     title: "Tecnologia que trabalha",
     title2: "por ti",
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=700&q=80",
+    image:
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=700&q=80",
     product: "Watch Classic",
     price: "MT 3.890",
-    productImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=500&q=80",
+    productImage:
+      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=85",
   },
   {
     id: "coffee",
     kicker: "CAFÉS ESPECIAIS",
     title: "Sabores feitos à mão",
     title2: "com identidade",
-    image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=700&q=80",
+    image:
+      "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=700&q=80",
     product: "Blend da Casa",
     price: "MT 1.250",
-    productImage: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=500&q=80",
+    productImage:
+      "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1000&q=85",
   },
 ] as const;
 
+const SHOWCASE_INTERVAL_MS = 8000;
+
 function HeroShowcase() {
   const [scene, setScene] = useState(0);
+  const [paused, setPaused] = useState(false);
 
-  /* Troca de cena a cada 4.8s — sincronizado com a duração das animações CSS. */
   useEffect(() => {
+    if (paused) return;
+
     const timer = window.setInterval(
-      () => setScene((current) => (current + 1) % showcaseScenes.length),
-      4800,
+      () =>
+        setScene(current => (current + 1) % showcaseScenes.length),
+      SHOWCASE_INTERVAL_MS,
     );
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [paused]);
 
   const active = showcaseScenes[scene];
+  const playState = paused ? "paused" : "running";
 
   return (
-    <div className="relative mx-auto w-full max-w-[720px]">
+    <div className="relative mx-auto w-full min-w-0 max-w-[720px]">
       <style>{`
-        @keyframes signCycle {
-          0% { opacity:0; transform:scale(.82); }
-          7% { opacity:1; transform:scale(1); }
-          86% { opacity:1; transform:scale(1); }
-          95%,100% { opacity:0; transform:scale(.92); }
-        }
-
-        @keyframes doorLeft {
-          0%,7% { transform:translateX(0); }
-          17%,78% { transform:translateX(-104%); }
-          88%,100% { transform:translateX(0); }
-        }
-
-        @keyframes doorRight {
-          0%,7% { transform:translateX(0); }
-          17%,78% { transform:translateX(104%); }
-          88%,100% { transform:translateX(0); }
-        }
-
-        @keyframes interiorGlow {
-          0%,7% { opacity:.25; }
-          17%,78% { opacity:1; }
-          88%,100% { opacity:.25; }
-        }
-
-        @keyframes contentIn {
-          0% { opacity:0; transform:translateY(18px); }
-          100% { opacity:1; transform:translateY(0); }
-        }
-
-        @keyframes productIn {
-          0% { opacity:0; transform:translateY(14px) scale(.94); }
-          100% { opacity:1; transform:translateY(0) scale(1); }
-        }
-
-        @keyframes neonPulse {
-          0%,100% { opacity:.35; }
-          50% { opacity:1; }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap');
+        .hs-serif { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; }
+        @keyframes hsKen { from { transform: scale(1.01); } to { transform: scale(1.09); } }
+        @keyframes hsRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes hsProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        .hs-ken { animation: hsKen 9s ease-out both; }
+        .hs-rise { animation: hsRise .85s cubic-bezier(.22,1,.36,1) both; }
+        .hs-progress { transform-origin: left center; animation: hsProgress 8s linear both; }
+        @media (prefers-reduced-motion: reduce) {
+          .hs-ken, .hs-rise { animation: none !important; }
         }
       `}</style>
 
-      {/* Glow de palco atrás da loja */}
-      <div className="absolute -inset-10 rounded-[48px] bg-gradient-to-br from-violet-500/25 via-fuchsia-500/15 to-cyan-400/20 blur-3xl" />
+      {/* Halo discreto da folha sobre o vídeo */}
+      <div className="absolute -inset-8 rounded-[44px] bg-white/[.06] blur-3xl" />
 
-      <div className="relative">
-        {/* Remontada a cada cena (key) para reiniciar as animações CSS. */}
+      <div
+        className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#f6f3ec] shadow-[0_45px_120px_rgba(0,0,0,.5)]"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* CABEÇALHO — marca + índice da edição */}
+        <div className="flex items-center justify-between gap-4 px-5 pt-5 sm:px-7 sm:pt-6">
+          <HomstegLogo size={22} className="text-[#283b31]" />
+          <span className="text-[9px] font-bold uppercase tracking-[.3em] text-[#283b31]/45">
+            Edição{" "}
+            {String(scene + 1).padStart(2, "0")} /{" "}
+            {String(showcaseScenes.length).padStart(2, "0")}
+          </span>
+        </div>
+
+        {/* FILETE DE PROGRESSO — avança com a cena */}
+        <div className="mx-5 mt-4 h-px bg-[#283b31]/12 sm:mx-7">
+          <div
+            key={`progress-${active.id}`}
+            className="hs-progress h-px w-full bg-[#34483d]/70"
+            style={{ animationPlayState: playState }}
+          />
+        </div>
+
+        {/* CORPO — texto editorial + fotografia do produto */}
         <div
           key={active.id}
-          className="relative aspect-[16/10] overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-[0_40px_120px_rgba(0,0,0,.45)]"
+          className="grid grid-cols-1 sm:grid-cols-[1fr_1.05fr]"
         >
-          {/* FUNDO DA CENA — céu noturno */}
-          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-slate-950 to-black" />
-          <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-violet-600/25 blur-3xl" />
-          <div className="absolute -right-16 top-10 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
+          {/* Coluna de texto */}
+          <div className="relative order-2 flex flex-col justify-center px-5 py-7 sm:order-1 sm:px-7 sm:py-9">
+            {/* Textura da ambiente da cena */}
+            <img
+              src={active.image}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[.07] mix-blend-multiply"
+            />
 
-          {/* A LOJA — fachada completa, ocupa a cena */}
-          <div className="absolute inset-x-8 bottom-6 top-8 sm:inset-x-14">
-            {/* FACHADA — letreiro HOMSTEG integrado na faixa da loja */}
-            <div className="relative h-[26%] overflow-hidden rounded-t-[22px] border-x border-t border-white/15 bg-gradient-to-b from-slate-900 to-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 via-transparent to-cyan-500/20" />
+            <div className="relative">
+              <span
+                className="hs-rise block text-[9px] font-bold uppercase tracking-[.34em] text-[#34483d]/70"
+                style={{ animationDelay: "60ms" }}
+              >
+                {active.kicker}
+              </span>
 
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span
-                  className="flex items-center gap-2.5 rounded-xl bg-white/[.06] px-5 py-2 ring-1 ring-white/15 backdrop-blur"
-                  style={{ animation: "signCycle 4.8s ease-in-out both" }}
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-950 shadow-lg">
-                    <Store className="h-4 w-4" strokeWidth={2.4} />
-                  </span>
-                  <span className="text-[15px] font-black tracking-[-0.04em] text-white sm:text-lg">
-                    HOMSTEG
-                  </span>
+              <h3
+                className="hs-serif hs-rise mt-4 text-[clamp(1.45rem,3.1vw,2.3rem)] font-medium leading-[1.08] tracking-[-0.015em] text-[#1e2b24]"
+                style={{ animationDelay: "150ms" }}
+              >
+                {active.title}
+                <span className="block italic text-[#34483d]">
+                  {active.title2}
                 </span>
-              </div>
+              </h3>
 
-              {/* Neon do letreiro */}
               <div
-                className="absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent"
-                style={{ animation: "neonPulse 2.4s ease-in-out infinite" }}
+                className="hs-rise mt-6 h-px w-full bg-[#283b31]/12"
+                style={{ animationDelay: "260ms" }}
               />
-            </div>
 
-            {/* INTERIOR + PORTAS CORREDIÇAS */}
-            <div className="relative h-[74%]">
-              {/* Interior da loja (atrás das portas) */}
-              <div className="absolute inset-0 overflow-hidden rounded-b-[22px] border-x border-b border-white/10 bg-gradient-to-b from-slate-900/95 via-slate-950 to-black">
-                {/* Ambiente da cena — imagem de fundo do interior */}
-                <img
-                  src={active.image}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover opacity-20"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
-
-                {/* Luz interior acende quando as portas abrem */}
-                <div
-                  className="absolute inset-0 bg-gradient-to-b from-violet-500/25 via-transparent to-cyan-400/15"
-                  style={{ animation: "interiorGlow 4.8s ease-in-out both" }}
-                />
-
-                {/* CONTEÚDO — entra depois da abertura */}
-                <div className="absolute inset-0 flex items-center gap-4 px-6 sm:gap-6 sm:px-8">
-                  <div
-                    className="flex-1"
-                    style={{
-                      animation:
-                        "contentIn .7s cubic-bezier(.22,1,.36,1) 1.15s both",
-                    }}
-                  >
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[8px] font-bold tracking-[.14em] text-cyan-200 ring-1 ring-white/15 sm:text-[9px]">
-                      {active.kicker}
-                    </span>
-                    <h3 className="mt-3 text-xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-3xl">
-                      {active.title}
-                      <span className="block bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
-                        {active.title2}
-                      </span>
-                    </h3>
-                  </div>
-
-                  <div
-                    className="hidden w-[38%] max-w-[190px] shrink-0 sm:block"
-                    style={{
-                      animation:
-                        "productIn .8s cubic-bezier(.22,1,.36,1) 1.35s both",
-                    }}
-                  >
-                    <div className="overflow-hidden rounded-2xl bg-white/95 shadow-[0_20px_50px_rgba(0,0,0,.5)] ring-1 ring-white/20">
-                      <div className="relative h-24 sm:h-28">
-                        <img
-                          src={active.productImage}
-                          alt={active.product}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-[10px] font-bold text-slate-900">
-                            {active.product}
-                          </p>
-                          <p className="text-[9px] font-bold text-violet-600">
-                            {active.price}
-                          </p>
-                        </div>
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-white">
-                          <ShoppingBag className="h-3 w-3" />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+              <div
+                className="hs-rise mt-4 flex items-end justify-between gap-4"
+                style={{ animationDelay: "340ms" }}
+              >
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-[.2em] text-[#283b31]/45">
+                    Peça em destaque
+                  </p>
+                  <p className="hs-serif mt-1.5 truncate text-lg text-[#1e2b24]">
+                    {active.product}
+                  </p>
                 </div>
+                <p className="hs-serif shrink-0 text-lg text-[#34483d]">
+                  {active.price}
+                </p>
               </div>
 
-              {/* PORTA ESQUERDA */}
-              <div
-                className="pointer-events-none absolute inset-y-0 left-0 w-1/2 overflow-hidden border border-white/15 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950"
-                style={{ animation: "doorLeft 4.8s ease-in-out both" }}
+              <span
+                className="hs-rise mt-6 inline-flex items-center gap-2 border-b border-[#283b31]/30 pb-1 text-[9px] font-bold uppercase tracking-[.26em] text-[#283b31]"
+                style={{ animationDelay: "420ms" }}
               >
-                <div className="absolute right-2 top-1/2 h-10 w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-white/40 to-transparent" />
-                <div className="absolute left-3 top-3 h-1.5 w-1.5 rounded-full bg-white/20" />
-                <div className="absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full bg-white/20" />
-                <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-              </div>
-
-              {/* PORTA DIREITA */}
-              <div
-                className="pointer-events-none absolute inset-y-0 right-0 w-1/2 overflow-hidden border border-white/15 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950"
-                style={{ animation: "doorRight 4.8s ease-in-out both" }}
-              >
-                <div className="absolute left-2 top-1/2 h-10 w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-white/40 to-transparent" />
-                <div className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-white/20" />
-                <div className="absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full bg-white/20" />
-                <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-              </div>
+                Ver produto
+                <ArrowRight className="h-3 w-3" />
+              </span>
             </div>
           </div>
 
-          {/* Reflexo no chão da cena */}
-          <div className="absolute inset-x-16 bottom-0 h-10 bg-gradient-to-t from-cyan-300/10 to-transparent blur-md" />
+          {/* Coluna fotográfica */}
+          <div className="relative order-1 min-h-[210px] overflow-hidden bg-[#e8e3d8] sm:order-2 sm:min-h-[340px]">
+            <img
+              key={`photo-${active.id}`}
+              src={active.productImage}
+              alt={active.product}
+              loading="lazy"
+              decoding="async"
+              className="hs-ken absolute inset-0 h-full w-full object-cover"
+              style={{ animationPlayState: playState }}
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/10 to-transparent sm:border-l sm:border-[#283b31]/10" />
+          </div>
         </div>
 
-        {/* Indicador de cenas */}
-        <div className="mt-5 flex items-center justify-center gap-2">
+        {/* RODAPÉ — índice de cenas */}
+        <div className="flex items-center gap-3 px-5 pb-5 pt-5 sm:px-7 sm:pb-6">
           {showcaseScenes.map((item, index) => (
-            <span
+            <button
               key={item.id}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                index === scene ? "w-7 bg-white" : "w-1.5 bg-white/25"
-              }`}
-            />
+              type="button"
+              onClick={() => setScene(index)}
+              aria-label={`Ver cena ${index + 1}: ${item.kicker}`}
+              aria-current={index === scene}
+              className="group flex items-center gap-2"
+            >
+              <span
+                className={`text-[9px] font-bold tracking-[.2em] transition-colors ${
+                  index === scene
+                    ? "text-[#283b31]"
+                    : "text-[#283b31]/30 group-hover:text-[#283b31]/60"
+                }`}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span
+                className={`h-px transition-all duration-500 ${
+                  index === scene
+                    ? "w-9 bg-[#34483d]"
+                    : "w-4 bg-[#283b31]/20 group-hover:bg-[#283b31]/40"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>
@@ -509,7 +463,7 @@ function StorePreview() {
           </div>
 
           <div className="mt-5 grid grid-cols-[1.1fr_.9fr] gap-4">
-            <div className="relative min-h-[215px] overflow-hidden rounded-[22px] bg-gradient-to-br from-slate-950 via-violet-950 to-indigo-700 p-6 text-white">
+            <div className="relative min-h-[215px] overflow-hidden rounded-[22px] bg-[#283b31] p-6 text-white">
               <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-400/30 blur-2xl" />
               <div className="absolute -bottom-20 -left-10 h-44 w-44 rounded-full bg-fuchsia-500/30 blur-3xl" />
 
@@ -604,7 +558,7 @@ function DashboardPreview() {
       <div className="flex min-h-[410px] overflow-hidden rounded-[22px] bg-[#f7f8fc]">
         <aside className="hidden w-48 shrink-0 bg-slate-950 p-4 md:block">
           <div className="mb-7">
-            <Logo dark />
+            <HomstegLogo size={36} className="text-white" />
           </div>
 
           <div className="space-y-1">
@@ -649,7 +603,7 @@ function DashboardPreview() {
                 Segunda-feira, 21 Setembro
               </p>
               <h3 className="mt-1 text-lg font-black tracking-[-0.04em] text-slate-950">
-                Olá, Fochineti 👋
+                Olá, Chazuca 👋
               </h3>
             </div>
 
@@ -760,7 +714,7 @@ function DashboardPreview() {
 
 function PeopleShopping() {
   return (
-    <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-violet-100 via-white to-cyan-100 p-3 shadow-[0_25px_70px_rgba(79,70,229,.12)]">
+    <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white p-3">
       <div className="relative h-[440px] overflow-hidden rounded-[24px]">
         <img
           src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=85"
@@ -802,97 +756,33 @@ export default function Home() {
   const goCreate = () => navigate("/criar-conta");
   const goLogin = () => navigate("/login");
 
-  /*
-   * VÍDEO DE FUNDO — arranque garantido no MOBILE.
-   *
-   * CAUSA RAIZ do vídeo invisível no celular: o React
-   * NÃO serializa o atributo "muted" para o DOM
-   * (bug conhecido, React #10389). Os browsers móveis
-   * avaliam a política de autoplay pelo ATRIBUTO no
-   * momento do load — sem ele, o autoplay é negado
-   * silenciosamente e o elemento nunca decodifica o
-   * primeiro frame (fica transparente: só se vê o
-   * fundo escuro/grid). No desktop os browsers são
-   * mais tolerantes, por isso funcionava só no PC.
-   *
-   * CORREÇÃO CANÓNICA: definir muted como propriedade
-   * E atributo, e reavaliar o elemento com load()
-   * antes de chamar play().
-   *
-   * FALLBACK DE PRIMEIRO TOQUE: o iOS em Modo de
-   * Pouca Energia bloqueia autoplay MESMO muted.
-   * Nesse caso o primeiro toque em qualquer lugar
-   * da página arranca o vídeo.
-   */
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     const video = heroVideoRef.current;
+    if (!video) return;
 
-    if (!video) {
-      return;
-    }
-
-    /*
-     * 1. muted como PROPRIEDADE e como ATRIBUTO
-     *    (o atributo é o que o mobile consulta).
-     */
     video.muted = true;
     video.setAttribute("muted", "");
-
-    /* 2. playsinline nos dois formatos (iOS antigo). */
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
-
-    /*
-     * 3. load() reavalia o elemento com muted já
-     *    presente — sem isto, o Safari móvel mantém
-     *    a decisão negativa de autoplay tomada antes.
-     */
     video.load();
 
     const tryPlay = () => {
-      /* play() devolve Promise; ignora abort/NotSupported silenciosamente. */
-      const playback = video.play();
-
-      if (playback && typeof playback.catch === "function") {
-        playback.catch(() => undefined);
-      }
+      void video.play().catch(() => undefined);
+    };
+    const handleFirstInteraction = () => {
+      if (video.paused) tryPlay();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && video.paused) tryPlay();
     };
 
     video.addEventListener("loadeddata", tryPlay);
     video.addEventListener("canplay", tryPlay);
     video.addEventListener("loadedmetadata", tryPlay);
-
-    /*
-     * Fallback de interação: cobre iOS Modo de Pouca
-     * Energia / poupança de dados, onde o autoplay
-     * é bloqueado até haver um gesto do utilizador.
-     */
-    const handleFirstInteraction = () => {
-      if (video.paused) {
-        tryPlay();
-      }
-    };
-
-    /*
-     * Redeescada extra: alguns browsers móveis pausam
-     * ao voltar do background do sistema; retoma ao
-     * ficar visível de novo.
-     */
-    const handleVisibility = () => {
-      if (
-        document.visibilityState === "visible" &&
-        video.paused
-      ) {
-        tryPlay();
-      }
-    };
-
-    document.addEventListener("touchstart", handleFirstInteraction, {
-      passive: true,
-    });
+    document.addEventListener("touchstart", handleFirstInteraction, { passive: true });
     document.addEventListener("pointerdown", handleFirstInteraction);
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -907,8 +797,41 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f6fa] text-slate-950">
+    <div className="home-page min-h-screen overflow-x-clip bg-[#f7f8f6] text-slate-950">
       <style>{`
+        .home-page { font-family: "Segoe UI", Arial, sans-serif; }
+        .home-page .home-title {
+          max-width: 16ch;
+          font-size: clamp(2.3rem, 4vw, 3.75rem);
+          font-weight: 600;
+          line-height: 1.06;
+          letter-spacing: -.045em;
+          text-wrap: balance;
+        }
+        .home-page h2 {
+          font-size: clamp(1.55rem, 3vw, 2.25rem) !important;
+          font-weight: 600 !important;
+          line-height: 1.2 !important;
+          letter-spacing: -.03em !important;
+        }
+        .home-page .home-hero-grid { grid-template-columns: minmax(0, 1fr); }
+        .home-page .home-hero-copy { width: 100%; min-width: 0; }
+        .home-page .home-hero-copy p { width: 100%; max-width: 100%; overflow-wrap: anywhere; }
+        .home-page h2 .text-slate-400 { color: #59665d !important; }
+        .home-page [class*="text-violet-"] { color: #516c58 !important; }
+        .home-page .home-accent { color: #dce8de; }
+        .home-page .home-hero-video { display: block; }
+        .home-page .homsteg-marquee > div { color: #59665d; }
+        @media (min-width: 1024px) {
+          .home-page .home-hero-grid { grid-template-columns: .85fr 1.15fr; gap: 3.5rem; }
+        }
+        @media (max-width: 640px) {
+          .home-page > section:first-of-type > div { width: 100%; max-width: 100%; }
+          .home-page .home-hero-grid, .home-page .home-hero-copy { width: calc(100vw - 80px) !important; max-width: calc(100vw - 80px) !important; }
+          .home-page .home-hero-copy p { width: 100%; max-width: 100%; overflow-wrap: normal; font-size: .9375rem; line-height: 1.55; }
+          .home-page .home-hero-actions { align-items: flex-start; }
+        }
+
         @keyframes floatA {
           0%,100% { transform: translate3d(0,0,0) rotate(0deg); }
           50% { transform: translate3d(0,-12px,0) rotate(1deg); }
@@ -949,13 +872,13 @@ export default function Home() {
       `}</style>
 
       {/* HEADER */}
-      <header className="fixed left-0 right-0 top-0 z-50 px-3 pt-3 sm:px-5">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl bg-white/85 px-4 shadow-[0_12px_40px_rgba(15,23,42,.08)] backdrop-blur-xl sm:px-6">
+      <header className="fixed left-0 right-0 top-0 z-[100] px-3 pt-3 sm:px-5">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl bg-transparent px-4 shadow-[0_12px_40px_rgba(15,23,42,.08)] backdrop-blur-xl sm:px-6">
           <a href="#" className="shrink-0">
-            <Logo />
+            <HomstegLogo size={36} />
           </a>
 
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav aria-label="Navegação principal" className="hidden items-center gap-7 lg:flex">
             <a
               href="#plataforma"
               className="text-sm font-medium text-slate-500 transition hover:text-slate-950"
@@ -988,7 +911,7 @@ export default function Home() {
             </a>
           </nav>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-2 lg:flex">
             <Button variant="ghost" className="!bg-transparent !text-slate-700 shadow-none hover:!bg-slate-100" onClick={goLogin}>
               Login
             </Button>
@@ -1000,50 +923,53 @@ export default function Home() {
 
           <button
             type="button"
-            className="rounded-xl p-2 text-slate-900 md:hidden"
+            className="rounded-xl p-2 text-slate-900 lg:hidden"
             onClick={() => setMobileOpen((value) => !value)}
+            aria-label={mobileOpen ? "Fechar menu de navegação" : "Abrir menu de navegação"}
+            aria-expanded={mobileOpen}
+            aria-controls="home-mobile-navigation"
           >
             {mobileOpen ? <X /> : <Menu />}
           </button>
         </div>
 
-        {mobileOpen && (
-          <div className="mx-auto mt-2 max-w-7xl rounded-2xl bg-white p-4 shadow-xl md:hidden">
-            <div className="space-y-1">
-              {[
-                ["#plataforma", "Plataforma"],
-                ["#temas", "Temas"],
-                ["#gratuito", "Gratuito"],
-                ["#recursos", "Recursos"],
-                ["#faq", "FAQ"],
-              ].map(([href, label]) => (
-                <a
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  {label}
-                </a>
-              ))}
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="dark" onClick={goLogin}>
-                Login
-              </Button>
-              <Button onClick={goCreate}>Criar loja</Button>
-            </div>
+        <div
+          id="home-mobile-navigation"
+          className={`${mobileOpen ? "block" : "hidden"} mx-auto mt-2 max-w-7xl rounded-2xl bg-white p-4 shadow-xl lg:hidden`}
+        >
+          <div className="space-y-1">
+            {[
+              ["#plataforma", "Plataforma"],
+              ["#temas", "Temas"],
+              ["#gratuito", "Gratuito"],
+              ["#recursos", "Recursos"],
+              ["#faq", "FAQ"],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                {label}
+              </a>
+            ))}
           </div>
-        )}
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button variant="dark" onClick={goLogin}>
+              Login
+            </Button>
+            <Button onClick={goCreate}>Criar loja</Button>
+          </div>
+        </div>
       </header>
 
       {/* HERO */}
       <section className="relative overflow-hidden pb-24 pt-36 text-white sm:pt-40">
-        {/* VÍDEO DE FUNDO — Hero: reprodução automática, em loop e sem som. Cenas de comércio eletrónico (compra online, navegação de loja). Fontes: Pexels, licença de uso comercial livre. Único elemento visual da área: sem overlay, grid, glows ou fundo. */}
         <video
           ref={heroVideoRef}
-          className="homsteg-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover"
+          className="home-hero-video pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70"
           autoPlay
           muted
           loop
@@ -1053,50 +979,47 @@ export default function Home() {
           aria-hidden="true"
           tabIndex={-1}
         >
-          {/* SD primeiro: arranca mais depressa no mobile (4G) com máxima compatibilidade. */}
           <source
             src="https://videos.pexels.com/video-files/8937981/8937981-sd_960_540_30fps.mp4"
             type="video/mp4"
           />
-
-          {/* HD para desktop. */}
           <source
             src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4"
             type="video/mp4"
           />
-
-          {/* Fallback: navegação de loja em tablet. */}
           <source
             src="https://videos.pexels.com/video-files/6238179/6238179-sd_960_540_25fps.mp4"
             type="video/mp4"
           />
         </video>
-
+        <div className="pointer-events-none absolute inset-0 bg-[#142019]/45" aria-hidden="true" />
         <div className="relative mx-auto max-w-7xl px-5">
-          <div className="grid items-center gap-14 lg:grid-cols-[.85fr_1.15fr]">
-            <div>
-              <h1 className="max-w-2xl text-[clamp(3rem,6vw,5.8rem)] font-black leading-[.91] tracking-[-0.07em]">
-                Crie a sua loja online
-                <span className="block bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
+          <div className="home-hero-grid grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[.85fr_1.15fr] lg:gap-14">
+            <div className="home-hero-copy">
+              <h1 className="home-title">
+                Cria a tua loja online
+                <span className="home-accent block">
                   100% grátis
                 </span>
               </h1>
 
-              <p className="mt-7 max-w-xl text-base leading-7 text-white/60 sm:text-lg">
-                Cria uma loja profissional, gere produtos, pedidos, clientes e
-                vendas — sem planos, sem mensalidades e sem custos de
-                utilização. Só pagas créditos se quiseres desbloquear
-                funcionalidades específicas no Market.
+              <p className="mt-7 max-w-xl text-base leading-7 text-white/75 sm:text-lg">
+                Gere produtos, encomendas, clientes e vendas
+                <br className="sm:hidden" /> num só painel. A utilização da
+                plataforma é gratuita;
+                <br className="sm:hidden" /> os créditos servem para comprar
+                itens específicos
+                <br className="sm:hidden" /> no Market.
               </p>
 
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <div className="home-hero-actions mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button variant="secondary" onClick={goCreate}>
                   Criar loja grátis
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
 
                 <Button variant="ghost" onClick={() => navigate("/login")}>
-                  Login
+                  Entrar
                   <ArrowUpRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -1117,7 +1040,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative min-w-0">
               <HeroShowcase />
             </div>
           </div>
@@ -1125,9 +1048,9 @@ export default function Home() {
           <div className="mt-20 grid grid-cols-2 gap-3 border-t border-white/10 pt-8 sm:grid-cols-4">
             {[
               ["0", "mensalidades"],
-              ["8+", "temas gratuitos"],
+              ["8+", "temas disponíveis"],
               ["100%", "grátis para sempre"],
-              ["∞", "possibilidades"],
+              ["1", "painel para gerir a loja"],
             ].map(([value, label]) => (
               <div key={label}>
                 <p className="text-2xl font-black tracking-[-0.04em]">
@@ -1179,7 +1102,7 @@ export default function Home() {
       </section>
 
       {/* PLATFORM */}
-      <section id="plataforma" className="bg-[#f5f6fa] py-24 sm:py-32">
+      <section id="plataforma" className="scroll-mt-24 bg-[#f5f6fa] py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-5">
           <div className="max-w-2xl">
             <span className="text-[10px] font-black uppercase tracking-[.2em] text-violet-600">
@@ -1203,7 +1126,7 @@ export default function Home() {
                 style={{ animationDelay: `${index * 70}ms` }}
               >
                 <div
-                  className={`mb-7 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.accent} text-white shadow-lg`}
+                  className={`mb-7 flex h-11 w-11 items-center justify-center rounded-xl ${feature.accent}`}
                 >
                   {feature.icon}
                 </div>
@@ -1226,7 +1149,7 @@ export default function Home() {
       </section>
 
       {/* DASHBOARD / STORE */}
-      <section id="recursos" className="overflow-hidden bg-white py-24 sm:py-32">
+      <section id="recursos" className="scroll-mt-24 overflow-hidden bg-white py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-5">
           <div className="grid items-center gap-14 lg:grid-cols-[.75fr_1.25fr]">
             <div>
@@ -1349,7 +1272,7 @@ export default function Home() {
       </section>
 
       {/* THEMES */}
-      <section id="temas" className="bg-slate-950 py-24 text-white sm:py-32">
+      <section id="temas" className="scroll-mt-24 bg-slate-950 py-24 text-white sm:py-32">
         <div className="mx-auto max-w-7xl px-5">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">
@@ -1437,7 +1360,7 @@ export default function Home() {
       </section>
 
       {/* 100% GRATUITO + CRÉDITOS */}
-      <section id="gratuito" className="bg-[#f5f6fa] py-24 sm:py-32">
+      <section id="gratuito" className="scroll-mt-24 bg-[#f5f6fa] py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-5">
           <div className="mx-auto max-w-2xl text-center">
             <span className="text-[10px] font-black uppercase tracking-[.2em] text-violet-600">
@@ -1541,7 +1464,7 @@ export default function Home() {
       {/* FEATURE STRIP */}
       <section className="bg-white py-20">
         <div className="mx-auto max-w-7xl px-5">
-          <div className="grid overflow-hidden rounded-[32px] bg-gradient-to-r from-violet-700 via-indigo-700 to-cyan-600 text-white lg:grid-cols-3">
+          <div className="grid overflow-hidden rounded-[32px] bg-[#283b31] text-white lg:grid-cols-3">
             {[
               [<Truck />, "Pedidos organizados", "Sabe sempre o que precisa de ser preparado."],
               [<BarChart3 />, "Dados para crescer", "Percebe o que está a funcionar na tua loja."],
@@ -1565,7 +1488,7 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="bg-[#f5f6fa] py-24 sm:py-32">
+      <section id="faq" className="scroll-mt-24 bg-[#f5f6fa] py-24 sm:py-32">
         <div className="mx-auto max-w-4xl px-5">
           <div className="text-center">
             <span className="text-[10px] font-black uppercase tracking-[.2em] text-violet-600">
@@ -1625,9 +1548,7 @@ export default function Home() {
         <div className="absolute bottom-0 left-1/4 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-4xl px-5 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 shadow-[0_15px_50px_rgba(124,58,237,.35)]">
-            <Store className="h-7 w-7" />
-          </div>
+          <HomstegLogo size={64} iconOnly className="mx-auto" />
 
           <h2 className="mt-7 text-4xl font-black tracking-[-0.06em] sm:text-6xl">
             A tua próxima loja
@@ -1648,7 +1569,7 @@ export default function Home() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
             <Button variant="ghost" onClick={goLogin}>
-              Login
+              Entrar
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
@@ -1660,7 +1581,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl border-t border-white/10 pt-8">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div>
-              <Logo dark />
+              <HomstegLogo size={36} className="text-white" />
               <p className="mt-3 max-w-sm text-[10px] leading-5 text-white/30">
                 Cria a tua loja online 100% grátis. Sem planos nem
                 mensalidades — créditos apenas para recursos específicos do
@@ -1682,7 +1603,7 @@ export default function Home() {
                 FAQ
               </a>
               <button type="button" onClick={goLogin} className="hover:text-white">
-                Login
+                Entrar
               </button>
             </div>
           </div>

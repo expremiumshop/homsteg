@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 
 import { useLocation } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -378,16 +379,7 @@ export default function RecoverPassword() {
                 onClick={() => setLocation("/")}
                 className="mx-auto mb-8 flex items-center justify-center gap-2"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-                  <Store className="h-6 w-6" />
-                </div>
-
-                <span className="text-2xl font-black tracking-tight text-black">
-                  HOMSTEG
-                  <span className="text-lime-500">
-                    .
-                  </span>
-                </span>
+                <HomstegLogo size={48} />
               </button>
 
               <h1 className="text-3xl font-black tracking-tight text-black">
@@ -489,16 +481,7 @@ export default function RecoverPassword() {
           <div className="w-full max-w-md">
             <div className="mb-8 text-center">
               <div className="mx-auto mb-8 flex items-center justify-center gap-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-                  <Store className="h-6 w-6" />
-                </div>
-
-                <span className="text-2xl font-black tracking-tight text-black">
-                  HOMSTEG
-                  <span className="text-lime-500">
-                    .
-                  </span>
-                </span>
+                <HomstegLogo size={48} />
               </div>
 
               <h1 className="text-3xl font-black tracking-tight text-black">
@@ -621,16 +604,7 @@ export default function RecoverPassword() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="mx-auto mb-8 flex items-center justify-center gap-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-                <Store className="h-6 w-6" />
-              </div>
-
-              <span className="text-2xl font-black tracking-tight text-black">
-                HOMSTEG
-                <span className="text-lime-500">
-                  .
-                </span>
-              </span>
+              <HomstegLogo size={48} />
             </div>
 
             <h1 className="text-3xl font-black tracking-tight text-black">

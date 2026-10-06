@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 453 468">
+  <defs>
+    <linearGradient id="logoHBlue" x1="95" y1="105" x2="215" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35D9E8"/><stop offset=".24" stop-color="#16B7DF"/>
+      <stop offset=".56" stop-color="#0876C8"/><stop offset=".82" stop-color="#1643AE"/><stop offset="1" stop-color="#172E93"/>
+    </linearGradient>
+    <linearGradient id="logoHBlueDark" x1="140" y1="130" x2="225" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0756A9"/><stop offset=".5" stop-color="#123D9D"/><stop offset="1" stop-color="#142879"/>
+    </linearGradient>
+    <linearGradient id="logoHPurple" x1="260" y1="120" x2="370" y2="425" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E04CA2"/><stop offset=".2" stop-color="#C83D9F"/>
+      <stop offset=".48" stop-color="#902A98"/><stop offset=".75" stop-color="#682281"/><stop offset="1" stop-color="#3D1D69"/>
+    </linearGradient>
+    <linearGradient id="logoHPurpleDark" x1="285" y1="245" x2="345" y2="370" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B2B91"/><stop offset=".5" stop-color="#5A236F"/><stop offset="1" stop-color="#32194F"/>
+    </linearGradient>
+    <linearGradient id="logoHHandle" x1="126" y1="95" x2="326" y2="95" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4B689E"/><stop offset=".18" stop-color="#31C7E5"/>
+      <stop offset=".48" stop-color="#7BA8D5"/><stop offset=".72" stop-color="#8A79C6"/><stop offset="1" stop-color="#51356F"/>
+    </linearGradient>
+    <filter id="logoHShadow" x="-20%" y="-20%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#18265D" flood-opacity=".15"/>
+    </filter>
+    <linearGradient id="logoHBlueHighlight" x1="85" y1="105" x2="180" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".5" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="logoHPurpleHighlight" x1="285" y1="105" x2="370" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <symbol id="homsteg-h" viewBox="0 0 453 468">
+    <path id="blue-back" d="M92 102 143 109 143 132 94 124Z" fill="url(#logoHBlueDark)"/>
+    <path id="purple-back" d="M279 110 326 101 326 124 279 133Z" fill="url(#logoHPurpleDark)"/>
+    <g filter="url(#logoHShadow)">
+      <path id="blue-main" d="M82 119C82 113 87 109 93 110L177 125C184 126 188 131 188 138V250H286C294 250 299 255 299 262C299 267 297 272 293 276L258 308C244 321 227 327 207 325L188 322V435L82 414Z" fill="url(#logoHBlue)"/>
+      <path d="M83 120C83 115 87 112 93 113L177 128C181 129 184 132 184 137V174C160 168 137 162 114 155C103 152 92 148 83 144Z" fill="url(#logoHBlueHighlight)"/>
+    </g>
+    <path d="M188 137V250H226V171C226 165 222 161 217 160L188 154Z" fill="url(#logoHBlueDark)"/>
+    <g filter="url(#logoHShadow)">
+      <path id="purple-main" d="M272 137C272 131 276 127 282 126L364 111C370 110 375 114 375 120V412C375 419 371 423 365 425L272 444V337L310 361V276H272Z" fill="url(#logoHPurple)"/>
+      <path d="M274 137C274 133 278 130 283 129L362 115C367 114 371 117 371 121V159C340 163 306 167 274 170Z" fill="url(#logoHPurpleHighlight)"/>
+    </g>
+    <path d="M272 276H310V361L272 337Z" fill="url(#logoHPurpleDark)"/>
+    <path id="central-blue-interlock" d="M188 250H286C294 250 299 255 299 262C299 267 297 272 293 276L258 308C244 321 227 327 207 325L188 322Z" fill="url(#logoHBlue)"/>
+    <path d="M188 250H286C292 250 296 253 297 258V263C297 268 294 272 290 276L258 305C246 316 231 321 213 320L188 317Z" fill="url(#logoHBlueHighlight)" opacity=".55"/>
+    <path id="negative-space-cut" d="M272 322 310 349V276" fill="url(#logoHPurpleDark)"/>
+    <path d="M272 322 310 349V276" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>
+    <path id="top-arch" d="M127 166V104C127 61 153 32 194 32S261 61 261 104V166" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M127 166V104C127 61 153 32 194 32S261 61 261 104V166" fill="none" stroke="url(#logoHHandle)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M128 163V104C128 67 151 40 187 36" fill="none" stroke="#BFEFFF" stroke-width="3" stroke-linecap="round" opacity=".65"/>
+  </symbol>
+  <use href="#homsteg-h"/>
+</svg>

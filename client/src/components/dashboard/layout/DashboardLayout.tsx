@@ -21,7 +21,7 @@ export default function DashboardLayout({
   onOpenMobileMenu,
 }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-[#f7f8f5] text-[#111713]">
+    <div className="dashboard-shell min-h-screen bg-[#f7f8f5] text-[#20251f]">
       <div className="hidden lg:block">
         <DashboardSidebar
           navigation={navigation}

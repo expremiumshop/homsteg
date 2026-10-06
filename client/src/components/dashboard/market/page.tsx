@@ -26,7 +26,6 @@ import { getMarketVariants } from "./registry";
 import {
   MARKET_DEMO_PRODUCTS,
   MARKET_DEMO_CATEGORIES,
-  MARKET_DEMO_BANNER,
   MARKET_DEMO_CATEGORY,
 } from "./demoData";
 
@@ -508,46 +507,51 @@ export default function MarketPage({
                   const VariantComponent =
                     variant.Component;
 
-                  /*
-                   * Dados demo com imagens demonstrativas:
-                   * cada modelo mostra um item fictício
-                   * (rotação por índice, para não repetir a
-                   * mesma imagem lado a lado). O cliente vê
-                   * exatamente o que compra antes de
-                   * desbloquear. Sem dados comerciais aqui.
-                   */
                   const demoProps: MarketVariantProps =
                     (() => {
                       switch (activeCard.kind) {
-                        case "product_card":
-                          return {
-                            product:
-                              MARKET_DEMO_PRODUCTS[
-                                index %
-                                  MARKET_DEMO_PRODUCTS.length
-                              ],
-                          };
+                        case "product_card": {
+                          const product =
+                            MARKET_DEMO_PRODUCTS[
+                              index %
+                                MARKET_DEMO_PRODUCTS.length
+                            ];
 
-                        case "category_card":
                           return {
-                            category:
-                              MARKET_DEMO_CATEGORIES[
-                                index %
-                                  MARKET_DEMO_CATEGORIES.length
-                              ],
+                            product: {
+                              ...product,
+                              slug: variant.featureKey,
+                              description:
+                                "Produto demonstrativo da loja.",
+                              compareAtPrice:
+                                product.price + 500,
+                              featured: true,
+                              storeName: "Nova Market",
+                            },
                           };
+                        }
+
+                        case "category_card": {
+                          const category =
+                            MARKET_DEMO_CATEGORIES[
+                              index %
+                                MARKET_DEMO_CATEGORIES.length
+                            ];
+
+                          return {
+                            category,
+                          };
+                        }
 
                         case "banner":
-                          /*
-                           * Modelos 1..4 são texto sobre
-                           * gradiente (sem imagem); 5..10
-                           * usam imagem de fundo.
-                          */
                           return Number(
-                            variant.featureKey,
+                            variant.featureKey.replace(
+                              "banner",
+                              "",
+                            ),
                           ) <= 4
                             ? { category: MARKET_DEMO_CATEGORY }
-                            : { banner: MARKET_DEMO_BANNER };
+                            : {};
 
                         default:
                           return {};

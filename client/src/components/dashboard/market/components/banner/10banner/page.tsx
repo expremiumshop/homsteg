@@ -7,33 +7,32 @@ import {
 
 /* =========================================================
    MARKET — BANNER 10 (Digital Banner)
-   Apresentação do modelo COMPLETO do banner de
-   "Personalizar Loja" (Banners da loja), tal como o
-   utilizador o terá depois de comprar:
 
-   - imagem do banner + indicador "Rascunho";
-   - campos Título / Subtítulo do banner;
-   - ações: Publicar, Editar, Pré-visualizar, Remover;
-   - opções: Botão, Texto, Animação (leve),
-     Contagem decrescente;
-   - botão "Adicionar banner".
-
-   IMPORTANTE: no Market é apenas APRESENTAÇÃO — todos
-   os campos, selects, checkboxes e botões estão
-   desativados (inertes). Nada aqui é editável nem
-   interativo; a aparência é réplica exata do existente.
+   Apresentação do modelo completo de Banners da Loja.
+   Apenas demonstração no Market — nada é editável.
    ========================================================= */
 
 export default function Banner10() {
   return (
     <div className="rounded-xl border border-gray-200 p-3">
       {/* ============ IMAGEM DO BANNER ============ */}
+      <div className="relative h-36 w-full overflow-hidden rounded-lg border border-gray-200 bg-[#f7f8f5]">
+        <img
+          src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=85"
+          alt="Imagem demonstrativa do banner"
+          className="h-full w-full object-cover"
+        />
 
-      <div className="relative flex h-36 w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-[#f7f8f5]">
-        <div className="flex flex-col items-center gap-2 text-gray-400">
-          <span className="text-xs font-medium">
-            Imagem do banner
-          </span>
+        <div className="absolute inset-0 bg-black/20" />
+
+        <div className="absolute bottom-3 left-3 max-w-[260px] text-white">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/80">
+            Nova coleção
+          </p>
+
+          <p className="mt-1 text-base font-black leading-tight">
+            Descubra os destaques da loja
+          </p>
         </div>
 
         <span className="absolute left-2 top-2 rounded-md bg-[#111713]/80 px-2 py-0.5 text-[10px] font-bold text-white">
@@ -46,14 +45,13 @@ export default function Banner10() {
       </div>
 
       {/* ============ TÍTULO / SUBTÍTULO ============ */}
-
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <input
           type="text"
           value="Título do banner"
           readOnly
           disabled
-          className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none transition focus:border-gray-400 disabled:cursor-default"
+          className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none disabled:cursor-default"
         />
 
         <input
@@ -61,17 +59,16 @@ export default function Banner10() {
           value="Subtítulo do banner"
           readOnly
           disabled
-          className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none transition focus:border-gray-400 disabled:cursor-default"
+          className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none disabled:cursor-default"
         />
       </div>
 
       {/* ============ AÇÕES ============ */}
-
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           tabIndex={-1}
-          className="flex cursor-default items-center justify-center gap-2 rounded-xl bg-[#111713] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#2a2f2b]"
+          className="flex cursor-default items-center justify-center gap-2 rounded-xl bg-[#111713] px-4 py-2 text-xs font-bold text-white"
         >
           <UploadCloud className="h-4 w-4" />
           Publicar
@@ -80,7 +77,7 @@ export default function Banner10() {
         <button
           type="button"
           tabIndex={-1}
-          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-[#111713] transition hover:bg-gray-50"
+          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-[#111713]"
         >
           <Pencil className="h-4 w-4" />
           Editar
@@ -89,7 +86,7 @@ export default function Banner10() {
         <button
           type="button"
           tabIndex={-1}
-          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-[#111713] transition hover:bg-gray-50"
+          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-[#111713]"
         >
           <Eye className="h-4 w-4" />
           Pré-visualizar
@@ -100,7 +97,7 @@ export default function Banner10() {
         <button
           type="button"
           tabIndex={-1}
-          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
+          className="flex cursor-default items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-xs font-bold text-red-600"
         >
           <Trash2 className="h-4 w-4" />
           Remover
@@ -108,7 +105,6 @@ export default function Banner10() {
       </div>
 
       {/* ============ ELEMENTOS DO BANNER ============ */}
-
       <div className="mt-3 space-y-3 rounded-lg bg-[#f7f8f5] p-3">
         {/* BOTÃO */}
         <div className="space-y-2">
@@ -131,30 +127,40 @@ export default function Banner10() {
               value="Comprar"
               readOnly
               disabled
-              placeholder="Texto do botão (ex.: Comprar)"
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              placeholder="Texto do botão"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none disabled:cursor-default"
             />
 
             <select
               disabled
-              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none disabled:cursor-default"
             >
               <option>Página de produto</option>
             </select>
 
             <select
               disabled
-              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none disabled:cursor-default"
             >
               <option>Escolhe o produto...</option>
             </select>
 
             <select
               disabled
-              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none disabled:cursor-default"
             >
               <option>Inferior esquerda</option>
             </select>
+
+            {/* NOVO — LINK DO BOTÃO */}
+            <input
+              type="url"
+              value="https://exemplo.com/produto"
+              readOnly
+              disabled
+              placeholder="Link do botão (ex.: https://...)"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none disabled:cursor-default sm:col-span-2"
+            />
           </div>
         </div>
 
@@ -179,19 +185,19 @@ export default function Banner10() {
               value="Texto a exibir no banner"
               readOnly
               disabled
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none disabled:cursor-default"
             />
 
             <select
               disabled
-              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+              className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none disabled:cursor-default"
             >
               <option>Inferior centro</option>
             </select>
           </div>
         </div>
 
-        {/* ANIMAÇÃO (LEVE) */}
+        {/* ANIMAÇÃO */}
         <div className="space-y-2">
           <label className="flex items-center gap-2">
             <input
@@ -208,7 +214,7 @@ export default function Banner10() {
 
           <select
             disabled
-            className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+            className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs outline-none disabled:cursor-default"
           >
             <option>Fade</option>
           </select>
@@ -232,17 +238,16 @@ export default function Banner10() {
           <input
             type="datetime-local"
             disabled
-            className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none focus:border-gray-400 disabled:cursor-default"
+            className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs outline-none disabled:cursor-default"
           />
         </div>
       </div>
 
       {/* ============ ADICIONAR BANNER ============ */}
-
       <button
         type="button"
         tabIndex={-1}
-        className="mt-4 flex w-full cursor-default items-center justify-center gap-2 rounded-xl bg-[#111713] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#2a2f2b]"
+        className="mt-4 flex w-full cursor-default items-center justify-center gap-2 rounded-xl bg-[#111713] px-4 py-2.5 text-xs font-bold text-white"
       >
         Adicionar banner
       </button>

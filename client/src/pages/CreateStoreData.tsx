@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { useLocation } from "wouter";
+import HomstegLogo from "@/components/HomstegLogo";
 
 import {
   ArrowLeft,
@@ -299,11 +300,8 @@ export default function CreateStoreData() {
         </button>
 
         <div className="mb-8">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
-              <Store className="h-5 w-5" />
-            </div>
-
+          <div className="mb-4">
+            <HomstegLogo size={48} />
             <div>
               <p className="text-sm font-medium text-slate-500">
                 Criar loja
