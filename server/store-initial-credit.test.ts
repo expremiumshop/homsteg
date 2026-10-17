@@ -139,19 +139,83 @@ describe("HOMSTEG — saldo inicial de 100.000 créditos", () => {
     }
   });
 
-  it("textos públicos/SEO anunciam '100.000 créditos' corretamente", () => {
+  it("os metadados SEO usam o nome, o título e a descrição oficiais da HOMSTEG", () => {
     const indexHtml = readRepoFile("client/index.html");
 
-    expect(indexHtml).toContain("100.000 créditos gratuitos");
+    const SITE_NAME = "HOMSTEG";
+    const SITE_URL = "https://www.homsteg.com";
+    const SEO_TITLE = "HOMSTEG — Crie a sua loja online 100% grátis";
+    const SEO_DESCRIPTION =
+      "Crie a sua loja online 100% grátis com a HOMSTEG, sem mensalidades nem taxas de subscrição. Personalize a aparência da sua loja, apresente os seus produtos e comece a vender online de forma simples. Utilize créditos para desbloquear funcionalidades adicionais no Market, sem precisar de pagar uma mensalidade para manter a sua loja.";
 
-    // A meta description não pode apresentar créditos como moeda.
-    const metaDescription = indexHtml.match(
-      /name="description" content="([^"]+)"/,
-    )?.[1];
-    expect(metaDescription).toBeDefined();
-    expect(metaDescription).toMatch(/100\.000 créditos/);
-    expect(metaDescription).not.toMatch(/\bMZM\b|\bMT\b|\bMZN\b/);
+    expect(indexHtml).toContain(`<title>${SEO_TITLE}</title>`);
+    expect(indexHtml).toContain(
+      `<meta property="og:site_name" content="${SITE_NAME}" />`,
+    );
+    expect(indexHtml).toContain(
+      `<link rel="canonical" href="${SITE_URL}" />`,
+    );
 
+    /*
+     * \s+ (e não um espaço) entre os atributos: o Prettier parte
+     * meta tags longas por várias linhas, e a garantia aqui é o
+     * CONTEÚDO das meta tags, não a formatação do HTML.
+     */
+    const meta = (name: string) =>
+      indexHtml.match(
+        new RegExp(`name="${name}"\\s+content="([^"]+)"`),
+      )?.[1];
+    const ogProperty = (name: string) =>
+      indexHtml.match(
+        new RegExp(`property="${name}"\\s+content="([^"]+)"`),
+      )?.[1];
+
+    expect(meta("description")).toBe(SEO_DESCRIPTION);
+    expect(ogProperty("og:description")).toBe(SEO_DESCRIPTION);
+    expect(meta("twitter:description")).toBe(SEO_DESCRIPTION);
+    expect(ogProperty("og:title")).toBe(SEO_TITLE);
+    expect(meta("twitter:title")).toBe(SEO_TITLE);
+
+    // A descrição oficial não apresenta créditos como moeda.
+    expect(meta("description")).not.toMatch(/\bMZM\b|\bMT\b|\bMZN\b/);
+
+    // Mantém um WebSite e uma Organization, sem tipos duplicados.
+    const structuredDataBlocks = Array.from(
+      indexHtml.matchAll(
+        /<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g,
+      ),
+      match => JSON.parse(match[1]) as {
+        "@type"?: string;
+        name?: string;
+        url?: string;
+        description?: string;
+        inLanguage?: string;
+      },
+    );
+    expect(structuredDataBlocks).toHaveLength(2);
+
+    const websiteData = structuredDataBlocks.filter(
+      data => data["@type"] === "WebSite",
+    );
+    const organizationData = structuredDataBlocks.filter(
+      data => data["@type"] === "Organization",
+    );
+    expect(websiteData).toHaveLength(1);
+    expect(organizationData).toHaveLength(1);
+    expect(websiteData[0]).toMatchObject({
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: SEO_DESCRIPTION,
+      inLanguage: "pt-PT",
+    });
+    expect(organizationData[0]).toMatchObject({
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: SEO_DESCRIPTION,
+    });
+  });
+
+  it("textos públicos anunciam '100.000 créditos' corretamente (nunca como moeda)", () => {
     const home = readRepoFile("client/src/pages/Home.tsx");
     expect(home).toContain("100.000 créditos gratuitos");
     expect((home.match(/100\.000 créditos/g) ?? []).length).toBeGreaterThanOrEqual(3);

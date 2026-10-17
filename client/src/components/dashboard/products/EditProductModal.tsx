@@ -1,6 +1,15 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import {
+  MAX_VARIANT_ROWS,
+  buildVariantPayload,
+  buildVariantRows,
+  validateVariantDetails,
+  variantDetailsFromStored,
+  type StoredProductVariant,
+  type VariantDetail,
+} from "./variantMatrix";
+import {
   ImagePlus,
   Upload,
   X,
@@ -42,6 +51,7 @@ type Product = {
   images?: string[];
   imageKeys?: string[];
   options?: ProductOption[];
+  variants?: StoredProductVariant[];
 };
 
 type EditProductModalProps = {
@@ -239,6 +249,11 @@ export default function EditProductModal({
   const [options, setOptions] = useState<ProductOption[]>(
     product?.options || [],
   );
+
+  /* Preço/stock/SKU próprios por combinação de opções. */
+  const [variantDetails, setVariantDetails] = useState<
+    Record<string, VariantDetail>
+  >(() => variantDetailsFromStored(product?.variants));
 
   const [quickOption, setQuickOption] = useState("");
 
@@ -557,7 +572,6 @@ export default function EditProductModal({
       );
 
       const uploadedKeys: string[] = [];
-      let firstImageUrl: string | undefined;
 
       for (const image of orderedImages) {
         if (image.isExisting) {
@@ -565,10 +579,6 @@ export default function EditProductModal({
 
           if (key) {
             uploadedKeys.push(key);
-          }
-
-          if (!firstImageUrl) {
-            firstImageUrl = image.preview;
           }
 
           continue;
@@ -618,10 +628,6 @@ export default function EditProductModal({
         }
 
         uploadedKeys.push(upload.key);
-
-        if (!firstImageUrl) {
-          firstImageUrl = upload.imageUrl;
-        }
       }
 
       const productOptions = options
@@ -636,6 +642,16 @@ export default function EditProductModal({
             Boolean(option.name) &&
             option.values.length > 0,
         );
+
+      const variantError = validateVariantDetails(
+        variantRows,
+        variantDetails,
+      );
+
+      if (variantError) {
+        setError(variantError);
+        return;
+      }
 
       await updateProductMutation.mutateAsync({
         storeId,
@@ -652,11 +668,27 @@ export default function EditProductModal({
         ),
         category: category.trim() || null,
         imageKeys: uploadedKeys,
-        imageUrl:
-          uploadedKeys.length
-            ? (firstImageUrl ?? null)
+        /*
+         * A referência PERMANENTE da imagem é imageKeys (chave
+         * R2). Nunca persistimos uma URL assinada de 7 dias em
+         * imageUrl:
+         *   - com chaves, a referência fica nas chaves (null);
+         *   - sem chaves e com imagens antigas mantidas (produto
+         *     legado que só tem imageUrl), não tocamos no campo;
+         *   - sem nenhuma imagem, limpa a referência.
+         */
+        imageUrl: uploadedKeys.length
+          ? null
+          : images.some((image) => image.isExisting)
+            ? undefined
             : null,
         options: productOptions,
+        status,
+        featured,
+        variants: buildVariantPayload(
+          variantRows,
+          variantDetails,
+        ),
       });
 
       await utils.products.list.invalidate({
@@ -686,12 +718,39 @@ export default function EditProductModal({
           : "Não foi possível guardar as alterações.",
       );
     }
-  }
-
-const selectedQuickOption =
+  }  const selectedQuickOption =
     QUICK_OPTIONS.find(
       (item) => item.id === quickOption,
     );
+
+  /*
+   * Combinações atuais das opções — a matriz de variantes
+   * (preço/stock/SKU) é gerada a partir delas.
+   */
+  const { rows: variantRows, truncated: variantRowsTruncated } =
+    buildVariantRows(options);
+
+  function updateVariantDetail(
+    signature: string,
+    field: keyof VariantDetail,
+    value: string,
+  ) {
+    setVariantDetails((current) => {
+      const detail = current[signature] ?? {
+        price: "",
+        stock: "",
+        sku: "",
+      };
+
+      return {
+        ...current,
+        [signature]: {
+          ...detail,
+          [field]: value,
+        },
+      };
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-3 sm:p-6">
@@ -1220,6 +1279,112 @@ const selectedQuickOption =
                       </div>
                     ),
                   )}
+                </div>
+              </div>
+
+              {/* PREÇO, STOCK E SKU POR VARIANTE */}
+              <div className="mt-8">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Preço, stock e SKU por variante
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Vazio = usa o preço, o stock e o SKU do produto.
+                  </p>
+                </div>
+
+                {variantRows.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                    Adicione opções com valores para gerar as combinações.
+                  </div>
+                )}
+
+                {variantRowsTruncated && (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+                    Mais de {MAX_VARIANT_ROWS} combinações: apenas as
+                    primeiras {MAX_VARIANT_ROWS} são editáveis. Reduza os
+                    valores das opções.
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {variantRows.map((row) => {
+                    const detail = variantDetails[row.signature] ?? {
+                      price: "",
+                      stock: "",
+                      sku: "",
+                    };
+
+                    return (
+                      <div
+                        key={row.signature}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <p className="mb-4 font-semibold text-slate-800">
+                          {row.label}
+                        </p>
+
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <label className="text-xs font-semibold text-slate-600">
+                            Preço (MZN)
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={detail.price}
+                              onChange={(e) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "price",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Usar preço do produto"
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+
+                          <label className="text-xs font-semibold text-slate-600">
+                            Stock
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={detail.stock}
+                              onChange={(e) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "stock",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Usar stock do produto"
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+
+                          <label className="text-xs font-semibold text-slate-600">
+                            SKU
+                            <input
+                              type="text"
+                              maxLength={80}
+                              value={detail.sku}
+                              onChange={(e) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "sku",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Sem SKU próprio"
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>

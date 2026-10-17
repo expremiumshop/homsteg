@@ -13,6 +13,7 @@ import {
   X,
   Search,
   ChevronDown,
+  Heart,
   Package,
   Headphones,
   Gift,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 
 import { Link, useLocation } from "wouter";
+
+import { useI18n } from "@/lib/i18n-context";
 
 import {
   normalizeHeaderModel,
@@ -84,6 +87,8 @@ export function Header({
   logoUrl = null,
   headerModel,
 }: NovaHeaderProps) {
+  const { t } = useI18n();
+
   const [, navigate] = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] =
@@ -125,9 +130,9 @@ export function Header({
       return;
     }
 
-    navigate(
-      `${basePath}/pesquisa?q=${encodeURIComponent(value)}`,
-    );
+    const params = new URLSearchParams({ q: value });
+    if (storeSlug) params.set("storeSlug", storeSlug);
+    navigate(`${basePath}/pesquisa?${params.toString()}`);
   }
 
   function closeMobileMenu() {
@@ -150,6 +155,33 @@ export function Header({
 
   const model: HeaderModel =
     normalizeHeaderModel(headerModel);
+
+  if (
+    model === "4" ||
+    model === "5" ||
+    model === "6" ||
+    model === "7" ||
+    model === "8" ||
+    model === "9" ||
+    model === "10"
+  ) {
+    return (
+      <AddedHeader
+        model={model}
+        storeName={storeName}
+        logoUrl={logoUrl}
+        headerVariant={headerVariant}
+        categories={categories}
+        basePath={basePath}
+        storeSlug={storeSlug}
+        accountPath={accountPath}
+        cartPath={cartPath}
+        search={search}
+        setSearch={setSearch}
+        onSearch={handleSearch}
+      />
+    );
+  }
 
   /*
    * MODELO 3 — ESCURO: barra escura com marca e
@@ -187,7 +219,7 @@ export function Header({
               onChange={(event) =>
                 setSearch(event.target.value)
               }
-              placeholder="O que procura hoje?"
+              placeholder={t("search.placeholder")}
               className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-gray-300"
             />
           </form>
@@ -198,7 +230,7 @@ export function Header({
               className="flex items-center gap-1 transition hover:text-white"
             >
               <User size={13} />
-              Conta
+              {t("nav.account")}
             </Link>
 
             <Link
@@ -206,7 +238,7 @@ export function Header({
               className="flex items-center gap-1 transition hover:text-white"
             >
               <ShoppingCart size={13} />
-              Carrinho
+              {t("nav.cart")}
             </Link>
           </div>
         </div>
@@ -261,7 +293,7 @@ export function Header({
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                placeholder="Pesquisar"
+                placeholder={t("search.short")}
                 className="w-32 bg-transparent text-xs text-slate-950 outline-none placeholder:text-gray-400"
               />
             </form>
@@ -269,7 +301,7 @@ export function Header({
             <Link
               href={accountPath}
               className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
-              aria-label="Minha conta"
+              aria-label={t("header.account")}
             >
               <User size={18} />
             </Link>
@@ -277,7 +309,7 @@ export function Header({
             <Link
               href={cartPath}
               className="relative rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
-              aria-label="Carrinho"
+              aria-label={t("nav.cart")}
             >
               <ShoppingCart size={18} />
 
@@ -305,7 +337,7 @@ export function Header({
 
       <header
         className={[
-          "sticky top-0 z-50 bg-white/90 backdrop-blur-md",
+          "@container sticky top-0 z-50 bg-white/90 backdrop-blur-md",
           headerVariant === "mobile"
             ? "hidden"
             : headerVariant === "desktop"
@@ -324,7 +356,7 @@ export function Header({
               w-full
               max-w-[1600px]
               px-5
-              xl:px-8
+              @min-[1280px]:px-8
             "
           >
             <div
@@ -350,7 +382,7 @@ export function Header({
                     font-medium
                   "
                 >
-                  Bem-vindo à {storeName}
+                  {t("header.welcome", { store: storeName })}
                 </span>
 
                 <div
@@ -363,7 +395,7 @@ export function Header({
                   "
                 >
                   <Zap size={13} />
-                  Super Ofertas
+                  {t("header.superDeals")}
                 </div>
 
                 <div
@@ -376,7 +408,7 @@ export function Header({
                   "
                 >
                   <Gift size={13} />
-                  Cupons
+                  {t("header.coupons")}
                 </div>
               </div>
 
@@ -397,7 +429,7 @@ export function Header({
                   "
                 >
                   <Package size={13} />
-                  Meus pedidos
+                  {t("header.myOrders")}
                 </span>
 
                 {/* ATENDIMENTO → MENSAGENS */}
@@ -414,7 +446,7 @@ export function Header({
                   "
                 >
                   <Headphones size={13} />
-                  Atendimento
+                  {t("header.support")}
                 </Link>
 
                 <div
@@ -423,7 +455,7 @@ export function Header({
                     items-center
                     gap-1.5
                     text-black
-                    lg:flex
+                    @min-[1024px]:flex
                   "
                 >
                   <MapPin size={13} />
@@ -455,7 +487,7 @@ export function Header({
               w-full
               max-w-[1600px]
               px-5
-              xl:px-8
+              @min-[1280px]:px-8
             "
           >
             <div
@@ -464,7 +496,7 @@ export function Header({
                 min-h-[78px]
                 items-center
                 gap-5
-                xl:gap-7
+                @min-[1280px]:gap-7
               "
             >
               {/* LOGO / NOME DA LOJA */}
@@ -541,7 +573,7 @@ export function Header({
                       onChange={(event) =>
                         setSearch(event.target.value)
                       }
-                      placeholder="Pesquisar produtos, marcas e muito mais..."
+                      placeholder={t("header.searchWide")}
                       className="
                         min-w-0
                         flex-1
@@ -569,7 +601,7 @@ export function Header({
                         hover:opacity-90
                       "
                     >
-                      Buscar
+                      {t("header.search")}
                     </button>
                   </div>
                 </form>
@@ -621,7 +653,7 @@ export function Header({
                       text-muted-foreground
                     "
                   >
-                    Olá!
+                    {t("header.hello")}
                   </div>
 
                   <div
@@ -631,7 +663,7 @@ export function Header({
                       font-bold
                     "
                   >
-                    Entrar / Registrar
+                    {t("header.signInRegister")}
                   </div>
                 </div>
 
@@ -652,7 +684,7 @@ export function Header({
                   rounded-lg
                   py-2
                   opacity-70
-                  xl:flex
+                  @min-[1280px]:flex
                 "
               >
                 <Package size={21} />
@@ -664,7 +696,7 @@ export function Header({
                     font-semibold
                   "
                 >
-                  Meus pedidos
+                  {t("header.myOrders")}
                 </span>
               </div>
 
@@ -682,7 +714,7 @@ export function Header({
                   rounded-lg
                   py-2
                   opacity-70
-                  xl:flex
+                  @min-[1280px]:flex
                 "
               >
                 <Truck size={21} />
@@ -693,7 +725,7 @@ export function Header({
                     font-semibold
                   "
                 >
-                  Rastreio
+                  {t("header.tracking")}
                 </span>
               </div>
 
@@ -749,7 +781,7 @@ export function Header({
                     font-semibold
                   "
                 >
-                  Carrinho
+                  {t("nav.cart")}
                 </span>
               </Link>
             </div>
@@ -774,7 +806,7 @@ export function Header({
               w-full
               max-w-[1600px]
               px-5
-              xl:px-8
+              @min-[1280px]:px-8
             "
           >
             <div
@@ -801,7 +833,7 @@ export function Header({
                 "
               >
                 <Menu size={18} />
-                <span>Todas as categorias</span>
+                <span>{t("header.allCategories")}</span>
                 <ChevronDown size={15} />
               </div>
 
@@ -824,7 +856,7 @@ export function Header({
                       text-muted-foreground
                     "
                   >
-                    Carregando categorias...
+                    {t("header.loadingCategories")}
                   </span>
                 ) : categories.length === 0 ? (
                   <span
@@ -833,7 +865,7 @@ export function Header({
                       text-muted-foreground
                     "
                   >
-                    Nenhuma categoria cadastrada
+                    {t("header.noCategories")}
                   </span>
                 ) : (
                   categories
@@ -867,7 +899,7 @@ export function Header({
                   gap-2
                   text-xs
                   text-muted-foreground
-                  2xl:flex
+                  @min-[1536px]:flex
                 "
               >
                 <MapPin size={16} />
@@ -898,7 +930,7 @@ export function Header({
               w-full
               max-w-[1600px]
               px-5
-              xl:px-8
+              @min-[1280px]:px-8
             "
           >
             <div
@@ -924,7 +956,7 @@ export function Header({
                   size={14}
                   className="text-primary"
                 />
-                Cupons exclusivos
+                {t("header.couponExclusive")}
               </div>
 
               <div className="h-4 w-px bg-border" />
@@ -941,7 +973,7 @@ export function Header({
                   size={14}
                   className="text-primary"
                 />
-                Rastreamento disponível
+                {t("header.trackingAvailable")}
               </div>
 
               <div className="h-4 w-px bg-border" />
@@ -958,7 +990,7 @@ export function Header({
                   size={14}
                   className="text-primary"
                 />
-                Ofertas todos os dias
+                {t("header.dailyDeals")}
               </div>
 
               <div className="h-4 w-px bg-border" />
@@ -975,7 +1007,7 @@ export function Header({
                   size={14}
                   className="text-primary"
                 />
-                Suporte ao cliente
+                {t("header.customerSupport")}
               </div>
             </div>
           </div>
@@ -1030,8 +1062,8 @@ export function Header({
               "
               aria-label={
                 isMobileMenuOpen
-                  ? "Fechar menu"
-                  : "Abrir menu"
+                  ? t("header.closeMenu")
+                  : t("header.openMenu")
               }
             >
               {isMobileMenuOpen ? (
@@ -1098,7 +1130,7 @@ export function Header({
                   p-2
                   hover:bg-secondary
                 "
-                aria-label="Minha conta"
+                aria-label={t("header.account")}
               >
                 <User size={20} />
               </Link>
@@ -1113,7 +1145,7 @@ export function Header({
                   p-2
                   hover:bg-secondary
                 "
-                aria-label="Carrinho"
+                aria-label={t("nav.cart")}
               >
                 <ShoppingCart size={20} />
 
@@ -1216,7 +1248,7 @@ export function Header({
                   onChange={(event) =>
                     setSearch(event.target.value)
                   }
-                  placeholder="Pesquisar produtos..."
+                  placeholder={t("search.products")}
                   className="
                     min-w-0
                     flex-1
@@ -1240,7 +1272,7 @@ export function Header({
                     text-white
                   "
                 >
-                  Buscar
+                  {t("header.search")}
                 </button>
               </div>
             </form>
@@ -1274,7 +1306,7 @@ export function Header({
                     text-muted-foreground
                   "
                 >
-                  Carregando categorias...
+                  {t("header.loadingCategories")}
                 </span>
               ) : categories.length === 0 ? (
                 <span
@@ -1284,7 +1316,7 @@ export function Header({
                     text-muted-foreground
                   "
                 >
-                  Nenhuma categoria cadastrada
+                  {t("header.noCategories")}
                 </span>
               ) : (
                 categories
@@ -1336,7 +1368,7 @@ export function Header({
               "
             >
               <Menu size={19} />
-              Home
+              {t("nav.home")}
             </div>
 
             {/* SUPER OFERTAS — NÃO CLICÁVEL */}
@@ -1351,7 +1383,7 @@ export function Header({
               "
             >
               <Zap size={19} />
-              Super Ofertas
+              {t("header.superDeals")}
             </div>
 
             {/* CUPONS — NÃO CLICÁVEL */}
@@ -1367,7 +1399,7 @@ export function Header({
               "
             >
               <Gift size={19} />
-              Cupons
+              {t("header.coupons")}
             </div>
 
             {/* MEUS PEDIDOS — NÃO CLICÁVEL */}
@@ -1382,7 +1414,7 @@ export function Header({
               "
             >
               <Package size={19} />
-              Meus pedidos
+              {t("header.myOrders")}
             </div>
 
             {/* RASTREIO — NÃO CLICÁVEL */}
@@ -1397,7 +1429,7 @@ export function Header({
               "
             >
               <Truck size={19} />
-              Rastreio
+              {t("header.tracking")}
             </div>
 
             {/* ATENDIMENTO → MENSAGENS */}
@@ -1417,7 +1449,7 @@ export function Header({
               "
             >
               <Headphones size={20} />
-              Atendimento
+              {t("header.support")}
             </Link>
 
             {/* MINHA CONTA → /themes/nova/conta */}
@@ -1438,12 +1470,163 @@ export function Header({
               "
             >
               <User size={20} />
-              Minha conta
+              {t("header.account")}
             </Link>
           </nav>
         )}
       </div>
     </>
+  );
+}
+
+function AddedHeader({
+  model,
+  storeName,
+  logoUrl,
+  headerVariant,
+  categories,
+  basePath,
+  storeSlug,
+  accountPath,
+  cartPath,
+  search,
+  setSearch,
+  onSearch,
+}: {
+  model: Exclude<HeaderModel, "1" | "2" | "3">;
+  storeName: string;
+  logoUrl: string | null;
+  headerVariant: "auto" | "desktop" | "mobile";
+  categories: NovaHeaderCategory[];
+  basePath: string;
+  storeSlug?: string;
+  accountPath: string;
+  cartPath: string;
+  search: string;
+  setSearch: (value: string) => void;
+  onSearch: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const rootClass = [
+    "sticky top-0 z-50",
+    headerVariant === "mobile"
+      ? "hidden"
+      : headerVariant === "desktop"
+        ? "block"
+        : "hidden md:block",
+  ].join(" ");
+  const searchBox = (
+    <form
+      onSubmit={onSearch}
+      className="flex min-w-0 items-center gap-2 rounded-full bg-black/5 px-3 py-2"
+    >
+      <Search size={15} className="shrink-0 opacity-60" />
+      <input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Pesquisar produtos"
+        className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+      />
+    </form>
+  );
+  const logo = logoUrl ? (
+    <img src={logoUrl} alt={storeName} className="max-h-9 max-w-40 object-contain" />
+  ) : (
+    <span className="font-black tracking-wide">{storeName}</span>
+  );
+  const storeContext = storeSlug
+    ? `?storeSlug=${encodeURIComponent(storeSlug)}`
+    : "";
+  const actions = (
+    <div className="flex shrink-0 items-center gap-3">
+      <Link href={accountPath} aria-label="Conta"><User size={17} /></Link>
+      <Link href={cartPath} aria-label="Carrinho"><ShoppingCart size={17} /></Link>
+    </div>
+  );
+
+  if (model === "4") {
+    return (
+      <header className={`${rootClass} border-b border-orange-200 bg-white`}>
+        <div className="bg-orange-500 py-1 text-center text-[10px] font-bold uppercase tracking-widest text-white">Entrega grátis em compras selecionadas</div>
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3">
+          {logo}<div className="flex-1">{searchBox}</div>{actions}
+        </div>
+      </header>
+    );
+  }
+
+  if (model === "5") {
+    return (
+      <header className={`${rootClass} border-b border-stone-200 bg-[#faf8f4]`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-4 text-stone-800">
+          <span className="font-serif text-lg">{logo}</span>
+          <div className="max-w-md flex-1">{searchBox}</div>
+          <div className="flex gap-4">{actions}</div>
+        </div>
+      </header>
+    );
+  }
+
+  if (model === "6") {
+    return (
+      <header className={`${rootClass} border-b border-slate-200 bg-white`}>
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3">
+          <Menu size={19} />{logo}<div className="max-w-md flex-1">{searchBox}</div>{actions}
+        </div>
+        <nav className="mx-auto flex max-w-7xl gap-5 overflow-hidden px-5 pb-2 text-xs text-slate-600">
+          {categories.slice(0, 6).map((category) => (
+            <Link key={category.id} href={`${basePath}/categoria/${encodeURIComponent(category.slug)}${storeContext}`} className="whitespace-nowrap hover:text-primary">{category.name}</Link>
+          ))}
+        </nav>
+      </header>
+    );
+  }
+
+  if (model === "7") {
+    return (
+      <header className={`${rootClass} border-b border-slate-200 bg-white`}>
+        <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-5 py-4">
+          <div className="flex gap-4 text-slate-500"><Search size={17} /><Heart size={17} /></div>
+          <Link href={storeSlug ? `/store/${encodeURIComponent(storeSlug)}` : basePath} className="justify-self-center text-sm font-black tracking-[0.2em]">{logo}</Link>
+          <div className="justify-self-end">{actions}</div>
+        </div>
+      </header>
+    );
+  }
+
+  if (model === "8") {
+    return (
+      <header className={`${rootClass} bg-emerald-800 text-white`}>
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3">
+          <div className="min-w-0 flex-1"><span className="text-[9px] uppercase tracking-widest text-emerald-200">Mercado local</span><div className="text-sm">{logo}</div></div>
+          <div className="max-w-md flex-1 text-slate-900">{searchBox}</div>{actions}
+        </div>
+      </header>
+    );
+  }
+
+  if (model === "9") {
+    return (
+      <header className={`${rootClass} border-b border-indigo-100 bg-indigo-50`}>
+        <div className="mx-auto max-w-7xl px-5 py-3">
+          <div className="mb-2 flex items-center justify-between text-indigo-950">{logo}{actions}</div>
+          <div className="rounded-2xl bg-white shadow-sm">{searchBox}</div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className={`${rootClass} border-b border-slate-200 bg-white`}>
+      <div className="mx-auto flex max-w-7xl items-center gap-5 px-5 py-3">
+        {logo}
+        <nav className="flex flex-1 justify-center gap-5 text-xs text-slate-600">
+          <Link href={storeSlug ? `/store/${encodeURIComponent(storeSlug)}` : basePath}>Início</Link>
+          <Link href={`${basePath}/pesquisa?tipo=novidades${storeSlug ? `&storeSlug=${encodeURIComponent(storeSlug)}` : ""}`}>Novidades</Link>
+          <Link href={`${basePath}/pesquisa?tipo=ofertas${storeSlug ? `&storeSlug=${encodeURIComponent(storeSlug)}` : ""}`}>Ofertas</Link>
+        </nav>
+        <div className="max-w-56 flex-1">{searchBox}</div>{actions}
+      </div>
+    </header>
   );
 }
 

@@ -25,41 +25,41 @@ export const PRODUCT_CARD_MODELS = [
   "6",
   "7",
   "8",
+  "9",
+  "10",
 ] as const;
 
 export type ProductCardModel =
   (typeof PRODUCT_CARD_MODELS)[number];
 
 /**
- * Modelos vendidos no Market como cartões isolados
- * (4product–8product) e desbloqueados por compra.
- *
- * Na "Personalizar Loja", quando a loja fornece a lista
- * de desbloqueios, APENAS estes modelos podem aparecer —
- * e só os efetivamente comprados. Sem compras, a secção
- * fica vazia.
+ * Alias para leitura de hint pelo seletor de modelo
+ * (dashboard, visualização).
  */
-export const PRODUCT_CARD_UNLOCKABLE_MODELS = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-] as const;
+export type ProductCardModelRead =
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "10"
+  | null;
 
 /**
- * Mapa featureKey Market → modelo de cartão.
- * As compras no Market guardam featureKeys ("4product"…
- * "8product", "1product"–"3product"); a Personalização
- * consome o modelo ("1"…"8") através deste mapa.
+ * Conversão de chave de compra (featureKey do MARKET) →
+ * modelo de cartão de produto do Nova suportado.
+ *
+ * Fonte: featureKeys exposíveis pelaíndice de compra do MARKET
+ * (distintos: elephant, notas, animals, etc.) → modelos de
+ * cartão implementados no Nova (1..8).
  */
-export const MODEL_PURCHASE_TO_CARD: Record<
-  string,
-  ProductCardModel
-> = {
+export const PRODUCT_CARD_UNLOCKABLE_MODELS = PRODUCT_CARD_MODELS;
+
+export const MODEL_PURCHASE_TO_CARD: Record<string, ProductCardModel> = {
   "4product": "1",
   "5product": "2",
   "6product": "3",
@@ -68,15 +68,11 @@ export const MODEL_PURCHASE_TO_CARD: Record<
   "1product": "6",
   "2product": "7",
   "3product": "8",
+  "9product": "9",
+  "10product": "10",
 };
 
-/**
- * Mapa inverso: modelo de cartão → featureKey Market.
- */
-export const MODEL_TO_MARKET_FEATURE: Record<
-  ProductCardModel,
-  string
-> = {
+export const MODEL_TO_MARKET_FEATURE: Record<ProductCardModel, string> = {
   "1": "4product",
   "2": "5product",
   "3": "6product",
@@ -85,11 +81,11 @@ export const MODEL_TO_MARKET_FEATURE: Record<
   "6": "1product",
   "7": "2product",
   "8": "3product",
+  "9": "9product",
+  "10": "10product",
 };
 
-export function isProductCardModel(
-  value: unknown,
-): value is ProductCardModel {
+export function isProductCardModel(value: unknown): value is ProductCardModel {
   return (
     typeof value === "string" &&
     (PRODUCT_CARD_MODELS as readonly string[]).includes(value)
@@ -98,60 +94,23 @@ export function isProductCardModel(
 
 export const DEFAULT_PRODUCT_CARD_MODEL: ProductCardModel = "1";
 
-/**
- * Normaliza o valor guardado na loja para um modelo
- * válido. null/undefined/valor inválido → "1".
- */
+export function getProductCardModelLabel(model: ProductCardModel): string {
+  switch (model) {
+    case "1": return "Clássico";
+    case "2": return "Imagem";
+    case "3": return "Preço";
+    case "4": return "Nome";
+    case "5": return "Completo";
+    case "6": return "Elevado";
+    case "7": return "Compacto";
+    case "8": return "Horizontal";
+    case "9": return "Campanha";
+    case "10": return "Editorial";
+  }
+}
+
 export function normalizeProductCardModel(
-  value: string | null | undefined,
+  model: string | null | undefined,
 ): ProductCardModel {
-  return isProductCardModel(value)
-    ? value
-    : DEFAULT_PRODUCT_CARD_MODEL;
-}
-
-export function getProductCardModelLabel(
-  model: ProductCardModel,
-): string {
-  switch (model) {
-    case "1":
-      return "Clássico";
-    case "2":
-      return "Imagem";
-    case "3":
-      return "Preço";
-    case "4":
-      return "Nome";
-    case "5":
-      return "Completo";
-    case "6":
-      return "Elevado";
-    case "7":
-      return "Compacto";
-    case "8":
-      return "Horizontal";
-  }
-}
-
-export function getProductCardModelDescription(
-  model: ProductCardModel,
-): string {
-  switch (model) {
-    case "1":
-      return "Estilo atual da loja: imagem, nome, loja e preço.";
-    case "2":
-      return "Minimalista: apenas a imagem do produto.";
-    case "3":
-      return "Imagem com o preço por baixo.";
-    case "4":
-      return "Imagem com o nome do produto por baixo.";
-    case "5":
-      return "Imagem, nome, preço e botão Comprar.";
-    case "6":
-      return "Sombra suave, categoria, preço e botão circular.";
-    case "7":
-      return "Quadrado, com nome e preço em destaque.";
-    case "8":
-      return "Linha com imagem à esquerda e seta à direita.";
-  }
+  return isProductCardModel(model) ? model : DEFAULT_PRODUCT_CARD_MODEL;
 }

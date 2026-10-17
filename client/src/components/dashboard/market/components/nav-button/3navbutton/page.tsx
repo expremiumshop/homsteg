@@ -7,19 +7,6 @@ import {
 
 import { Link } from "wouter";
 
-/* =========================================================
-   MARKET — NAV BUTTON 3 (Ícones)
-   Variação do botão de navegação atual do tema Nova
-   (BottomNavigation): mesma estrutura, tamanho e
-   espaçamento — apenas ícones, sem rótulos; item ativo
-   ganha um pequeno ponto indicador por baixo. Sem
-   dependências do tema.
-
-   Ao comprar esta funcionalidade, a loja desbloqueia o
-   modelo "Ícones" na Personalização
-   (stores.navButtonModel = "3").
-   ========================================================= */
-
 type NavItem = {
   name: string;
   icon: typeof Home;
@@ -59,101 +46,172 @@ export default function NavButton3({
   const activeName = "Home";
 
   return (
-    <nav
-      className="
-        relative
-        z-[90]
-      "
-    >
+    <nav className="relative z-[90] w-full px-4 py-4">
       <div
         className="
+          relative
+          mx-auto
           flex
           w-full
+          max-w-md
           items-center
-          overflow-hidden
-          rounded-2xl
+          justify-center
+          gap-2
+          rounded-[32px]
           border
-          border-gray-200
-          bg-white
-          shadow-[0_4px_20px_rgba(0,0,0,0.12)]
+          border-foreground/[0.07]
+          bg-background/95
+          px-3
+          py-3
+          shadow-[0_16px_45px_rgba(0,0,0,0.10)]
+          backdrop-blur-xl
         "
       >
+        <span
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            bottom-3
+            left-1/2
+            h-px
+            w-[72%]
+            -translate-x-1/2
+            bg-foreground/[0.08]
+          "
+        />
+
         {navItems.map((item) => {
           const Icon = item.icon;
-
           const active = item.name === activeName;
-
-          const className = `
-            relative
-            flex
-            min-h-[62px]
-            flex-1
-            flex-col
-            items-center
-            justify-center
-            transition-all
-            ${
-              active
-                ? "text-primary"
-                : "text-muted-foreground"
-            }
-          `;
+          const isCart = item.name === "Carrinho";
 
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={className}
+              aria-label={item.name}
+              aria-current={active ? "page" : undefined}
+              className="
+                group
+                relative
+                flex
+                h-[58px]
+                flex-1
+                items-center
+                justify-center
+                outline-none
+              "
             >
-              <div
-                className={`
-                  relative
-                  transition-transform
-                  ${
-                    active
-                      ? "scale-110"
-                      : "scale-100"
-                  }
-                `}
-              >
-                <Icon size={23} />
-
-                {item.name === "Carrinho" &&
-                  cartCount > 0 && (
-                    <span
-                      className="
-                        absolute
-                        -right-2
-                        -top-2
-                        flex
-                        h-5
-                        min-w-5
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-primary
-                        px-1
-                        text-[10px]
-                        font-bold
-                        text-white
-                      "
-                    >
-                      {cartCount}
-                    </span>
-                  )}
-              </div>
-
+              {/* Halo do item ativo */}
               {active && (
-                <div
+                <span
+                  aria-hidden="true"
                   className="
-                    mt-1
-                    h-1
-                    w-1
+                    absolute
+                    left-1/2
+                    top-1/2
+                    h-12
+                    w-12
+                    -translate-x-1/2
+                    -translate-y-1/2
                     rounded-full
-                    bg-primary
+                    bg-foreground/[0.06]
+                    blur-[1px]
                   "
                 />
               )}
+
+              {/* Ícone */}
+              <span
+                className={`
+                  relative
+                  z-10
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-full
+                  transition-all
+                  duration-300
+                  ease-out
+                  group-active:scale-90
+                  ${
+                    active
+                      ? "text-foreground"
+                      : "text-muted-foreground group-hover:-translate-y-1 group-hover:text-foreground"
+                  }
+                `}
+              >
+                <Icon
+                  size={active ? 23 : 21}
+                  strokeWidth={active ? 2.5 : 1.8}
+                  className="transition-all duration-300"
+                />
+
+                {isCart && cartCount > 0 && (
+                  <span
+                    className="
+                      absolute
+                      -right-1
+                      -top-1
+                      flex
+                      h-[19px]
+                      min-w-[19px]
+                      items-center
+                      justify-center
+                      rounded-full
+                      border-2
+                      border-background
+                      bg-primary
+                      px-1
+                      text-[9px]
+                      font-bold
+                      leading-none
+                      text-primary-foreground
+                      shadow-sm
+                    "
+                  >
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </span>
+
+              {/* Ponto de apoio */}
+              <span
+                aria-hidden="true"
+                className={`
+                  absolute
+                  bottom-0
+                  left-1/2
+                  -translate-x-1/2
+                  rounded-full
+                  transition-all
+                  duration-300
+                  ${
+                    active
+                      ? "h-1.5 w-7 bg-foreground"
+                      : "h-1 w-1 bg-foreground/15 group-hover:h-1.5 group-hover:w-3 group-hover:bg-foreground/30"
+                  }
+                `}
+              />
+
+              {/* Pequeno reflexo no hover */}
+              <span
+                aria-hidden="true"
+                className="
+                  pointer-events-none
+                  absolute
+                  inset-1
+                  rounded-[22px]
+                  bg-foreground/[0.03]
+                  opacity-0
+                  transition-opacity
+                  duration-300
+                  group-hover:opacity-100
+                "
+              />
             </Link>
           );
         })}

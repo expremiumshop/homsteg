@@ -6,8 +6,23 @@ import {
   } from "lucide-react";
   import { Link, useSearch } from "wouter";
   import { trpc } from "@/lib/trpc";
-  
+import { useI18n } from "@/lib/i18n-context";
+import StoreI18nBoundary from "./StoreI18nBoundary";
+
   export default function NovaMessagesPage() {
+    const search = useSearch();
+    const storeSlug = new URLSearchParams(search)
+      .get("storeSlug")
+      ?.trim();
+
+    return (
+      <StoreI18nBoundary storeSlug={storeSlug}>
+        <MessagesContent />
+      </StoreI18nBoundary>
+    );
+  }
+
+  function MessagesContent() {
     const search = useSearch();
     const storeSlug = new URLSearchParams(search)
       .get("storeSlug")
@@ -16,22 +31,23 @@ import {
       { slug: storeSlug ?? "" },
       { enabled: Boolean(storeSlug) },
     );
-    const storeName = storeQuery.data?.store.name ??
+    const store = storeQuery.data?.store;
+    const storeName = store?.name ??
       (storeSlug ? "Loja" : "NOVA STORE");
-    const whatsappNumber = storeQuery.data?.store.whatsapp
+    const whatsappNumber = store?.whatsapp
       ?.replace(/\D/g, "");
     const storePath = storeSlug
       ? `/store/${encodeURIComponent(storeSlug)}`
       : "/themes/nova";
+    const { t } = useI18n();
     const whatsappMessage = encodeURIComponent(
-      `Olá, ${storeName}! Gostaria de falar com o atendimento.`,
+      t("messages.hello", { store: storeName }),
     );
 
     function openWhatsApp() {
       if (!whatsappNumber) {
         return;
       }
-  
       window.open(
         `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`,
         "_blank",
@@ -52,11 +68,11 @@ import {
   
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-                    Atendimento
+                    {t("messages.title")}
                   </h1>
   
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Fale com a equipa da {storeName} pelo WhatsApp
+                    {t("messages.subtitle", { store: storeName })}
                   </p>
                 </div>
               </div>
@@ -65,16 +81,13 @@ import {
             {/* CONTEÚDO */}
             <div className="px-5 py-6 sm:px-8">
               <div className="space-y-6">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Atendimento pelo WhatsApp
+                <div>                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                    {t("messages.title")}
                   </h2>
-  
+
                   <p className="mt-2 text-sm leading-7 text-gray-600 dark:text-gray-300">
-                    O nosso atendimento é realizado através do{" "}
-                    <strong>WhatsApp</strong>. Através deste canal poderá falar
-                    diretamente com a nossa equipa e obter ajuda durante o
-                    processo de compra.
+                    {t("messages.descA")}
+                    <strong>WhatsApp</strong>{t("messages.descB")}
                   </p>
                 </div>
   
@@ -85,12 +98,11 @@ import {
   
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Dúvidas sobre produtos
+                        {t("messages.helpProducts")}
                       </h3>
   
                       <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                        Pergunte sobre produtos, preços, disponibilidade,
-                        tamanhos, cores ou outras características.
+                        {t("messages.helpProductsDesc")}
                       </p>
                     </div>
                   </div>
@@ -100,12 +112,11 @@ import {
   
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Ajuda durante a compra
+                        {t("messages.helpBuying")}
                       </h3>
   
                       <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                        A nossa equipa pode ajudar com o carrinho, checkout,
-                        encomenda e outras dúvidas relacionadas com a compra.
+                        {t("messages.helpBuyingDesc")}
                       </p>
                     </div>
                   </div>
@@ -115,12 +126,11 @@ import {
   
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Atendimento
+                        {t("messages.title")}
                       </h3>
   
                       <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                        Envie a sua mensagem pelo WhatsApp e a nossa equipa dará
-                        continuidade ao atendimento.
+                        {t("messages.supportDesc")}
                       </p>
                     </div>
                   </div>
@@ -134,13 +144,11 @@ import {
                     </div>
   
                     <div className="min-w-0">
-                      <h2 className="font-bold text-gray-900 dark:text-white">
-                        Continuar para o WhatsApp
+                      <h2 className="font-bold text-gray-900 dark:text-white">                        {t("messages.continueTitle")}
                       </h2>
-  
+
                       <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                        Clique no botão abaixo para iniciar uma conversa com a
-                        nossa equipa.
+                        {t("messages.continueDesc")}
                       </p>
                     </div>
                   </div>
@@ -171,7 +179,7 @@ import {
                     "
                   >
                     <MessageCircle className="h-5 w-5" />
-                    Continuar para WhatsApp
+                    {t("messages.continueTitle")}
                   </button>
                 </div>
   
@@ -197,7 +205,7 @@ import {
                       dark:hover:bg-gray-700
                     "
                   >
-                    Voltar à loja
+                    {t("product.backToStore")}
                   </Link>
                 </div>
               </div>

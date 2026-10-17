@@ -9,7 +9,9 @@
  * dashboard (seletor) e o storefront (renderização).
  */
 
-export const FOOTER_MODELS = ["1", "2", "3"] as const;
+export const FOOTER_MODELS = [
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+] as const;
 
 export type FooterModel = (typeof FOOTER_MODELS)[number];
 
@@ -23,9 +25,7 @@ export type FooterModel = (typeof FOOTER_MODELS)[number];
  * fica vazia.
  */
 export const FOOTER_UNLOCKABLE_MODELS = [
-  "1",
-  "2",
-  "3",
+  ...FOOTER_MODELS,
 ] as const;
 
 /**
@@ -41,6 +41,13 @@ export const FOOTER_PURCHASE_TO_MODEL: Record<
   "1footer": "1",
   "2footer": "2",
   "3footer": "3",
+  "4footer": "4",
+  "5footer": "5",
+  "6footer": "6",
+  "7footer": "7",
+  "8footer": "8",
+  "9footer": "9",
+  "10footer": "10",
 };
 
 /**
@@ -53,6 +60,13 @@ export const FOOTER_TO_MARKET_FEATURE: Record<
   "1": "1footer",
   "2": "2footer",
   "3": "3footer",
+  "4": "4footer",
+  "5": "5footer",
+  "6": "6footer",
+  "7": "7footer",
+  "8": "8footer",
+  "9": "9footer",
+  "10": "10footer",
 };
 
 export function isFooterModel(
@@ -86,6 +100,20 @@ export function getFooterModelLabel(
       return "Escuro";
     case "3":
       return "Minimal";
+    case "4":
+      return "Faixa de contacto";
+    case "5":
+      return "Editorial";
+    case "6":
+      return "Duas colunas";
+    case "7":
+      return "Centralizado";
+    case "8":
+      return "Verde natural";
+    case "9":
+      return "Faixa compacta";
+    case "10":
+      return "Cartão de marca";
   }
 }
 
@@ -99,5 +127,19 @@ export function getFooterModelDescription(
       return "Fundo escuro com newsletter e links em duas colunas.";
     case "3":
       return "Uma linha: marca, links e copyright.";
+    case "4":
+      return "Faixa de contacto com ações rápidas.";
+    case "5":
+      return "Identidade editorial com marca e links em destaque.";
+    case "6":
+      return "Duas colunas simples para loja e apoio.";
+    case "7":
+      return "Marca e links alinhados ao centro.";
+    case "8":
+      return "Fundo verde com assinatura clara.";
+    case "9":
+      return "Faixa compacta com redes sociais e copyright.";
+    case "10":
+      return "Cartão de marca com contactos e atalhos.";
   }
 }

@@ -7,6 +7,8 @@ import {
 
 import { Link, useLocation } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface BottomNavigationProps {
   cartCount?: number;
   whatsappNumber?: string;
@@ -21,6 +23,8 @@ export function BottomNavigation({
   storeSlug,
 }: BottomNavigationProps) {
   const [location] = useLocation();
+
+  const { t } = useI18n();
 
   /*
    * "Home" deve levar sempre à homepage da loja atual:
@@ -37,24 +41,33 @@ export function BottomNavigation({
   const cartPath = `${basePath}/carrinho${storeContext}`;
   const accountPath = `${basePath}/conta${storeContext}`;
 
+  /*
+   * `id` é estável e `name` é o rótulo já traduzido: o badge do
+   * carrinho e as keys do React usam `id`, para continuarem a
+   * funcionar com a loja em qualquer idioma.
+   */
   const navItems = [
     {
-      name: "Home",
+      id: "home",
+      name: t("nav.home"),
       icon: Home,
       href: homePath,
     },
     {
-      name: "Mensagens",
+      id: "messages",
+      name: t("nav.messages"),
       icon: MessageCircle,
       href: messagesPath,
     },
     {
-      name: "Carrinho",
+      id: "cart",
+      name: t("nav.cart"),
       icon: ShoppingCart,
       href: cartPath,
     },
     {
-      name: "Conta",
+      id: "account",
+      name: t("nav.account"),
       icon: User,
       href: accountPath,
     },
@@ -116,7 +129,7 @@ export function BottomNavigation({
 
           return (
             <Link
-              key={item.name}
+              key={item.id}
               href={item.href}
               className={className}
             >
@@ -133,7 +146,7 @@ export function BottomNavigation({
               >
                 <Icon size={23} />
 
-                {item.name === "Carrinho" &&
+                {item.id === "cart" &&
                   cartCount > 0 && (
                     <span
                       className="

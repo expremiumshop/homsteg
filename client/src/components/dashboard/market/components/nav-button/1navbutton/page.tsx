@@ -7,23 +7,6 @@ import {
 
 import { Link } from "wouter";
 
-/* =========================================================
-   MARKET — NAV BUTTON 1 (Clássico)
-   Extraído do botão de navegação atual do tema Nova
-   (BottomNavigation) e isolado como funcionalidade do
-   Market. Sem dependências do tema: dados de demonstração
-   locais, para o Market mostrar sempre o design real.
-
-   Ao comprar esta funcionalidade, a loja desbloqueia o
-   modelo "Clássico" na Personalização
-   (stores.navButtonModel = "1").
-
-   No preview do Market o botão renderiza em fluxo
-   (relative); na loja real é fixo no fundo do ecrã
-   (fixed md:hidden). Estrutura, tamanho e espaçamento
-   são idênticos.
-   ========================================================= */
-
 type NavItem = {
   name: string;
   icon: typeof Home;
@@ -63,99 +46,126 @@ export default function NavButton1({
   const activeName = "Home";
 
   return (
-    <nav
-      className="
-        relative
-        z-[90]
-      "
-    >
+    <nav className="relative z-[90] w-full px-2 py-3">
       <div
         className="
+          mx-auto
           flex
           w-full
+          max-w-xl
           items-center
-          overflow-hidden
-          rounded-2xl
+          gap-1.5
+          rounded-[22px]
           border
-          border-gray-200
-          bg-white
-          shadow-[0_4px_20px_rgba(0,0,0,0.12)]
+          border-black/[0.07]
+          bg-white/95
+          p-1.5
+          shadow-[0_10px_35px_rgba(0,0,0,0.10)]
+          backdrop-blur-xl
+          supports-[backdrop-filter]:bg-white/80
         "
       >
         {navItems.map((item) => {
           const Icon = item.icon;
-
           const active = item.name === activeName;
-
-          const className = `
-            relative
-            flex
-            min-h-[62px]
-            flex-1
-            flex-col
-            items-center
-            justify-center
-            gap-1
-            transition-all
-            ${
-              active
-                ? "text-primary"
-                : "text-muted-foreground"
-            }
-          `;
+          const isCart = item.name === "Carrinho";
 
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={className}
+              aria-current={active ? "page" : undefined}
+              className={`
+                group
+                relative
+                flex
+                min-h-[54px]
+                flex-1
+                items-center
+                justify-center
+                rounded-[17px]
+                px-2
+                transition-all
+                duration-300
+                ease-out
+                active:scale-[0.96]
+                ${
+                  active
+                    ? "bg-primary text-primary-foreground shadow-[0_5px_18px_rgba(0,0,0,0.14)]"
+                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                }
+              `}
             >
-              <div
+              <span
                 className={`
                   relative
-                  transition-transform
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-full
+                  transition-all
+                  duration-300
                   ${
                     active
-                      ? "scale-110"
-                      : "scale-100"
+                      ? "bg-white/15"
+                      : "bg-transparent group-hover:bg-background"
                   }
                 `}
               >
-                <Icon size={23} />
+                <Icon
+                  size={21}
+                  strokeWidth={active ? 2.4 : 2}
+                  className="
+                    transition-transform
+                    duration-300
+                    group-hover:scale-110
+                  "
+                />
 
-                {item.name === "Carrinho" &&
-                  cartCount > 0 && (
-                    <span
-                      className="
-                        absolute
-                        -right-2
-                        -top-2
-                        flex
-                        h-5
-                        min-w-5
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-primary
-                        px-1
-                        text-[10px]
-                        font-bold
-                        text-white
-                      "
-                    >
-                      {cartCount}
-                    </span>
-                  )}
-              </div>
+                {isCart && cartCount > 0 && (
+                  <span
+                    className={`
+                      absolute
+                      -right-1.5
+                      -top-1.5
+                      flex
+                      min-h-[18px]
+                      min-w-[18px]
+                      items-center
+                      justify-center
+                      rounded-full
+                      border-2
+                      px-1
+                      text-[9px]
+                      font-bold
+                      leading-none
+                      shadow-sm
+                      ${
+                        active
+                          ? "border-primary bg-white text-primary"
+                          : "border-white bg-primary text-primary-foreground"
+                      }
+                    `}
+                  >
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </span>
 
               <span
                 className={`
-                  text-[11px]
-                  font-medium
+                  ml-1.5
+                  hidden
+                  text-xs
+                  font-semibold
+                  tracking-[-0.01em]
+                  sm:inline
                   ${
                     active
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                      ? "opacity-100"
+                      : "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   }
                 `}
               >
@@ -163,16 +173,16 @@ export default function NavButton1({
               </span>
 
               {active && (
-                <div
+                <span
                   className="
                     absolute
                     bottom-1
                     left-1/2
-                    h-0.5
-                    w-8
+                    h-1
+                    w-1
                     -translate-x-1/2
                     rounded-full
-                    bg-primary
+                    bg-white/90
                   "
                 />
               )}

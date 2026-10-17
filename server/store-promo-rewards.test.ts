@@ -18,6 +18,25 @@ function readRepoFile(relativePath: string): string {
   );
 }
 
+/**
+ * Normaliza espaços em branco de código-fonte.
+ *
+ * As asserções deste ficheiro verificam CONTEÚDO e ORDEM de
+ * código (não é possível executar as mutations de crédito sem
+ * base de dados). Comparar texto cru torna o teste dependente
+ * da formatação: uma passagem do Prettier que parta uma linha
+ * de outra maneira fazia falhar a asserção sem que o
+ * comportamento tivesse mudado — foi exatamente o que
+ * aconteceu com a recompensa de comissão, que já esteve a
+ * falhar em CI apesar de o código estar correto.
+ *
+ * Colapsa sequências de espaços/quebras de linha num único
+ * espaço: a asserção passa a depender só do código.
+ */
+function normalizeSource(source: string): string {
+  return source.replace(/\s+/g, " ");
+}
+
 describe("HOMSTEG — recompensas do código promocional", () => {
   it("dono do código recebe 6.200 créditos de comissão", () => {
     expect(STORE_CODE_OWNER_REWARD).toBe(6_200);
@@ -39,16 +58,18 @@ describe("HOMSTEG — recompensas do código promocional", () => {
   });
 
   it("a recompensa do dono vai para a COMISSÃO e a do utilizador para o BÔNUS", () => {
-    const dbSource = readRepoFile("server/db.ts");
+    const dbSource = normalizeSource(
+      readRepoFile("server/db.ts"),
+    );
 
     /* Dono (Loja A): commissionCredit += OWNER_REWARD. */
     expect(dbSource).toContain(
-      "commissionCredit:\n          ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD",
+      "commissionCredit: ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD",
     );
 
     /* A comissão também entra no crédito atual. */
     expect(dbSource).toContain(
-      "creditMzn:\n          ownerStore.creditMzn + STORE_CODE_OWNER_REWARD",
+      "creditMzn: ownerStore.creditMzn + STORE_CODE_OWNER_REWARD",
     );
 
     /* Utilizador (Loja B): bonusCredit += USER_REWARD... */
@@ -73,13 +94,15 @@ describe("HOMSTEG — recompensas do código promocional", () => {
   });
 
   it("os dois saldos do dono sobem JUNTOS na mesma atualização", () => {
-    const dbSource = readRepoFile("server/db.ts");
+    const dbSource = normalizeSource(
+      readRepoFile("server/db.ts"),
+    );
 
     const commissionIndex = dbSource.indexOf(
-      "commissionCredit:\n          ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD",
+      "commissionCredit: ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD",
     );
     const creditIndex = dbSource.indexOf(
-      "creditMzn:\n          ownerStore.creditMzn + STORE_CODE_OWNER_REWARD",
+      "creditMzn: ownerStore.creditMzn + STORE_CODE_OWNER_REWARD",
     );
 
     expect(commissionIndex).toBeGreaterThan(-1);

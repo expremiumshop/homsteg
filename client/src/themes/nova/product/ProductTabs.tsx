@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface ProductTabsProps {
   product: any;
 }
@@ -7,20 +9,22 @@ interface ProductTabsProps {
 export default function ProductTabs({
   product,
 }: ProductTabsProps) {
+  const { t } = useI18n();
+
   const [active, setActive] = useState("description");
 
   const tabs = [
     {
       id: "description",
-      name: "Descrição",
+      name: t("product.tabDescription"),
     },
     {
       id: "details",
-      name: "Detalhes",
+      name: t("product.tabDetails"),
     },
     {
       id: "reviews",
-      name: "Avaliações",
+      name: t("product.reviewsTab"),
     },
   ];
 
@@ -92,7 +96,7 @@ export default function ProductTabs({
                 text-gray-900
               "
             >
-              Descrição do produto
+              {t("product.description")}
             </h3>
 
             <p
@@ -107,7 +111,7 @@ export default function ProductTabs({
               "
             >
               {product?.description ||
-                "Informações detalhadas do produto aparecerão aqui."}
+                t("product.descriptionFallback")}
             </p>
           </div>
         )}
@@ -128,7 +132,7 @@ export default function ProductTabs({
                 text-gray-900
               "
             >
-              Detalhes do produto
+              {t("product.details")}
             </h3>
 
             <div
@@ -146,25 +150,26 @@ export default function ProductTabs({
                   [overflow-wrap:anywhere]
                 "
               >
-                <strong>Categoria:</strong>{" "}
-                {product?.category || "Sem categoria"}
+                <strong>{t("product.category")}:</strong>{" "}
+                {product?.category ||
+                  t("product.categoryFallback")}
               </p>
 
               <p>
-                <strong>Disponibilidade:</strong>{" "}
+                <strong>{t("product.availability")}:</strong>{" "}
                 {Number(product?.stock ?? 0) > 0
-                  ? "Em estoque"
-                  : "Sem estoque"}
+                  ? t("product.inStock")
+                  : t("product.outOfStock")}
               </p>
 
               <p>
-                <strong>Envio:</strong>{" "}
-                Internacional
+                <strong>{t("product.shippingLabel")}:</strong>{" "}
+                {t("product.international")}
               </p>
 
               <p>
-                <strong>Garantia:</strong>{" "}
-                Garantia
+                <strong>{t("product.garantiaLabel")}:</strong>{" "}
+                {t("product.garantiaLabel")}
               </p>
             </div>
           </div>
@@ -186,7 +191,7 @@ export default function ProductTabs({
                 text-gray-900
               "
             >
-              Avaliações
+              {t("product.reviewsTab")}
             </h3>
 
             <p
@@ -196,7 +201,7 @@ export default function ProductTabs({
                 [overflow-wrap:anywhere]
               "
             >
-              As avaliações dos clientes aparecerão aqui.
+              {t("product.reviewsEmpty")}
             </p>
           </div>
         )}

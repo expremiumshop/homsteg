@@ -53,6 +53,26 @@ function ModelMiniature({
     return <div className="overflow-hidden rounded-2xl shadow-sm">{img}</div>;
   }
 
+  if (model === "9") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-rose-100 bg-white">
+        <div className="relative h-16 bg-gradient-to-br from-rose-100 to-orange-50">
+          <span className="absolute left-1 top-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[7px] font-bold text-white">-20%</span>
+        </div>
+        <div className="p-1.5"><span className="block h-1 w-7 bg-rose-300" /><span className="mt-1 block h-1.5 w-4/5 bg-slate-300" /><span className="mt-1 block text-[8px] font-bold text-rose-700">1 250 MT</span></div>
+      </div>
+    );
+  }
+
+  if (model === "10") {
+    return (
+      <div className="overflow-hidden rounded-xl bg-[#f6f3ed]">
+        <div className="h-16 bg-[#e8e1d6]">{img}</div>
+        <div className="p-1.5"><span className="block h-1 w-7 bg-stone-300" /><span className="mt-1 block h-1.5 w-4/5 bg-stone-500" /><span className="mt-1 block text-[8px] font-bold text-stone-700">1 250 MT</span></div>
+      </div>
+    );
+  }
+
   if (model === "3") {
     return (
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -280,6 +300,8 @@ const PRODUCT_CARD_MODEL_HINTS: Record<
   "6": "Sombra suave, categoria e botão circular.",
   "7": "Quadrado, com nome e preço em destaque.",
   "8": "Linha com imagem à esquerda e seta.",
+  "9": "Imagem de campanha com selo de desconto.",
+  "10": "Apresentação editorial com detalhes em tons naturais.",
 };
 
 export default ProductCardModelSelector;
@@ -311,8 +333,8 @@ function NavButtonMiniature({
     <div
       className={`
         flex w-full items-center overflow-hidden bg-white shadow-sm
-        ${model === "2" ? "rounded-full" : "rounded-2xl"}
-        border border-gray-200
+        ${model === "2" || model === "7" ? "rounded-full" : "rounded-2xl"}
+        ${model === "6" ? "border-slate-800 bg-slate-950" : model === "8" ? "border-t-2 border-sky-500" : model === "10" ? "border-emerald-800 bg-emerald-800" : "border-gray-200"}
       `}
     >
       {NAV_ITEMS.map((item, index) => {
@@ -329,6 +351,18 @@ function NavButtonMiniature({
               ${
                 model === "4" && active
                   ? "bg-[#141714] text-white"
+                  : model === "6"
+                    ? active
+                      ? "text-lime-300"
+                      : "text-slate-300"
+                    : model === "7"
+                      ? active
+                        ? "rounded-full bg-white text-indigo-700 shadow-sm"
+                        : "text-slate-400"
+                      : model === "9" && active
+                        ? "rounded-xl bg-violet-600 text-white"
+                        : model === "10"
+                          ? "text-white"
                   : active
                     ? "text-[#141714]"
                     : "text-gray-400"
@@ -379,6 +413,11 @@ const NAV_BUTTON_MODEL_HINTS: Record<
   "3": "Apenas ícones, sem rótulos.",
   "4": "Separador ativo preenchido.",
   "5": "Item ativo elevado com sombra.",
+  "6": "Barra escura e indicador luminoso.",
+  "7": "Atalhos em cápsulas individuais.",
+  "8": "Indicador na borda superior.",
+  "9": "Item ativo destacado em bloco.",
+  "10": "Barra verde com rótulos.",
 };
 
 /**

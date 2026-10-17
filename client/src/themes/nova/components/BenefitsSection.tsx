@@ -4,31 +4,38 @@ import {
     Award,
     Headphones,
   } from "lucide-react";
-  
-  const benefits = [
+
+  import { useI18n } from "@/lib/i18n-context";
+  import type { TranslationKey } from "@/lib/i18n";
+
+  /*
+   * Título e descrição de cada benefício vêm do catálogo:
+   * a lista guarda chaves, o texto é resolvido no render.
+   */
+  const benefits: {
+    icon: typeof Truck;
+    titleKey: TranslationKey;
+    descriptionKey: TranslationKey;
+  }[] = [
     {
       icon: Truck,
-      title: "Entrega em Moçambique",
-      description:
-        "Receba os seus produtos com segurança e acompanhe a sua entrega.",
+      titleKey: "benefits.deliveryTitle",
+      descriptionKey: "benefits.deliveryText",
     },
     {
       icon: Lock,
-      title: "Compra segura",
-      description:
-        "Os seus dados são tratados com segurança durante a sua compra.",
+      titleKey: "benefits.safeBuyTitle",
+      descriptionKey: "benefits.safeBuyText",
     },
     {
       icon: Award,
-      title: "Produtos verificados",
-      description:
-        "Encontre produtos e vendedores selecionados para uma experiência melhor.",
+      titleKey: "benefits.verifiedTitle",
+      descriptionKey: "benefits.verifiedText",
     },
     {
       icon: Headphones,
-      title: "Suporte ao cliente",
-      description:
-        "Conte com a nossa equipa para ajudar sempre que precisar.",
+      titleKey: "benefits.supportTitle",
+      descriptionKey: "benefits.supportText",
     },
   ];
   
@@ -45,15 +52,17 @@ import {
     aboutDescription,
     slogan,
   }: BenefitsSectionProps) {
+    const { t } = useI18n();
+
     const title =
-      aboutTitle || `Porquê comprar na ${storeName}?`;
-  
+      aboutTitle || t("benefits.whyTitle", { store: storeName });
+
     const description =
-      aboutDescription ||
-      "Uma experiência de compra simples, segura e confiável.";
-  
-    const defaultSlogan =
-      `${storeName} — qualidade que chega até si.`;
+      aboutDescription || t("benefits.whyText");
+
+    const defaultSlogan = t("benefits.slogan", {
+      store: storeName,
+    });
   
     return (
       <section className="@container w-full px-4 py-8 md:px-6 lg:px-8">
@@ -71,10 +80,12 @@ import {
           <div className="grid grid-cols-1 gap-4 @[720px]:grid-cols-4 @[720px]:gap-5">
             {benefits.map((benefit) => {
               const Icon = benefit.icon;
+              const benefitTitle = t(benefit.titleKey);
+              const benefitDescription = t(benefit.descriptionKey);
   
               return (
                 <div
-                  key={benefit.title}
+                  key={benefit.titleKey}
                   className="
                     flex
                     min-h-[120px]
@@ -113,13 +124,12 @@ import {
                     <Icon className="h-6 w-6 text-primary @[720px]:h-7 @[720px]:w-7" />
                   </div>
   
-                  <div>
-                    <h3 className="text-base font-bold text-foreground @[720px]:text-lg">
-                      {benefit.title}
+                  <div>                    <h3 className="text-base font-bold text-foreground @[720px]:text-lg">
+                      {benefitTitle}
                     </h3>
-  
+
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      {benefit.description}
+                      {benefitDescription}
                     </p>
                   </div>
                 </div>
@@ -134,47 +144,34 @@ import {
                   {storeName}
                 </h2>
   
-                <div className="mt-5 space-y-4 text-sm leading-7 text-muted-foreground @[720px]:text-base">
-                  <p>
+                <div className="mt-5 space-y-4 text-sm leading-7 text-muted-foreground @[720px]:text-base">                  <p>
                     A{" "}
                     <strong className="text-foreground">
                       {storeName}
-                    </strong>{" "}
-                    é uma loja dedicada à comercialização de produtos
-                    de qualidade, selecionados cuidadosamente para
-                    oferecer aos nossos clientes{" "}
+                    </strong>
+                    {t("benefits.about1a")}
                     <strong className="text-foreground">
-                      excelência, variedade e preços competitivos
+                      {t("benefits.about1b")}
                     </strong>
                     .
                   </p>
-  
+
                   <p>
-                    Trabalhamos para oferecer uma ampla variedade de
-                    produtos, selecionando opções que aliam{" "}
+                    {t("benefits.about2a")}
                     <strong className="text-foreground">
-                      qualidade, bom preço e estilo
+                      {t("benefits.about2b")}
                     </strong>
                     .
                   </p>
-  
-                  <p>
-                    O nosso compromisso é tornar produtos de qualidade
-                    acessíveis a clientes em todo o território
-                    nacional. Procuramos oferecer uma experiência de
-                    compra simples, segura e conveniente.
-                  </p>
-  
+
+                  <p>{t("benefits.about3")}</p>
+
                   <p>
                     Na{" "}
                     <strong className="text-foreground">
                       {storeName}
                     </strong>
-                    , acreditamos que comprar deve ser uma experiência
-                    simples, segura e satisfatória. Por isso, procuramos
-                    oferecer produtos cuidadosamente selecionados,
-                    preços justos e um atendimento focado nas
-                    necessidades de cada cliente.
+                    {t("benefits.about4")}
                   </p>
                 </div>
   

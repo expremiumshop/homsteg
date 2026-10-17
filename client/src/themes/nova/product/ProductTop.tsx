@@ -1,5 +1,7 @@
 import { Share2, ShieldCheck } from "lucide-react";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface ProductTopProps {
   product: any;
 }
@@ -7,6 +9,7 @@ interface ProductTopProps {
 export default function ProductTop({
   product,
 }: ProductTopProps) {
+  const { t } = useI18n();
   return (
     <div className="w-full min-w-0 space-y-5">
       {/* =====================================================
@@ -15,7 +18,7 @@ export default function ProductTop({
 
       <div className="w-full min-w-0 max-w-full overflow-hidden">
         <h1
-          title={product?.name || "Produto sem nome"}
+          title={product?.name || t("product.noName")}
           className="
             block
             w-full
@@ -30,7 +33,7 @@ export default function ProductTop({
             lg:text-3xl
           "
         >
-          {product?.name || "Produto sem nome"}
+          {product?.name || t("product.noName")}
         </h1>
       </div>
 
@@ -85,7 +88,7 @@ export default function ProductTop({
                 text-green-700
               "
             >
-              ✓ Fornecedor verificado
+              ✓ {t("product.verifiedSupplier")}
             </p>
 
             <p
@@ -96,7 +99,7 @@ export default function ProductTop({
                 text-gray-600
               "
             >
-              Produto analisado e seguro para compra
+              {t("product.reviewedSafe")}
             </p>
           </div>
         </div>
@@ -118,7 +121,7 @@ export default function ProductTop({
           "
         >
           <Share2 size={18} />
-          Compartilhar
+          {t("product.share")}
         </button>
       </div>
     </div>

@@ -4,7 +4,11 @@ import {
   Lock,
 } from "lucide-react";
 
+import { useI18n } from "@/lib/i18n-context";
+
 export default function GuaranteeCard() {
+  const { t } = useI18n();
+
   return (
     <div
       className="
@@ -38,7 +42,7 @@ export default function GuaranteeCard() {
               text-gray-900
             "
           >
-            Produto protegido
+            {t("product.protected")}
           </p>
 
           <p
@@ -47,7 +51,7 @@ export default function GuaranteeCard() {
               text-gray-500
             "
           >
-            Garantia
+            {t("product.garantiaLabel")}
           </p>
         </div>
       </div>
@@ -76,7 +80,7 @@ export default function GuaranteeCard() {
               text-gray-900
             "
           >
-            Pagamento seguro
+            {t("benefit.securePayment")}
           </p>
 
           <p
@@ -85,7 +89,7 @@ export default function GuaranteeCard() {
               text-gray-500
             "
           >
-            Dados protegidos
+            {t("product.protectedData")}
           </p>
         </div>
       </div>
@@ -114,7 +118,7 @@ export default function GuaranteeCard() {
               text-gray-900
             "
           >
-            Partilhar
+            {t("footer.share")}
           </p>
 
           <p
@@ -123,7 +127,7 @@ export default function GuaranteeCard() {
               text-gray-500
             "
           >
-            Envie para amigos
+            {t("product.sendToFriends")}
           </p>
         </div>
       </div>

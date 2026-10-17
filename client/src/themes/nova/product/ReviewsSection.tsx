@@ -2,8 +2,12 @@ import {
     Star,
     Image as ImageIcon,
   } from "lucide-react";
-  
+
+  import { useI18n } from "@/lib/i18n-context";
+
   export default function ReviewsSection() {
+    const { t } = useI18n();
+
     return (
       <section
         className="
@@ -21,7 +25,7 @@ import {
             text-gray-900
           "
         >
-          Avaliações do produto
+          {t("product.reviews")}
         </h2>
   
         {/* RESUMO */}
@@ -75,7 +79,7 @@ import {
                 text-gray-500
               "
             >
-              Avaliação média
+              {t("product.avgRating")}
             </p>
           </div>
   
@@ -86,15 +90,9 @@ import {
               md:col-span-2
             "
           >
-            {[
-              "5 estrelas",
-              "4 estrelas",
-              "3 estrelas",
-              "2 estrelas",
-              "1 estrela",
-            ].map((item, index) => (
+            {[5, 4, 3, 2, 1].map((stars, index) => (
               <div
-                key={item}
+                key={stars}
                 className="
                   flex
                   items-center
@@ -107,7 +105,9 @@ import {
                     text-sm
                   "
                 >
-                  {item}
+                  {stars === 1
+                    ? t("product.star1")
+                    : t("product.starsN", { count: stars })}
                 </span>
   
                 <div
@@ -144,11 +144,10 @@ import {
             space-y-4
             pt-5
           "
-        >
-          <h3 className="font-bold">
-            Comentários dos clientes
+        >          <h3 className="font-bold">
+            {t("product.customerComments")}
           </h3>
-  
+
           <div
             className="
               rounded-lg
@@ -157,10 +156,9 @@ import {
               text-gray-500
             "
           >
-            Ainda não existem avaliações.
+            {t("product.noReviews")}
             <br />
-            Quando clientes avaliarem este produto,
-            elas aparecerão aqui.
+            {t("product.noReviewsHint")}
           </div>
         </div>
   
@@ -177,10 +175,9 @@ import {
               gap-2
               font-semibold
             "
-          >
-            <ImageIcon size={20} />
-  
-            Fotos dos clientes
+          >            <ImageIcon size={20} />
+
+            {t("product.customerPhotos")}
           </div>
   
           <div

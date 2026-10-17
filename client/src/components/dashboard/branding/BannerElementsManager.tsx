@@ -17,10 +17,12 @@ import type {
   BannerTextPosition,
   BannerAnimation,
   BannerFeatureSet,
+  BannerFeatureMap,
   BannerButtonFeature,
   BannerTextFeature,
   BannerAnimationFeature,
   BannerCountdownFeature,
+  BannerText,
 } from "@/themes/nova/bannerModels";
 
 /*
@@ -98,6 +100,9 @@ function normalizeFeatureSet(
 export default function BannerElementsManager({
   storeId,
   banners,
+  onDraftChange,
+  draftMode = false,
+  onDirty,
 }: {
   storeId: string;
 
@@ -106,6 +111,28 @@ export default function BannerElementsManager({
    * [bannerKey legado, ...bannerKeys].
    */
   banners: BannerItem[];
+
+  /**
+   * Reporta o rascunho local (elementos + textos) para a
+   * pré-visualização da Personalizar Loja.
+   */
+  onDraftChange?: (draft: {
+    bannerFeatures: BannerFeatureMap;
+    bannerTexts: BannerText[];
+  }) => void;
+
+  /**
+   * Modo rascunho (Personalizar Loja → Publicar alterações):
+   * as edições ficam só em memória e a aplicação à loja é
+   * feita pela página, no botão "Publicar alterações".
+   */
+  draftMode?: boolean;
+
+  /**
+   * Avisa a página de que houve uma edição do utilizador
+   * (para mostrar "alterações por publicar").
+   */
+  onDirty?: () => void;
 }) {
   const brandingQuery =
     trpc.stores.branding.get.useQuery(
@@ -176,10 +203,29 @@ export default function BannerElementsManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey]);
 
+  /*
+   * Publica o rascunho local para a pré-visualização. O
+   * callback é estável (setState do componente pai), pelo que
+   * o efeito só corre quando os elementos/textos mudam.
+   */
+  useEffect(() => {
+    onDraftChange?.({
+      bannerFeatures: features,
+      bannerTexts: texts,
+    });
+  }, [features, texts, onDraftChange]);
+
   function patchFeature(
     key: string,
     patch: Partial<FeatureInput>,
   ) {
+    /*
+     * Edição do utilizador: marca o rascunho como alterado.
+     * (A sincronização inicial do servidor usa setFeatures
+     * diretamente e não marca nada.)
+     */
+    onDirty?.();
+
     setFeatures((current) => ({
       ...current,
       [key]: {
@@ -193,6 +239,8 @@ export default function BannerElementsManager({
     index: number,
     patch: Partial<{ title?: string; subtitle?: string }>,
   ) {
+    onDirty?.();
+
     setTexts((current) => {
       const next = [...current];
 
@@ -269,6 +317,10 @@ export default function BannerElementsManager({
     setBannerTexts.isPending;
 
   async function handleSave() {
+    if (draftMode) {
+      return;
+    }
+
     try {
       await setBannerFeatures.mutateAsync({
         storeId,
@@ -301,6 +353,14 @@ export default function BannerElementsManager({
 
     patchFeature(key, { published: true });
 
+    if (draftMode) {
+      toast.success(
+        "Banner pronto. Publica as alterações para o aplicar.",
+      );
+
+      return;
+    }
+
     try {
       await setBannerFeatures.mutateAsync({
         storeId,
@@ -330,6 +390,14 @@ export default function BannerElementsManager({
       features[key] ?? normalizeFeatureSet(undefined);
 
     patchFeature(key, { published: false });
+
+    if (draftMode) {
+      toast.success(
+        "Banner pronto para Rascunho. Publica as alterações para o aplicar.",
+      );
+
+      return;
+    }
 
     try {
       await setBannerFeatures.mutateAsync({
@@ -488,19 +556,25 @@ export default function BannerElementsManager({
 
               <span className="flex-1" />
 
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={handleSave}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                Guardar elementos
-              </button>
+              {draftMode ? (
+                <span className="text-[11px] font-medium text-gray-400">
+                  Aplicado com "Publicar alterações"
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleSave}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Guardar elementos
+                </button>
+              )}
             </div>
 
             {/* ============ ELEMENTOS ============ */}
@@ -823,8 +897,9 @@ export default function BannerElementsManager({
       })}
 
       <p className="text-[11px] leading-4 text-gray-400">
-        Guarda os elementos para os aplicar. Banners em
-        Rascunho não aparecem na loja.
+        {draftMode
+          ? "As alterações só são aplicadas ao publicar. Banners em Rascunho não aparecem na loja."
+          : "Guarda os elementos para os aplicar. Banners em Rascunho não aparecem na loja."}
       </p>
     </div>
   );

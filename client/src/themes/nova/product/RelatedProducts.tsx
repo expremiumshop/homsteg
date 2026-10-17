@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface RelatedProductsProps {
   products: {
     id: string | number;
@@ -16,6 +18,11 @@ export default function RelatedProducts({
   products,
   storeSlug,
 }: RelatedProductsProps) {
+  /*
+   * Moeda da loja — o preço deixou de estar fixo em MZN.
+   */
+  const { t, currency } = useI18n();
+
   if (!products || products.length === 0) {
     return null;
   }
@@ -37,7 +44,7 @@ export default function RelatedProducts({
             text-gray-900
           "
         >
-          Você também pode gostar
+          {t("product.related")}
         </h2>
 
         <Link
@@ -49,7 +56,7 @@ export default function RelatedProducts({
             hover:text-orange-700
           "
         >
-          Ver todos
+          {t("product.seeAll")}
         </Link>
       </div>
 
@@ -138,7 +145,7 @@ export default function RelatedProducts({
                     text-red-600
                   "
                 >
-                  {Number(item.price ?? 0).toFixed(2)} MZN
+                  {Number(item.price ?? 0).toFixed(2)} {currency}
                 </span>
 
                 {item.compare_at_price && (
@@ -149,7 +156,7 @@ export default function RelatedProducts({
                       line-through
                     "
                   >
-                    {Number(item.compare_at_price).toFixed(2)} MZN
+                    {Number(item.compare_at_price).toFixed(2)} {currency}
                   </span>
                 )}
               </div>
@@ -163,7 +170,7 @@ export default function RelatedProducts({
                     text-green-600
                   "
                 >
-                  Oferta disponível
+                  {t("product.offerAvailable")}
                 </p>
               )}
             </div>

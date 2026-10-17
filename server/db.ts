@@ -6,15 +6,7 @@ import {
   getStockPackExtra,
 } from "../shared/market-catalog.js";
 
-import {
-  and,
-  count,
-  desc,
-  eq,
-  isNull,
-  ne,
-  sql,
-} from "drizzle-orm";
+import { and, count, desc, eq, isNull, isNotNull, ne, sql } from "drizzle-orm";
 import { asc } from "drizzle-orm";
 
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -35,7 +27,11 @@ import {
   storeMarketFeatures,
 } from "../drizzle/schema.js";
 
-import { createStoreDownloadUrl } from "./r2.js";
+import {
+  createStoreDownloadUrl,
+  extractStoreObjectKey,
+  isPresignedObjectUrl,
+} from "./r2.js";
 import {
   generateStoreCode,
   isValidStoreCodeFormat,
@@ -76,9 +72,7 @@ export async function getDb() {
    USERS
    ============================================================ */
 
-export async function upsertUser(
-  user: InsertUser,
-): Promise<void> {
+export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
   }
@@ -86,9 +80,7 @@ export async function upsertUser(
   const db = await getDb();
 
   if (!db) {
-    console.warn(
-      "[Database] Cannot upsert user: database not available",
-    );
+    console.warn("[Database] Cannot upsert user: database not available");
     return;
   }
 
@@ -101,32 +93,25 @@ export async function upsertUser(
     lastSignedIn: values.lastSignedIn,
   };
 
-  (["name", "email", "loginMethod"] as const).forEach(
-    (field) => {
-      if (user[field] !== undefined) {
-        values[field] = user[field] ?? null;
-        updateSet[field] = values[field];
-      }
-    },
-  );
+  (["name", "email", "loginMethod"] as const).forEach(field => {
+    if (user[field] !== undefined) {
+      values[field] = user[field] ?? null;
+      updateSet[field] = values[field];
+    }
+  });
 
   if (user.role !== undefined) {
     values.role = user.role;
     updateSet.role = values.role;
   }
 
-  await db
-    .insert(users)
-    .values(values)
-    .onConflictDoUpdate({
-      target: users.openId,
-      set: updateSet,
-    });
+  await db.insert(users).values(values).onConflictDoUpdate({
+    target: users.openId,
+    set: updateSet,
+  });
 }
 
-export async function getUserByOpenId(
-  openId: string,
-) {
+export async function getUserByOpenId(openId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -142,18 +127,14 @@ export async function getUserByOpenId(
   return result[0];
 }
 
-export async function getUserByEmail(
-  email: string,
-) {
+export async function getUserByEmail(email: string) {
   const db = await getDb();
 
   if (!db) {
     return undefined;
   }
 
-  const normalizedEmail = email
-    .toLowerCase()
-    .trim();
+  const normalizedEmail = email.toLowerCase().trim();
 
   const result = await db
     .select()
@@ -247,9 +228,7 @@ export async function resolveBetterAuthBusinessUser({
   return created[0];
 }
 
-export async function updateUserLastSignedIn(
-  userId: number,
-) {
+export async function updateUserLastSignedIn(userId: number) {
   const db = await getDb();
 
   if (!db) {
@@ -269,10 +248,7 @@ export async function updateUserLastSignedIn(
    STORES
    ============================================================ */
 
-export async function getStoresForUser(
-  userId: number,
-  isAdmin = false,
-) {
+export async function getStoresForUser(userId: number, isAdmin = false) {
   const db = await getDb();
 
   if (!db) {
@@ -280,10 +256,7 @@ export async function getStoresForUser(
   }
 
   if (isAdmin) {
-    return db
-      .select()
-      .from(stores)
-      .orderBy(desc(stores.createdAt));
+    return db.select().from(stores).orderBy(desc(stores.createdAt));
   }
 
   return db
@@ -291,19 +264,8 @@ export async function getStoresForUser(
       store: stores,
     })
     .from(stores)
-    .innerJoin(
-      storeMembers,
-      eq(
-        storeMembers.storeId,
-        stores.id,
-      ),
-    )
-    .where(
-      eq(
-        storeMembers.userId,
-        userId,
-      ),
-    )
+    .innerJoin(storeMembers, eq(storeMembers.storeId, stores.id))
+    .where(eq(storeMembers.userId, userId))
     .orderBy(desc(stores.createdAt));
 }
 
@@ -324,7 +286,7 @@ export async function createStoreForUser({
     throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  const store = await db.transaction(async (tx) => {
+  const store = await db.transaction(async tx => {
     const existingStore = await tx
       .select()
       .from(stores)
@@ -339,15 +301,9 @@ export async function createStoreForUser({
         .from(storeMembers)
         .where(
           and(
-            eq(
-              storeMembers.storeId,
-              existingStore[0].id,
-            ),
-            eq(
-              storeMembers.userId,
-              userId,
-            ),
-          ),
+            eq(storeMembers.storeId, existingStore[0].id),
+            eq(storeMembers.userId, userId)
+          )
         )
         .limit(1);
 
@@ -355,9 +311,7 @@ export async function createStoreForUser({
         return existingStore[0];
       }
 
-      throw new Error(
-        "STORE_SLUG_ALREADY_EXISTS",
-      );
+      throw new Error("STORE_SLUG_ALREADY_EXISTS");
     }
 
     const id = randomUUID();
@@ -380,13 +334,11 @@ export async function createStoreForUser({
       })
       .returning();
 
-    await tx
-      .insert(storeMembers)
-      .values({
-        storeId: id,
-        userId,
-        role: "owner",
-      });
+    await tx.insert(storeMembers).values({
+      storeId: id,
+      userId,
+      role: "owner",
+    });
 
     return created[0];
   });
@@ -405,10 +357,7 @@ export async function createStoreForUser({
   };
 }
 
-export async function updateStoreWhatsApp(
-  storeId: string,
-  whatsapp: string,
-) {
+export async function updateStoreWhatsApp(storeId: string, whatsapp: string) {
   const db = await getDb();
 
   if (!db) {
@@ -427,13 +376,114 @@ export async function updateStoreWhatsApp(
   return updated[0];
 }
 
+/*
+ * Idioma e moeda da loja (Configurações → Idioma e moeda).
+ *
+ * Os dois campos são gravados juntos porque são a MESMA
+ * decisão de localização da loja: a moeda formata os preços
+ * do storefront e o idioma escolhe o catálogo de textos
+ * (client/src/lib/i18n). Gravar só um deixaria a loja numa
+ * localização incoerente.
+ *
+ * O formato/limites de `language` e `currency` são validados
+ * na mutation (server/routers.ts); aqui apenas se persiste.
+ */
+export async function updateStoreLocale(
+  storeId: string,
+  locale: {
+    language: string;
+    currency: string;
+  }
+) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+
+  const updated = await db
+    .update(stores)
+    .set({
+      language: locale.language,
+      currency: locale.currency,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+
+  return updated[0];
+}
+
+export async function saveStoreCustomDomain(
+  storeId: string,
+  customDomain: string | null,
+  verificationToken: string | null
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DATABASE_UNAVAILABLE");
+  const updated = await db
+    .update(stores)
+    .set({
+      customDomain,
+      customDomainVerificationToken: verificationToken,
+      customDomainVerifiedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+  return updated[0];
+}
+
+export async function markStoreCustomDomainVerified(storeId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DATABASE_UNAVAILABLE");
+  const updated = await db
+    .update(stores)
+    .set({
+      customDomainVerifiedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId))
+    .returning();
+  return updated[0];
+}
+
+export async function getPublicStoreByCustomDomain(customDomain: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(stores)
+    .where(
+      and(
+        eq(stores.customDomain, customDomain),
+        isNotNull(stores.customDomainVerifiedAt)
+      )
+    )
+    .limit(1);
+  return result[0];
+}
+
+export async function getStoreCustomDomainSettings(storeId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select({
+      customDomain: stores.customDomain,
+      verificationToken: stores.customDomainVerificationToken,
+      verifiedAt: stores.customDomainVerifiedAt,
+    })
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .limit(1);
+  return result[0];
+}
+
 /* ============================================================
    PRODUCTS
    ============================================================ */
 
-export async function countActiveStoreProducts(
-  storeId: string,
-) {
+export async function countActiveStoreProducts(storeId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -443,18 +493,7 @@ export async function countActiveStoreProducts(
   const result = await db
     .select({ value: count() })
     .from(products)
-    .where(
-      and(
-        eq(
-          products.storeId,
-          storeId,
-        ),
-        ne(
-          products.status,
-          "archived",
-        ),
-      ),
-    );
+    .where(and(eq(products.storeId, storeId), ne(products.status, "archived")));
 
   return Number(result[0]?.value ?? 0);
 }
@@ -545,7 +584,7 @@ export async function useStorePromoCode({
     return { ok: false, reason: "CODE_INVALID" };
   }
 
-  return db.transaction(async (tx) => {
+  return db.transaction(async tx => {
     /*
      * Lock da loja que usa o código (FOR UPDATE): duas
      * submissões em paralelo ficam em fila — a segunda
@@ -616,10 +655,8 @@ export async function useStorePromoCode({
     await tx
       .update(stores)
       .set({
-        commissionCredit:
-          ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD,
-        creditMzn:
-          ownerStore.creditMzn + STORE_CODE_OWNER_REWARD,
+        commissionCredit: ownerStore.commissionCredit + STORE_CODE_OWNER_REWARD,
+        creditMzn: ownerStore.creditMzn + STORE_CODE_OWNER_REWARD,
         updatedAt: new Date(),
       })
       .where(eq(stores.id, ownerStore.id));
@@ -680,12 +717,7 @@ export async function ensureStoreCode(storeId: string): Promise<string | null> {
           storeCode: candidate,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(stores.id, storeId),
-            isNull(stores.storeCode),
-          ),
-        )
+        .where(and(eq(stores.id, storeId), isNull(stores.storeCode)))
         .returning({ storeCode: stores.storeCode });
 
       if (updated[0]?.storeCode) {
@@ -705,8 +737,7 @@ export async function ensureStoreCode(storeId: string): Promise<string | null> {
        * Colisão no índice único stores_store_code_unique:
        * tentar outro código. Outros erros propagam.
        */
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
 
       if (!message.includes("stores_store_code_unique")) {
         throw error;
@@ -717,9 +748,7 @@ export async function ensureStoreCode(storeId: string): Promise<string | null> {
   return null;
 }
 
-export async function getStoreWithUsage(
-  storeId: string,
-) {
+export async function getStoreWithUsage(storeId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -738,10 +767,7 @@ export async function getStoreWithUsage(
     return undefined;
   }
 
-  const productsUsed =
-    await countActiveStoreProducts(
-      store.id,
-    );
+  const productsUsed = await countActiveStoreProducts(store.id);
 
   return {
     store,
@@ -830,10 +856,7 @@ export async function addStoreCreditMzn({
 
   const current = store.creditMzn ?? 0;
 
-  const next = Math.max(
-    0,
-    current + amountMzn,
-  );
+  const next = Math.max(0, current + amountMzn);
 
   const updated = await db
     .update(stores)
@@ -877,7 +900,7 @@ export async function listStoreMarketFeatureKeys({
     .from(storeMarketFeatures)
     .where(eq(storeMarketFeatures.storeId, storeId));
 
-  return rows.map((row) => row.featureKey);
+  return rows.map(row => row.featureKey);
 }
 
 /**
@@ -901,7 +924,7 @@ export async function purchaseMarketFeature({
     throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  return db.transaction(async (tx) => {
+  return db.transaction(async tx => {
     /* 1. A funcionalidade tem de existir e estar ativa. */
     const featureResult = await tx
       .select({
@@ -929,8 +952,8 @@ export async function purchaseMarketFeature({
       .where(
         and(
           eq(storeMarketFeatures.storeId, storeId),
-          eq(storeMarketFeatures.featureKey, featureKey),
-        ),
+          eq(storeMarketFeatures.featureKey, featureKey)
+        )
       )
       .limit(1);
 
@@ -1004,26 +1027,13 @@ export async function getAdminUsers() {
     return [];
   }
 
-  const [
-    allUsers,
-    applications,
-    memberships,
-  ] = await Promise.all([
-    db
-      .select()
-      .from(users)
-      .orderBy(
-        desc(users.createdAt),
-      ),
+  const [allUsers, applications, memberships] = await Promise.all([
+    db.select().from(users).orderBy(desc(users.createdAt)),
 
     db
       .select()
       .from(storeApplications)
-      .orderBy(
-        desc(
-          storeApplications.createdAt,
-        ),
-      ),
+      .orderBy(desc(storeApplications.createdAt)),
 
     db
       .select({
@@ -1031,90 +1041,50 @@ export async function getAdminUsers() {
         store: stores,
       })
       .from(storeMembers)
-      .innerJoin(
-        stores,
-        eq(
-          storeMembers.storeId,
-          stores.id,
-        ),
-      ),
+      .innerJoin(stores, eq(storeMembers.storeId, stores.id)),
   ]);
 
-  const latestApplicationByUser =
-    new Map<
-      number,
-      (typeof applications)[number]
-    >();
+  const latestApplicationByUser = new Map<
+    number,
+    (typeof applications)[number]
+  >();
 
   for (const application of applications) {
-    if (
-      !latestApplicationByUser.has(
-        application.userId,
-      )
-    ) {
-      latestApplicationByUser.set(
-        application.userId,
-        application,
-      );
+    if (!latestApplicationByUser.has(application.userId)) {
+      latestApplicationByUser.set(application.userId, application);
     }
   }
 
-  const storesByUser =
-    new Map<
-      number,
-      typeof memberships
-    >();
+  const storesByUser = new Map<number, typeof memberships>();
 
   for (const membership of memberships) {
-    const userStores =
-      storesByUser.get(
-        membership.membership.userId,
-      ) ?? [];
+    const userStores = storesByUser.get(membership.membership.userId) ?? [];
 
-    userStores.push(
-      membership,
-    );
+    userStores.push(membership);
 
-    storesByUser.set(
-      membership.membership.userId,
-      userStores,
-    );
+    storesByUser.set(membership.membership.userId, userStores);
   }
 
-  return allUsers.map((user) => ({
+  return allUsers.map(user => ({
     user,
 
-    latestApplication:
-      latestApplicationByUser.get(
-        user.id,
-      ) ?? null,
+    latestApplication: latestApplicationByUser.get(user.id) ?? null,
 
-    stores: (
-      storesByUser.get(
-        user.id,
-      ) ?? []
-    ).map(
-      ({
-        membership,
-        store,
-      }) => ({
-        store,
-        role: membership.role,
-      }),
-    ),
+    stores: (storesByUser.get(user.id) ?? []).map(({ membership, store }) => ({
+      store,
+      role: membership.role,
+    })),
   }));
 }
 
 export async function updateStoreStatus(
   storeId: string,
-  status: "active" | "suspended",
+  status: "active" | "suspended"
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const result = await db
@@ -1123,55 +1093,27 @@ export async function updateStoreStatus(
       status,
       updatedAt: new Date(),
     })
-    .where(
-      eq(
-        stores.id,
-        storeId,
-      ),
-    )
+    .where(eq(stores.id, storeId))
     .returning();
 
   return result[0];
 }
 
-export async function deleteStore(
-  storeId: string,
-) {
+export async function deleteStore(storeId: string) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  return db.transaction(async (tx) => {
-    await tx
-      .delete(storeMembers)
-      .where(
-        eq(
-          storeMembers.storeId,
-          storeId,
-        ),
-      );
+  return db.transaction(async tx => {
+    await tx.delete(storeMembers).where(eq(storeMembers.storeId, storeId));
 
-    await tx
-      .delete(products)
-      .where(
-        eq(
-          products.storeId,
-          storeId,
-        ),
-      );
+    await tx.delete(products).where(eq(products.storeId, storeId));
 
     const result = await tx
       .delete(stores)
-      .where(
-        eq(
-          stores.id,
-          storeId,
-        ),
-      )
+      .where(eq(stores.id, storeId))
       .returning();
 
     return result[0];
@@ -1191,105 +1133,52 @@ export async function deleteStore(
  * Tudo acontece dentro da mesma transação.
  */
 
-export async function deleteAdminUser(
-  userId: number,
-) {
+export async function deleteAdminUser(userId: number) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  return db.transaction(async (tx) => {
+  return db.transaction(async tx => {
     const userResult = await tx
       .select()
       .from(users)
-      .where(
-        eq(
-          users.id,
-          userId,
-        ),
-      )
+      .where(eq(users.id, userId))
       .limit(1);
 
     const user = userResult[0];
 
     if (!user) {
-      throw new Error(
-        "USER_NOT_FOUND",
-      );
+      throw new Error("USER_NOT_FOUND");
     }
 
     const memberships = await tx
       .select({
-        storeId:
-          storeMembers.storeId,
+        storeId: storeMembers.storeId,
       })
       .from(storeMembers)
-      .where(
-        eq(
-          storeMembers.userId,
-          userId,
-        ),
-      );
+      .where(eq(storeMembers.userId, userId));
 
     const storeIds = Array.from(
-      new Set(
-        memberships.map(
-          (membership) =>
-            membership.storeId,
-        ),
-      ),
+      new Set(memberships.map(membership => membership.storeId))
     );
 
     for (const storeId of storeIds) {
-      await tx
-        .delete(storeMembers)
-        .where(
-          eq(
-            storeMembers.storeId,
-            storeId,
-          ),
-        );
+      await tx.delete(storeMembers).where(eq(storeMembers.storeId, storeId));
 
-      await tx
-        .delete(products)
-        .where(
-          eq(
-            products.storeId,
-            storeId,
-          ),
-        );
+      await tx.delete(products).where(eq(products.storeId, storeId));
 
-      await tx
-        .delete(stores)
-        .where(
-          eq(
-            stores.id,
-            storeId,
-          ),
-        );
+      await tx.delete(stores).where(eq(stores.id, storeId));
     }
 
     await tx
       .delete(storeApplications)
-      .where(
-        eq(
-          storeApplications.userId,
-          userId,
-        ),
-      );
+      .where(eq(storeApplications.userId, userId));
 
     const deleted = await tx
       .delete(users)
-      .where(
-        eq(
-          users.id,
-          userId,
-        ),
-      )
+      .where(eq(users.id, userId))
       .returning();
 
     return deleted[0];
@@ -1299,7 +1188,7 @@ export async function deleteAdminUser(
 export async function userHasStoreAccess(
   userId: number,
   storeId: string,
-  isAdmin = false,
+  isAdmin = false
 ) {
   if (isAdmin) {
     return true;
@@ -1317,16 +1206,7 @@ export async function userHasStoreAccess(
     })
     .from(storeMembers)
     .where(
-      and(
-        eq(
-          storeMembers.userId,
-          userId,
-        ),
-        eq(
-          storeMembers.storeId,
-          storeId,
-        ),
-      ),
+      and(eq(storeMembers.userId, userId), eq(storeMembers.storeId, storeId))
     )
     .limit(1);
 
@@ -1337,33 +1217,19 @@ export async function userHasStoreAccess(
    PUBLIC STORE
    ============================================================ */
 
-export async function getPublicStoreBySlug(
-  slug: string,
-) {
+export async function getPublicStoreBySlug(slug: string) {
   const db = await getDb();
 
   if (!db) {
     return undefined;
   }
 
-  const normalizedSlug =
-    slug.trim().toLowerCase();
+  const normalizedSlug = slug.trim().toLowerCase();
 
   const result = await db
     .select()
     .from(stores)
-    .where(
-      and(
-        eq(
-          stores.slug,
-          normalizedSlug,
-        ),
-        eq(
-          stores.status,
-          "active",
-        ),
-      ),
-    )
+    .where(and(eq(stores.slug, normalizedSlug), eq(stores.status, "active")))
     .limit(1);
 
   return result[0];
@@ -1400,7 +1266,7 @@ function resolveStoreBannerKeys(store: {
     (key): key is string =>
       Boolean(key) &&
       key.startsWith(BRANDING_KEY_PREFIX) &&
-      key.includes(BRANDING_KEY_FOLDER),
+      key.includes(BRANDING_KEY_FOLDER)
   );
 
   /* Remove duplicados preservando a ordem. */
@@ -1424,10 +1290,8 @@ export async function getStoreBrandingUrls(store: {
 
     /* Todos os banners (legado + novos) como URLs assinadas. */
     Promise.all(
-      resolveStoreBannerKeys(store).map((key) =>
-        createStoreDownloadUrlSafe(key),
-      ),
-    ).then((urls) => urls.filter((url): url is string => url !== null)),
+      resolveStoreBannerKeys(store).map(key => createStoreDownloadUrlSafe(key))
+    ).then(urls => urls.filter((url): url is string => url !== null)),
   ]);
 
   return {
@@ -1437,19 +1301,13 @@ export async function getStoreBrandingUrls(store: {
   };
 }
 
-async function createStoreDownloadUrlSafe(
-  key: string,
-) {
+async function createStoreDownloadUrlSafe(key: string) {
   try {
-    return await createStoreDownloadUrl(
-      key,
-    );
+    return await createStoreDownloadUrl(key);
   } catch (error) {
     console.warn(
       `[Branding] Falha ao gerar URL para "${key}":`,
-      error instanceof Error
-        ? error.message
-        : error,
+      error instanceof Error ? error.message : error
     );
 
     return null;
@@ -1473,15 +1331,11 @@ function isBrandingObjectKey(key: string) {
    * Garante isolamento total entre lojas.
    */
   return (
-    key.startsWith(BRANDING_KEY_PREFIX) &&
-    key.includes(BRANDING_KEY_FOLDER)
+    key.startsWith(BRANDING_KEY_PREFIX) && key.includes(BRANDING_KEY_FOLDER)
   );
 }
 
-function assertBrandingKeyForStore(
-  storeId: string,
-  key: string,
-) {
+function assertBrandingKeyForStore(storeId: string, key: string) {
   if (!isBrandingObjectKey(key)) {
     throw new Error("BRANDING_KEY_INVALID");
   }
@@ -1590,7 +1444,7 @@ export async function updateStoreBannerSettings({
      * Normaliza: remove entradas totalmente vazias e
      * campos em branco, preservando a ordem dos slides.
      */
-    updates.bannerTexts = (bannerTexts ?? []).map((item) => ({
+    updates.bannerTexts = (bannerTexts ?? []).map(item => ({
       title: item.title?.trim() || undefined,
       subtitle: item.subtitle?.trim() || undefined,
     }));
@@ -1620,7 +1474,7 @@ export async function updateStoreBannerSettings({
 
 export async function updateStoreProductCardModel(
   storeId: string,
-  model: string | null,
+  model: string | null
 ) {
   const db = await getDb();
 
@@ -1646,7 +1500,7 @@ export async function updateStoreProductCardModel(
 
 export async function updateStoreNavButtonModel(
   storeId: string,
-  model: string | null,
+  model: string | null
 ) {
   const db = await getDb();
 
@@ -1676,7 +1530,7 @@ export async function updateStoreNavButtonModel(
 export async function updateStoreSectionModel(
   storeId: string,
   field: "headerModel" | "footerModel" | "categoryCardModel",
-  model: string | null,
+  model: string | null
 ) {
   const db = await getDb();
 
@@ -1708,16 +1562,11 @@ export async function updateStoreSectionModel(
   return result[0];
 }
 
-export async function updateStoreTheme(
-  storeId: string,
-  themeKey: string,
-) {
+export async function updateStoreTheme(storeId: string, themeKey: string) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const result = await db
@@ -1726,12 +1575,7 @@ export async function updateStoreTheme(
       themeKey,
       updatedAt: new Date(),
     })
-    .where(
-      eq(
-        stores.id,
-        storeId,
-      ),
-    )
+    .where(eq(stores.id, storeId))
     .returning();
 
   return result[0];
@@ -1746,65 +1590,62 @@ type StoredProductOption = {
   values: string[];
 };
 
-async function hydrateProductAssets(
-  product: typeof products.$inferSelect,
-) {
+async function hydrateProductAssets(product: typeof products.$inferSelect) {
   const imageUrls = (
     await Promise.all(
-      product.imageKeys.map(
-        async (key) => {
-          try {
-            return await createStoreDownloadUrl(
-              key,
-            );
-          } catch {
-            return null;
-          }
-        },
-      ),
+      product.imageKeys.map(async key => {
+        try {
+          return await createStoreDownloadUrl(key);
+        } catch {
+          return null;
+        }
+      })
     )
-  ).filter(
-    (url): url is string =>
-      Boolean(url),
-  );
+  ).filter((url): url is string => Boolean(url));
 
   if (product.imageUrl) {
-    imageUrls.push(
-      product.imageUrl,
-    );
+    /*
+     * Referência histórica guardada como URL assinada: a URL
+     * expira (7 dias), por isso regeneramos a partir da chave
+     * R2 permanente embutida nela — a imagem continua
+     * acessível depois de a assinatura expirar. Chaves já
+     * cobertas por imageKeys não são duplicadas; URLs
+     * permanentes externas (demo/Unsplash) ficam intactas.
+     */
+    const signedKey = isPresignedObjectUrl(product.imageUrl)
+      ? extractStoreObjectKey(product.imageUrl)
+      : null;
+
+    if (signedKey && !product.imageKeys.includes(signedKey)) {
+      try {
+        imageUrls.push(await createStoreDownloadUrl(signedKey));
+      } catch {
+        /* Melhor exibir a URL antiga do que perder a imagem. */
+        imageUrls.push(product.imageUrl);
+      }
+    } else if (!signedKey) {
+      imageUrls.push(product.imageUrl);
+    }
   }
 
-  const images = Array.from(
-    new Set(imageUrls),
-  );
+  const images = Array.from(new Set(imageUrls));
 
-  const options = Array.isArray(
-    product.options,
-  )
+  const options = Array.isArray(product.options)
     ? product.options.filter(
-        (
-          option,
-        ): option is StoredProductOption =>
-          typeof option?.name ===
-            "string" &&
-          Array.isArray(
-            option.values,
-          ),
+        (option): option is StoredProductOption =>
+          typeof option?.name === "string" && Array.isArray(option.values)
       )
     : [];
 
   return {
     ...product,
-    imageUrl:
-      images[0] ?? null,
+    imageUrl: images[0] ?? null,
     images,
     options,
   };
 }
 
-export async function listProducts(
-  storeId: string,
-) {
+export async function listProducts(storeId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -1814,28 +1655,13 @@ export async function listProducts(
   const result = await db
     .select()
     .from(products)
-    .where(
-      eq(
-        products.storeId,
-        storeId,
-      ),
-    )
-    .orderBy(
-      desc(
-        products.createdAt,
-      ),
-    );
+    .where(eq(products.storeId, storeId))
+    .orderBy(desc(products.createdAt));
 
-  return Promise.all(
-    result.map(
-      hydrateProductAssets,
-    ),
-  );
+  return Promise.all(result.map(hydrateProductAssets));
 }
 
-export async function getStoreDashboardSummary(
-  storeId: string,
-) {
+export async function getStoreDashboardSummary(storeId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -1849,36 +1675,27 @@ export async function getStoreDashboardSummary(
    * contar em JavaScript — multiplicava o tráfego com o
    * Neon a cada consulta do dashboard (polling de 30s).
    */
-  const [storeResult, statsResult, recentProducts] =
-    await Promise.all([
-      db
-        .select()
-        .from(stores)
-        .where(eq(stores.id, storeId))
-        .limit(1),
+  const [storeResult, statsResult, recentProducts] = await Promise.all([
+    db.select().from(stores).where(eq(stores.id, storeId)).limit(1),
 
-      db
-        .select({
-          total: sql<number>`count(*)::int`,
-          active:
-            sql<number>`count(*) filter (where ${products.status} = 'active')::int`,
-          draft:
-            sql<number>`count(*) filter (where ${products.status} = 'draft')::int`,
-          archived:
-            sql<number>`count(*) filter (where ${products.status} = 'archived')::int`,
-          outOfStock:
-            sql<number>`count(*) filter (where ${products.stock} <= 0)::int`,
-        })
-        .from(products)
-        .where(eq(products.storeId, storeId)),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) filter (where ${products.status} = 'active')::int`,
+        draft: sql<number>`count(*) filter (where ${products.status} = 'draft')::int`,
+        archived: sql<number>`count(*) filter (where ${products.status} = 'archived')::int`,
+        outOfStock: sql<number>`count(*) filter (where ${products.stock} <= 0)::int`,
+      })
+      .from(products)
+      .where(eq(products.storeId, storeId)),
 
-      db
-        .select()
-        .from(products)
-        .where(eq(products.storeId, storeId))
-        .orderBy(desc(products.createdAt))
-        .limit(5),
-    ]);
+    db
+      .select()
+      .from(products)
+      .where(eq(products.storeId, storeId))
+      .orderBy(desc(products.createdAt))
+      .limit(5),
+  ]);
 
   const store = storeResult[0];
 
@@ -1903,81 +1720,86 @@ export async function getStoreDashboardSummary(
       status: store.status,
       currency: store.currency,
       themeKey: store.themeKey,
-      createdAt:
-        store.createdAt,
-      updatedAt:
-        store.updatedAt,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt,
     },
 
     products: {
       total: Number(stats.total),
       active: Number(stats.active),
       draft: Number(stats.draft),
-      archived:
-        Number(stats.archived),
-      outOfStock:
-        Number(stats.outOfStock),
-      recent:
-        recentProducts,
+      archived: Number(stats.archived),
+      outOfStock: Number(stats.outOfStock),
+      recent: recentProducts,
     },
 
-    updatedAt:
-      new Date(),
+    updatedAt: new Date(),
   };
 }
 
-export async function listPublicProducts(
-  storeId: string,
-) {
+export async function listPublicProducts(storeId: string) {
+  const db = await getDb();
+  if (!db) {
+    return [];
+  }
+  const rows = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.storeId, storeId), eq(products.status, "active")))
+    .orderBy(desc(products.createdAt))
+    .limit(200);
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    priceMzn: row.priceMzn,
+    compareAtPriceMzn: row.compareAtPriceMzn ?? null,
+    stock: row.stock,
+    featured: row.featured,
+    imageUrl: row.imageUrl ?? null,
+    imageKeys: row.imageKeys ?? [],
+    options: row.options ?? [],
+    variants: row.variants ?? [],
+  }));
+}
+
+  /*
+   * Catálogo PÚBLICO: só produtos PUBLICADOS.
+   *
+   * Rascunhos e arquivados nunca são expostos — a filtragem
+   * é feita no servidor (fonte de verdade), não no browser.
+   * O painel (listProducts) continua a devolver tudo, para
+   * o merchant gerir rascunhos e arquivados.
+   */
+/**
+ * Produto único, isolado à loja (fronteira de tenant).
+ * Usado pelo router para alinhar variantes às opções já
+ * guardadas quando a edição não reenvia `options`.
+ */
+export async function getProduct(storeId: string, productId: number) {
   const db = await getDb();
 
   if (!db) {
-    return [];
+    return null;
   }
 
   const result = await db
     .select()
     .from(products)
-    .where(
-      and(
-        eq(
-          products.storeId,
-          storeId,
-        ),
-        ne(
-          products.status,
-          "archived",
-        ),
-      ),
-    )
-    .orderBy(
-      desc(
-        products.createdAt,
-      ),
-    );
+    .where(and(eq(products.id, productId), eq(products.storeId, storeId)))
+    .limit(1);
 
-  return Promise.all(
-    result.map(
-      hydrateProductAssets,
-    ),
-  );
+  return result[0] ?? null;
 }
 
-export async function insertProduct(
-  product: InsertProduct,
-) {
+export async function insertProduct(product: InsertProduct) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  const result = await db
-    .insert(products)
-    .values(product)
-    .returning();
+  const result = await db.insert(products).values(product).returning();
 
   return result[0];
 }
@@ -1990,9 +1812,7 @@ export async function insertProduct(
  * Categorias criadas pelo utilizador para a loja.
  * É a única fonte do selector de categoria em produtos.
  */
-export async function listStoreCategories(
-  storeId: string,
-) {
+export async function listStoreCategories(storeId: string) {
   const db = await getDb();
 
   if (!db) {
@@ -2002,12 +1822,8 @@ export async function listStoreCategories(
   return db
     .select()
     .from(storeCategories)
-    .where(
-      eq(storeCategories.storeId, storeId),
-    )
-    .orderBy(
-      asc(storeCategories.name),
-    );
+    .where(eq(storeCategories.storeId, storeId))
+    .orderBy(asc(storeCategories.name));
 }
 
 export async function insertStoreCategory({
@@ -2020,10 +1836,9 @@ export async function insertStoreCategory({
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
-  }  const result = await db
+    throw new Error("DATABASE_UNAVAILABLE");
+  }
+  const result = await db
     .insert(storeCategories)
     .values({
       id: randomUUID(),
@@ -2047,9 +1862,7 @@ export async function renameStoreCategory({
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const existing = await db
@@ -2058,17 +1871,15 @@ export async function renameStoreCategory({
     .where(
       and(
         eq(storeCategories.id, categoryId),
-        eq(storeCategories.storeId, storeId),
-      ),
+        eq(storeCategories.storeId, storeId)
+      )
     )
     .limit(1);
 
   const current = existing[0];
 
   if (!current) {
-    throw new Error(
-      "STORE_CATEGORY_NOT_FOUND",
-    );
+    throw new Error("STORE_CATEGORY_NOT_FOUND");
   }
 
   const oldName = current.name;
@@ -2086,8 +1897,8 @@ export async function renameStoreCategory({
     .where(
       and(
         eq(storeCategories.id, categoryId),
-        eq(storeCategories.storeId, storeId),
-      ),
+        eq(storeCategories.storeId, storeId)
+      )
     )
     .returning();
 
@@ -2102,12 +1913,7 @@ export async function renameStoreCategory({
       category: name,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(products.storeId, storeId),
-        eq(products.category, oldName),
-      ),
-    );
+    .where(and(eq(products.storeId, storeId), eq(products.category, oldName)));
 
   return result[0];
 }
@@ -2115,14 +1921,12 @@ export async function renameStoreCategory({
 export async function updateProduct(
   storeId: string,
   productId: number,
-  updates: Partial<InsertProduct>,
+  updates: Partial<InsertProduct>
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const result = await db
@@ -2131,24 +1935,17 @@ export async function updateProduct(
       ...updates,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(products.id, productId),
-        eq(products.storeId, storeId),
-      ),
-    )
+    .where(and(eq(products.id, productId), eq(products.storeId, storeId)))
     .returning();
 
   return result[0] ?? null;
 }
 
-export async function archiveProduct(  storeId: string,  productId: number,) {
+export async function archiveProduct(storeId: string, productId: number) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   return db
@@ -2157,18 +1954,7 @@ export async function archiveProduct(  storeId: string,  productId: number,) 
       status: "archived",
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(
-          products.id,
-          productId,
-        ),
-        eq(
-          products.storeId,
-          storeId,
-        ),
-      ),
-    );
+    .where(and(eq(products.id, productId), eq(products.storeId, storeId)));
 }
 
 /* ============================================================
@@ -2176,14 +1962,12 @@ export async function archiveProduct(  storeId: string,  productId: number,) 
    ============================================================ */
 
 export async function createStoreApplication(
-  application: InsertStoreApplication,
+  application: InsertStoreApplication
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   const result = await db
@@ -2197,9 +1981,7 @@ export async function createStoreApplication(
   return result[0];
 }
 
-export async function getStoreApplicationByUserId(
-  userId: number,
-) {
+export async function getStoreApplicationByUserId(userId: number) {
   const db = await getDb();
 
   if (!db) {
@@ -2209,17 +1991,8 @@ export async function getStoreApplicationByUserId(
   const result = await db
     .select()
     .from(storeApplications)
-    .where(
-      eq(
-        storeApplications.userId,
-        userId,
-      ),
-    )
-    .orderBy(
-      desc(
-        storeApplications.createdAt,
-      ),
-    )
+    .where(eq(storeApplications.userId, userId))
+    .orderBy(desc(storeApplications.createdAt))
     .limit(1);
 
   return result[0];
@@ -2235,16 +2008,10 @@ export async function getStoreApplications() {
   return db
     .select()
     .from(storeApplications)
-    .orderBy(
-      desc(
-        storeApplications.createdAt,
-      ),
-    );
+    .orderBy(desc(storeApplications.createdAt));
 }
 
-export async function getStoreApplicationById(
-  id: number,
-) {
+export async function getStoreApplicationById(id: number) {
   const db = await getDb();
 
   if (!db) {
@@ -2254,12 +2021,7 @@ export async function getStoreApplicationById(
   const result = await db
     .select()
     .from(storeApplications)
-    .where(
-      eq(
-        storeApplications.id,
-        id,
-      ),
-    )
+    .where(eq(storeApplications.id, id))
     .limit(1);
 
   return result[0];
@@ -2267,40 +2029,24 @@ export async function getStoreApplicationById(
 
 export async function updateStoreApplicationStatus(
   id: number,
-  status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "changes_requested",
-  adminNotes?: string,
+  status: "pending" | "approved" | "rejected" | "changes_requested",
+  adminNotes?: string
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
   return db
     .update(storeApplications)
     .set({
       status,
-      adminNotes:
-        adminNotes ?? null,
-      reviewedAt:
-        status === "pending"
-          ? null
-          : new Date(),
-      updatedAt:
-        new Date(),
+      adminNotes: adminNotes ?? null,
+      reviewedAt: status === "pending" ? null : new Date(),
+      updatedAt: new Date(),
     })
-    .where(
-      eq(
-        storeApplications.id,
-        id,
-      ),
-    );
+    .where(eq(storeApplications.id, id));
 }
 
 /**
@@ -2309,130 +2055,78 @@ export async function updateStoreApplicationStatus(
 
 export async function createStoreFromApplication(
   applicationId: number,
-  adminNotes?: string,
+  adminNotes?: string
 ) {
   const db = await getDb();
 
   if (!db) {
-    throw new Error(
-      "DATABASE_UNAVAILABLE",
-    );
+    throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  const store = await db.transaction(async (tx) => {
-    const applicationResult =
-      await tx
-        .select()
-        .from(storeApplications)
-        .where(
-          eq(
-            storeApplications.id,
-            applicationId,
-          ),
-        )
-        .limit(1);
+  const store = await db.transaction(async tx => {
+    const applicationResult = await tx
+      .select()
+      .from(storeApplications)
+      .where(eq(storeApplications.id, applicationId))
+      .limit(1);
 
-    const application =
-      applicationResult[0];
+    const application = applicationResult[0];
 
     if (!application) {
-      throw new Error(
-        "APPLICATION_NOT_FOUND",
-      );
+      throw new Error("APPLICATION_NOT_FOUND");
     }
 
     if (
-      application.status !==
-        "pending" &&
-      application.status !==
-        "changes_requested" &&
-      application.status !==
-        "approved"
+      application.status !== "pending" &&
+      application.status !== "changes_requested" &&
+      application.status !== "approved"
     ) {
-      throw new Error(
-        "APPLICATION_NOT_APPROVABLE",
-      );
+      throw new Error("APPLICATION_NOT_APPROVABLE");
     }
 
-    const existingStoreResult =
-      await tx
-        .select()
-        .from(stores)
+    const existingStoreResult = await tx
+      .select()
+      .from(stores)
+      .where(eq(stores.slug, application.storeSlug))
+      .limit(1);
+
+    if (existingStoreResult.length > 0) {
+      const existingStore = existingStoreResult[0];
+
+      const existingMembership = await tx
+        .select({
+          id: storeMembers.id,
+        })
+        .from(storeMembers)
         .where(
-          eq(
-            stores.slug,
-            application.storeSlug,
-          ),
+          and(
+            eq(storeMembers.storeId, existingStore.id),
+            eq(storeMembers.userId, application.userId)
+          )
         )
         .limit(1);
 
-    if (
-      existingStoreResult.length >
-      0
-    ) {
-      const existingStore =
-        existingStoreResult[0];
-
-      const existingMembership =
-        await tx
-          .select({
-            id: storeMembers.id,
-          })
-          .from(storeMembers)
-          .where(
-            and(
-              eq(
-                storeMembers.storeId,
-                existingStore.id,
-              ),
-              eq(
-                storeMembers.userId,
-                application.userId,
-              ),
-            ),
-          )
-          .limit(1);
-
-      if (
-        existingMembership.length ===
-        0
-      ) {
-        throw new Error(
-          "STORE_SLUG_ALREADY_EXISTS",
-        );
+      if (existingMembership.length === 0) {
+        throw new Error("STORE_SLUG_ALREADY_EXISTS");
       }
 
-      if (
-        application.status !==
-        "approved"
-      ) {
+      if (application.status !== "approved") {
         await tx
-          .update(
-            storeApplications,
-          )
+          .update(storeApplications)
           .set({
             status: "approved",
-            adminNotes:
-              adminNotes ?? null,
-            reviewedAt:
-              new Date(),
-            updatedAt:
-              new Date(),
+            adminNotes: adminNotes ?? null,
+            reviewedAt: new Date(),
+            updatedAt: new Date(),
           })
-          .where(
-            eq(
-              storeApplications.id,
-              applicationId,
-            ),
-          );
+          .where(eq(storeApplications.id, applicationId));
       }
 
       return existingStore;
     }
 
-    const storeId =
-      randomUUID();  const createdStoreResult =
-    await tx
+    const storeId = randomUUID();
+    const createdStoreResult = await tx
       .insert(stores)
       .values({
         id: storeId,
@@ -2449,32 +2143,21 @@ export async function createStoreFromApplication(
       })
       .returning();
 
-    await tx
-      .insert(storeMembers)
-      .values({
-        storeId,
-        userId:
-          application.userId,
-        role: "owner",
-      });
+    await tx.insert(storeMembers).values({
+      storeId,
+      userId: application.userId,
+      role: "owner",
+    });
 
     await tx
       .update(storeApplications)
       .set({
         status: "approved",
-        adminNotes:
-          adminNotes ?? null,
-        reviewedAt:
-          new Date(),
-        updatedAt:
-          new Date(),
+        adminNotes: adminNotes ?? null,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
       })
-      .where(
-        eq(
-          storeApplications.id,
-          applicationId,
-        ),
-      );
+      .where(eq(storeApplications.id, applicationId));
 
     /*
      * Código exclusivo da loja, garantido também neste
@@ -2484,9 +2167,7 @@ export async function createStoreFromApplication(
     const createdStore = createdStoreResult[0];
 
     if (!createdStore) {
-      throw new Error(
-        "STORE_CREATE_FAILED",
-      );
+      throw new Error("STORE_CREATE_FAILED");
     }
 
     return createdStore;
@@ -2526,10 +2207,7 @@ export async function listMarketFeatures() {
   return db
     .select()
     .from(marketFeatures)
-    .orderBy(
-      asc(marketFeatures.category),
-      asc(marketFeatures.sortOrder),
-    );
+    .orderBy(asc(marketFeatures.category), asc(marketFeatures.sortOrder));
 }
 
 /**
@@ -2548,15 +2226,12 @@ export async function listActiveMarketFeatures() {
     .select()
     .from(marketFeatures)
     .where(eq(marketFeatures.status, "active"))
-    .orderBy(
-      asc(marketFeatures.category),
-      asc(marketFeatures.sortOrder),
-    );
+    .orderBy(asc(marketFeatures.category), asc(marketFeatures.sortOrder));
 }
 
 /** Cria uma funcionalidade Market. */
 export async function insertMarketFeature(
-  values: typeof marketFeatures.$inferInsert,
+  values: typeof marketFeatures.$inferInsert
 ) {
   const db = await getDb();
 
@@ -2564,10 +2239,7 @@ export async function insertMarketFeature(
     throw new Error("DATABASE_UNAVAILABLE");
   }
 
-  const result = await db
-    .insert(marketFeatures)
-    .values(values)
-    .returning();
+  const result = await db.insert(marketFeatures).values(values).returning();
 
   return result[0];
 }
@@ -2575,7 +2247,7 @@ export async function insertMarketFeature(
 /** Atualiza campos comerciais de uma funcionalidade Market. */
 export async function updateMarketFeature(
   id: string,
-  patch: Partial<typeof marketFeatures.$inferInsert>,
+  patch: Partial<typeof marketFeatures.$inferInsert>
 ) {
   const db = await getDb();
 
@@ -2637,9 +2309,7 @@ export async function ensureMarketFeaturesSeeded() {
     .select({ featureKey: marketFeatures.featureKey })
     .from(marketFeatures);
 
-  const existingKeys = new Set(
-    existing.map((row) => row.featureKey),
-  );
+  const existingKeys = new Set(existing.map(row => row.featureKey));
 
   /*
    * Identidade dos pacotes de estoque: nomes e
@@ -2654,28 +2324,23 @@ export async function ensureMarketFeaturesSeeded() {
   > = {
     "1stock": {
       name: "Estoque +60",
-      description:
-        "Adiciona 60 produtos à capacidade de estoque da tua loja.",
+      description: "Adiciona 60 produtos à capacidade de estoque da tua loja.",
     },
     "2stock": {
       name: "Estoque +100",
-      description:
-        "Adiciona 100 produtos à capacidade de estoque da tua loja.",
+      description: "Adiciona 100 produtos à capacidade de estoque da tua loja.",
     },
     "3stock": {
       name: "Estoque +200",
-      description:
-        "Adiciona 200 produtos à capacidade de estoque da tua loja.",
+      description: "Adiciona 200 produtos à capacidade de estoque da tua loja.",
     },
     "4stock": {
       name: "Estoque +300",
-      description:
-        "Adiciona 300 produtos à capacidade de estoque da tua loja.",
+      description: "Adiciona 300 produtos à capacidade de estoque da tua loja.",
     },
     "5stock": {
       name: "Estoque +500",
-      description:
-        "Adiciona 500 produtos à capacidade de estoque da tua loja.",
+      description: "Adiciona 500 produtos à capacidade de estoque da tua loja.",
     },
     "6stock": {
       name: "Estoque +1.000",
@@ -2702,13 +2367,9 @@ export async function ensureMarketFeaturesSeeded() {
    * e nada é alterado.
    */
   for (const entry of MARKET_CATALOG) {
-    const stockDefaults =
-      STOCK_FEATURE_DEFAULTS[entry.featureKey];
+    const stockDefaults = STOCK_FEATURE_DEFAULTS[entry.featureKey];
 
-    if (
-      !stockDefaults ||
-      !existingKeys.has(entry.featureKey)
-    ) {
+    if (!stockDefaults || !existingKeys.has(entry.featureKey)) {
       continue;
     }
 
@@ -2721,17 +2382,14 @@ export async function ensureMarketFeaturesSeeded() {
       })
       .where(
         and(
-          eq(
-            marketFeatures.featureKey,
-            entry.featureKey,
-          ),
-          eq(marketFeatures.name, entry.featureKey),
-        ),
+          eq(marketFeatures.featureKey, entry.featureKey),
+          eq(marketFeatures.name, entry.featureKey)
+        )
       );
   }
 
   const missing = MARKET_CATALOG.filter(
-    (entry) => !existingKeys.has(entry.featureKey),
+    entry => !existingKeys.has(entry.featureKey)
   );
 
   /*
@@ -2747,11 +2405,8 @@ export async function ensureMarketFeaturesSeeded() {
     await db
       .insert(marketFeatures)
       .values(
-        missing.map((entry) => {
-          const stockDefaults =
-            STOCK_FEATURE_DEFAULTS[
-              entry.featureKey
-            ];
+        missing.map(entry => {
+          const stockDefaults = STOCK_FEATURE_DEFAULTS[entry.featureKey];
 
           return {
             id: entry.featureKey,
@@ -2766,16 +2421,14 @@ export async function ensureMarketFeaturesSeeded() {
              * Status igual ao de todas as outras
              * funcionalidades: active.
              */
-            name:
-              stockDefaults?.name ??
-              entry.featureKey,
+            name: stockDefaults?.name ?? entry.featureKey,
             description:
               stockDefaults?.description ??
               "Funcionalidade de personalização do Market.",
             priceCredits: 0,
             status: "active" as const,
           };
-        }),
+        })
       )
       .onConflictDoNothing();
 
@@ -2790,7 +2443,7 @@ export async function ensureMarketFeaturesSeeded() {
      */
     console.warn(
       "[Market] Seed de market_features falhou (o Market continua a carregar):",
-      error,
+      error
     );
   }
 }
@@ -2810,11 +2463,7 @@ export async function ensureMarketFeaturesSeeded() {
  * Devolve os featureKeys comprados por uma loja
  * apenas na categoria "stock" (pacotes de estoque).
  */
-export async function listStoreStockPackKeys({
-  storeId,
-}: {
-  storeId: string;
-}) {
+export async function listStoreStockPackKeys({ storeId }: { storeId: string }) {
   const db = await getDb();
 
   if (!db) {
@@ -2826,28 +2475,20 @@ export async function listStoreStockPackKeys({
       featureKey: storeMarketFeatures.featureKey,
     })
     .from(storeMarketFeatures)
-    .where(
-      eq(storeMarketFeatures.storeId, storeId),
-    );
+    .where(eq(storeMarketFeatures.storeId, storeId));
 
   /* Filtra só pacotes de estoque (compartilha a tabela com o resto do Market). */
   return rows
-    .map((row) => row.featureKey)
-    .filter(
-      (featureKey) =>
-        getStockPackExtra(featureKey) !== null,
-    );
+    .map(row => row.featureKey)
+    .filter(featureKey => getStockPackExtra(featureKey) !== null);
 }
 
 /**
  * Capacidade total de produtos da loja:
  * 50 grátis + soma dos pacotes de estoque comprados.
  */
-export async function getStoreStockCapacity(
-  storeId: string,
-): Promise<number> {
-  const stockPackKeys =
-    await listStoreStockPackKeys({ storeId });
+export async function getStoreStockCapacity(storeId: string): Promise<number> {
+  const stockPackKeys = await listStoreStockPackKeys({ storeId });
 
   return computeStockCapacity(stockPackKeys);
 }

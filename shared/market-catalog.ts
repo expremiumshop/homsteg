@@ -151,6 +151,13 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
   { featureKey: "1header", category: "header", sortOrder: 1 },
   { featureKey: "2header", category: "header", sortOrder: 2 },
   { featureKey: "3header", category: "header", sortOrder: 3 },
+  { featureKey: "4header", category: "header", sortOrder: 4 },
+  { featureKey: "5header", category: "header", sortOrder: 5 },
+  { featureKey: "6header", category: "header", sortOrder: 6 },
+  { featureKey: "7header", category: "header", sortOrder: 7 },
+  { featureKey: "8header", category: "header", sortOrder: 8 },
+  { featureKey: "9header", category: "header", sortOrder: 9 },
+  { featureKey: "10header", category: "header", sortOrder: 10 },
 
   // BANNER
   { featureKey: "1banner", category: "banner", sortOrder: 1 },
@@ -183,6 +190,13 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
   { featureKey: "1category", category: "category_card", sortOrder: 1 },
   { featureKey: "2category", category: "category_card", sortOrder: 2 },
   { featureKey: "3category", category: "category_card", sortOrder: 3 },
+  { featureKey: "4category", category: "category_card", sortOrder: 4 },
+  { featureKey: "5category", category: "category_card", sortOrder: 5 },
+  { featureKey: "6category", category: "category_card", sortOrder: 6 },
+  { featureKey: "7category", category: "category_card", sortOrder: 7 },
+  { featureKey: "8category", category: "category_card", sortOrder: 8 },
+  { featureKey: "9category", category: "category_card", sortOrder: 9 },
+  { featureKey: "10category", category: "category_card", sortOrder: 10 },
 
   // PRODUCT CARD
   { featureKey: "1product", category: "product_card", sortOrder: 1 },
@@ -200,6 +214,8 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
   { featureKey: "6product", category: "product_card", sortOrder: 6 },
   { featureKey: "7product", category: "product_card", sortOrder: 7 },
   { featureKey: "8product", category: "product_card", sortOrder: 8 },
+  { featureKey: "9product", category: "product_card", sortOrder: 9 },
+  { featureKey: "10product", category: "product_card", sortOrder: 10 },
 
   /*
    * Modelos 1–5: extraídos do botão de navegação
@@ -213,11 +229,23 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
   { featureKey: "3navbutton", category: "nav_button", sortOrder: 3 },
   { featureKey: "4navbutton", category: "nav_button", sortOrder: 4 },
   { featureKey: "5navbutton", category: "nav_button", sortOrder: 5 },
+  { featureKey: "6navbutton", category: "nav_button", sortOrder: 6 },
+  { featureKey: "7navbutton", category: "nav_button", sortOrder: 7 },
+  { featureKey: "8navbutton", category: "nav_button", sortOrder: 8 },
+  { featureKey: "9navbutton", category: "nav_button", sortOrder: 9 },
+  { featureKey: "10navbutton", category: "nav_button", sortOrder: 10 },
 
   // FOOTER
   { featureKey: "1footer", category: "footer", sortOrder: 1 },
   { featureKey: "2footer", category: "footer", sortOrder: 2 },
   { featureKey: "3footer", category: "footer", sortOrder: 3 },
+  { featureKey: "4footer", category: "footer", sortOrder: 4 },
+  { featureKey: "5footer", category: "footer", sortOrder: 5 },
+  { featureKey: "6footer", category: "footer", sortOrder: 6 },
+  { featureKey: "7footer", category: "footer", sortOrder: 7 },
+  { featureKey: "8footer", category: "footer", sortOrder: 8 },
+  { featureKey: "9footer", category: "footer", sortOrder: 9 },
+  { featureKey: "10footer", category: "footer", sortOrder: 10 },
 
   /*
    * ESTOQUE — pacotes de capacidade extra de produtos.
@@ -243,3 +271,102 @@ export function findMarketCatalogEntry(
     (entry) => entry.featureKey === featureKey,
   );
 }
+
+/* ============================================================
+   MODELOS POR CATEGORIA — FONTE ÚNICA DE VERDADE
+
+   O número do modelo vive no próprio featureKey
+   ("4header" → modelo "4"), pelo que o domínio de
+   modelos de cada categoria é DERIVADO aqui do
+   MARKET_CATALOG — nunca escrito à mão.
+
+   Consumido por:
+   - validação do servidor (server/routers.ts), que assim
+     aceita exatamente os modelos que o Market vende;
+   - tema Nova (seletores da Personalizar Loja).
+
+   Antes esta lista era duplicada nos dois lados e divergia
+   (o Market vendia 4header–10header mas o backend só
+   aceitava 1–3). Manter sempre derivado.
+   ============================================================ */
+
+/**
+ * Chaves do catálogo que NÃO representam um modelo visual
+ * selecionável.
+ *
+ * "10banner" (Banner Simples) é a exceção conhecida: a
+ * compra liga o MODO de imagem única (ver
+ * BANNER_SIMPLE_PURCHASE_KEY no tema Nova / modelo "9"),
+ * não um modelo de carrossel próprio. O "4banner" (Banner
+ * Personalizado) NÃO é excluído: o seu número ("4")
+ * também é produzido pelo "8banner" no mapa do tema.
+ */
+export const MARKET_NON_MODEL_FEATURE_KEYS = [
+  "10banner",
+] as const;
+
+/**
+ * Número do modelo a partir de um featureKey
+ * ("4header" → "4"; "10navbutton" → "10").
+ * null quando o featureKey não segue o padrão.
+ */
+export function marketModelFromFeatureKey(
+  featureKey: string,
+): string | null {
+  const match = /^(\d+)(?=[a-z])/.exec(featureKey);
+
+  return match ? match[1] : null;
+}
+
+/**
+ * Números dos modelos que uma categoria pode receber,
+ * por ordem crescente (ex.: header → ["1"…"10"]).
+ *
+ * É o domínio exato aceite pelo backend para o campo de
+ * modelo dessa categoria.
+ */
+export function getMarketModelNumbers(
+  category: MarketCatalogCategory,
+): string[] {
+  const numbers = new Set<string>();
+
+  for (const entry of MARKET_CATALOG) {
+    if (entry.category !== category) {
+      continue;
+    }
+
+    if (
+      (
+        MARKET_NON_MODEL_FEATURE_KEYS as readonly string[]
+      ).includes(entry.featureKey)
+    ) {
+      continue;
+    }
+
+    const model = marketModelFromFeatureKey(
+      entry.featureKey,
+    );
+
+    if (model) {
+      numbers.add(model);
+    }
+  }
+
+  return Array.from(numbers).sort(
+    (a, b) => Number(a) - Number(b),
+  );
+}
+
+/**
+ * Domínio de modelos de todas as categorias, já derivado.
+ * Útil para testes de contrato e leitura rápida.
+ */
+export const MARKET_MODEL_NUMBERS: Record<
+  MarketCatalogCategory,
+  string[]
+> = Object.fromEntries(
+  MARKET_CATEGORIES.map((category) => [
+    category,
+    getMarketModelNumbers(category),
+  ]),
+) as Record<MarketCatalogCategory, string[]>;

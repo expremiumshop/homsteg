@@ -4,22 +4,35 @@ import {
   BadgeCheck,
 } from "lucide-react";
 
-const benefits = [
+import { useI18n } from "@/lib/i18n-context";
+import type { TranslationKey } from "@/lib/i18n";
+
+/*
+ * O título de cada benefício vem do catálogo: a lista é
+ * estática (ícone + chave), o texto é resolvido no render
+ * para acompanhar o idioma da loja.
+ */
+const benefits: {
+  icon: typeof Zap;
+  titleKey: TranslationKey;
+}[] = [
   {
     icon: Zap,
-    title: "Entrega em horas",
+    titleKey: "benefit.fastDelivery",
   },
   {
     icon: ShieldCheck,
-    title: "Pagamento seguro",
+    titleKey: "benefit.securePayment",
   },
   {
     icon: BadgeCheck,
-    title: "Vendedores verificados",
+    titleKey: "benefit.verifiedSellers",
   },
 ];
 
 export function TopBenefits() {
+  const { t } = useI18n();
+
   return (
     <section className="w-full px-3 py-1 md:px-6 md:py-2">
       <div
@@ -35,10 +48,11 @@ export function TopBenefits() {
       >
         {benefits.map((benefit) => {
           const Icon = benefit.icon;
+          const title = t(benefit.titleKey);
 
           return (
             <div
-              key={benefit.title}
+              key={benefit.titleKey}
               className="
                 flex
                 min-h-[80px]
@@ -78,7 +92,7 @@ export function TopBenefits() {
                   lg:text-base
                 "
               >
-                {benefit.title}
+                {title}
               </h3>
             </div>
           );

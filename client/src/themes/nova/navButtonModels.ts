@@ -12,11 +12,7 @@
  */
 
 export const NAV_BUTTON_MODELS = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
 ] as const;
 
 export type NavButtonModel =
@@ -33,11 +29,7 @@ export type NavButtonModel =
  * fica vazia.
  */
 export const NAV_BUTTON_UNLOCKABLE_MODELS = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
+  ...NAV_BUTTON_MODELS,
 ] as const;
 
 /**
@@ -55,6 +47,11 @@ export const NAV_PURCHASE_TO_BUTTON: Record<
   "3navbutton": "3",
   "4navbutton": "4",
   "5navbutton": "5",
+  "6navbutton": "6",
+  "7navbutton": "7",
+  "8navbutton": "8",
+  "9navbutton": "9",
+  "10navbutton": "10",
 };
 
 /**
@@ -69,6 +66,11 @@ export const NAV_TO_MARKET_FEATURE: Record<
   "3": "3navbutton",
   "4": "4navbutton",
   "5": "5navbutton",
+  "6": "6navbutton",
+  "7": "7navbutton",
+  "8": "8navbutton",
+  "9": "9navbutton",
+  "10": "10navbutton",
 };
 
 export function isNavButtonModel(
@@ -108,6 +110,16 @@ export function getNavButtonModelLabel(
       return "Preenchido";
     case "5":
       return "Elevado";
+    case "6":
+      return "Barra escura";
+    case "7":
+      return "Cápsulas";
+    case "8":
+      return "Linha superior";
+    case "9":
+      return "Destaque em bloco";
+    case "10":
+      return "Navegação colorida";
   }
 }
 
@@ -125,5 +137,15 @@ export function getNavButtonModelDescription(
       return "Separadores com fundo preenchido no item ativo.";
     case "5":
       return "Item ativo elevado, com destaque e sombra.";
+    case "6":
+      return "Barra escura com ícones claros e indicador luminoso.";
+    case "7":
+      return "Atalhos compactos em cápsulas individuais.";
+    case "8":
+      return "Navegação leve com indicador na borda superior.";
+    case "9":
+      return "Item selecionado em bloco com cantos suaves.";
+    case "10":
+      return "Barra em tom verde com ícones e rótulos.";
   }
 }

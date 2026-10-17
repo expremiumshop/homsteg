@@ -7,6 +7,7 @@ import {
   getStorePath,
   getStoreUrlLabel,
   isDevEnvironment,
+  isCustomDomainHostname,
   STORE_BASE_DOMAIN,
 } from "./store-url";
 
@@ -21,6 +22,16 @@ afterEach(() => {
 });
 
 describe("store-url", () => {
+  it("identifies only external custom hostnames", () => {
+    expect(isCustomDomainHostname("www.example.com")).toBe(true);
+    expect(isCustomDomainHostname("shop.example.com")).toBe(true);
+    expect(isCustomDomainHostname("www.homsteg.com")).toBe(false);
+    expect(isCustomDomainHostname("homsteg.com")).toBe(false);
+    expect(isCustomDomainHostname("loja.homsteg.com")).toBe(false);
+    expect(isCustomDomainHostname("preview.vercel.app")).toBe(false);
+    expect(isCustomDomainHostname("localhost")).toBe(false);
+  });
+
   it("keeps the production subdomain format", () => {
     stubWindow("homsteg.com");
 

@@ -3,6 +3,7 @@ import { ShoppingCart, Zap, Minus, Plus, Check } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/lib/i18n-context";
 
 interface ProductOption {
   id: string;
@@ -25,6 +26,7 @@ export default function ProductActions({
 }: ProductActionsProps) {
   const [, navigate] = useLocation();
   const { addToCart } = useCart();
+  const { t } = useI18n();
 
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -57,7 +59,7 @@ export default function ProductActions({
         .map((option) => option.name)
         .join(", ");
 
-      alert(`Selecione as variantes: ${names}`);
+      alert(`${t("product.selectVariants")} ${names}`);
 
       return false;
     }
@@ -175,7 +177,7 @@ export default function ProductActions({
 
       <div>
         <p className="mb-3 text-sm font-semibold text-gray-700">
-          Quantidade
+          {t("product.quantity")}
         </p>
 
         <div className="flex w-fit items-center overflow-hidden rounded-lg border bg-white">
@@ -185,7 +187,7 @@ export default function ProductActions({
             type="button"
             onClick={decrease}
             disabled={quantity <= 1}
-            aria-label="Diminuir quantidade"
+            aria-label={t("cart.decrease")}
             className="
               flex
               h-11
@@ -228,7 +230,7 @@ export default function ProductActions({
               stock <= 0 ||
               quantity >= stock
             }
-            aria-label="Aumentar quantidade"
+            aria-label={t("cart.increase")}
             className="
               flex
               h-11
@@ -258,7 +260,7 @@ export default function ProductActions({
           type="button"
           onClick={handleAddCart}
           disabled={stock <= 0}
-          aria-label="Adicionar produto ao carrinho"
+          aria-label={t("product.addAria")}
           className={`
             flex
             h-14
@@ -288,13 +290,13 @@ export default function ProductActions({
                 className="animate-in zoom-in duration-200"
               />
 
-              Adicionado
+              {t("product.added")}
             </>
           ) : (
             <>
               <ShoppingCart size={20} />
 
-              Adicionar ao carrinho
+              {t("card.addToCart")}
             </>
           )}
         </button>
@@ -305,7 +307,7 @@ export default function ProductActions({
           type="button"
           onClick={handleBuyNow}
           disabled={stock <= 0 || buying}
-          aria-label="Comprar agora"
+          aria-label={t("product.buyNow")}
           className="
             flex
             h-14
@@ -335,8 +337,8 @@ export default function ProductActions({
           />
 
           {buying
-            ? "A abrir..."
-            : "Comprar agora"}
+            ? t("product.opening")
+            : t("product.buyNow")}
         </button>
       </div>
 
@@ -345,7 +347,7 @@ export default function ProductActions({
           ===================================================== */}
 
       <p className="text-xs text-gray-500">
-        Pagamento seguro • Produto protegido • Compra garantida
+        {t("product.guaranteeLine")}
       </p>
     </div>
   );

@@ -305,7 +305,7 @@ export default function Admin() {
                   </p>
                 </div>
 
-                <div className="flex w-full justify-end gap-2 sm:w-auto">
+                <div className="flex w-full gap-2 sm:w-auto sm:justify-end">
                   <div className="relative w-full sm:w-auto">
                     <Search
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0aba0]"
@@ -316,31 +316,21 @@ export default function Admin() {
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Pesquisar..."
-                      className="h-8 w-full max-w-[180px] rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none sm:w-[180px]"
+                      className="h-9 w-full rounded-full border border-[#dfe7dc] bg-[#fafcfa] pl-8 pr-3 text-[10px] outline-none sm:h-8 sm:w-[180px]"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <div className="min-w-[750px]">
+              <div className="min-w-0">
+                <div className="w-full">
                   {active === "Utilizadores" && (
-                    <>
-                      <div className="grid grid-cols-[1.4fr_1.2fr_1fr_.8fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
-                        <span>Utilizador</span>
-                        <span>E-mail</span>
-                        <span>Loja</span>
-                        <span>Estado</span>
-                        <span />
-                      </div>
-
-                      <UsersPanel search={search} />
-                    </>
+                    <UsersPanel search={search} />
                   )}
 
                   {active === "Lojas" && (
                     <>
-                      <div className="grid grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
+                      <div className="hidden grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b] lg:grid">
                         <span>Loja</span>
                         <span>Utilizador</span>
                         <span>Endereço</span>
@@ -357,7 +347,7 @@ export default function Admin() {
                       {currentStores.map(({ store, user }) => (
                         <div
                           key={store.id}
-                          className="grid grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] items-center gap-4 border-b border-[#edf1eb] px-5 py-3.5 text-[10px] last:border-0"
+                          className="grid grid-cols-1 gap-2.5 border-b border-[#edf1eb] px-5 py-4 text-[10px] last:border-0 lg:grid-cols-[1.4fr_1.2fr_1fr_1fr_34px] lg:items-center lg:gap-4 lg:py-3.5"
                         >
                           <div className="flex items-center gap-3">
                             <div className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#e9f2e5] text-[9px] font-bold text-[#58754c]">
@@ -378,24 +368,35 @@ export default function Admin() {
                           </div>
 
                           <span className="text-[#748074]">
+                            <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                              Utilizador
+                            </span>
                             {user.name ?? user.email ?? "Sem nome"}
                           </span>
 
                           <span className="font-semibold text-[#657464]">
+                            <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                              Endereço
+                            </span>
                             {getStoreUrlLabel(store.slug)}
                           </span>
 
                           <span>
+                            <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                              Estado
+                            </span>
                             <Status text={store.status} />
                           </span>
 
-                          <a
-                            href={getPublicStoreUrl(store.slug)}
-                            className="grid h-7 w-7 place-items-center rounded-full text-[#9aa69b] hover:bg-[#eff5ec] hover:text-[#58754c]"
-                            title="Abrir loja"
-                          >
-                            <ArrowUpRight size={14} />
-                          </a>
+                          <div className="flex items-center justify-end border-t border-[#edf1eb] pt-3 lg:border-0 lg:pt-0">
+                            <a
+                              href={getPublicStoreUrl(store.slug)}
+                              className="grid h-7 w-7 place-items-center rounded-full text-[#9aa69b] hover:bg-[#eff5ec] hover:text-[#58754c]"
+                              title="Abrir loja"
+                            >
+                              <ArrowUpRight size={14} />
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </>

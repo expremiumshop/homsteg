@@ -157,6 +157,47 @@ import {
     };
   }
   
+  /**
+   * Uma URL presigned do S3/R2 leva os parâmetros X-Amz-* e
+   * expira (7 dias neste projeto). Nunca pode ser usada como
+   * referência permanente de um objeto.
+   */
+  export function isPresignedObjectUrl(value: string) {
+    try {
+      const parsed = new URL(value);
+
+      return (
+        parsed.searchParams.has("X-Amz-Signature") ||
+        parsed.searchParams.has("X-Amz-Credential")
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Extrai a chave R2 (stores/...) de uma URL de objeto —
+   * presigned ou pública — independentemente do host ou do
+   * prefixo do bucket no caminho. Devolve null quando a URL
+   * não aponta para um objeto desta instalação.
+   */
+  export function extractStoreObjectKey(value: string) {
+    try {
+      const pathname = decodeURIComponent(new URL(value).pathname);
+      const index = pathname.indexOf("stores/");
+
+      if (index < 0) {
+        return null;
+      }
+
+      const key = pathname.slice(index);
+
+      return key.includes("/") ? key : null;
+    } catch {
+      return null;
+    }
+  }
+
   export async function createStoreDownloadUrl(key: string) {
     assertR2Configured();
   

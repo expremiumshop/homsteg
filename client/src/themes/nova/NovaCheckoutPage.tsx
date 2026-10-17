@@ -12,14 +12,43 @@ import {
 import { Link, useSearch } from "wouter";
 
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/lib/i18n-context";
 import { trpc } from "@/lib/trpc";
 
+import StoreI18nBoundary from "./StoreI18nBoundary";
+
+/**
+ * Rota /themes/nova/checkout — fica fora da árvore do
+ * NovaStorefront, por isso o idioma/moeda da loja chegam
+ * através do StoreI18nBoundary (mesma stores.bySlug do
+ * conteúdo, com a mesma chave de cache no React Query).
+ */
 export default function NovaCheckoutPage() {
+  const { cart } = useCart();
+  const search = useSearch();
+  const searchStoreSlug = new URLSearchParams(search)
+    .get("storeSlug")
+    ?.trim();
+  const storeSlug =
+    cart[0]?.storeSlug ??
+    searchStoreSlug;
+
+  return (
+    <StoreI18nBoundary storeSlug={storeSlug}>
+      <NovaCheckoutContent />
+    </StoreI18nBoundary>
+  );
+}
+
+function NovaCheckoutContent() {
   const {
     cart,
     removeFromCart,
     updateQuantity,
   } = useCart();
+
+  const { t, formatMoney } = useI18n();
+
   const search = useSearch();
   const searchStoreSlug = new URLSearchParams(search)
     .get("storeSlug")
@@ -133,43 +162,39 @@ export default function NovaCheckoutPage() {
 
   async function sendOrderToWhatsApp() {
     if (!customerName.trim()) {
-      alert("Digite o seu nome completo.");
+      alert(t("checkout.errName"));
       return;
     }
 
     if (!phone.trim()) {
-      alert("Digite o seu telefone.");
+      alert(t("checkout.errPhone"));
       return;
     }
 
     const phoneDigits = phone.replace(/\D/g, "");
 
     if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      alert("Digite um telefone válido.");
+      alert(t("checkout.errPhoneInvalid"));
       return;
     }
 
     if (!city.trim()) {
-      alert("Digite a sua cidade.");
+      alert(t("checkout.errCity"));
       return;
     }
 
     if (!address.trim()) {
-      alert(
-        "Digite o endereço completo e o distrito."
-      );
+      alert(t("checkout.errAddress"));
       return;
     }
 
     if (!payment) {
-      alert(
-        "Selecione o método de pagamento."
-      );
+      alert(t("checkout.errPayment"));
       return;
     }
 
     if (cart.length === 0) {
-      alert("O carrinho está vazio.");
+      alert(t("checkout.errEmptyCart"));
       return;
     }
 
@@ -187,7 +212,7 @@ export default function NovaCheckoutPage() {
     });
 
     if (hasInvalidCartItem) {
-      alert("Existe um produto inválido no carrinho. Atualize a página e tente novamente.");
+      alert(t("checkout.errInvalidItem"));
       return;
     }
 
@@ -195,9 +220,7 @@ export default function NovaCheckoutPage() {
       ?.replace(/\D/g, "");
 
     if (!store?.name || !whatsappNumber) {
-      alert(
-        "O WhatsApp desta loja ainda não está configurado. Tente novamente mais tarde.",
-      );
+      alert(t("checkout.errWhatsapp"));
       return;
     }
 
@@ -215,24 +238,20 @@ export default function NovaCheckoutPage() {
           );
 
           let productText =
-            `PRODUTO ${index + 1}\n` +
+            `${t("wa.product")} ${index + 1}\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `Nome: ${item.name}\n` +
-            `Preço unitário: ${price.toLocaleString(
-              "pt-MZ"
-            )} MT\n` +
-            `Quantidade: ${quantity}\n` +
-            `Subtotal: ${subtotal.toLocaleString(
-              "pt-MZ"
-            )} MT\n`;
+            `${t("wa.name")}: ${item.name}\n` +
+            `${t("wa.unitPrice")}: ${formatMoney(price)}\n` +
+            `${t("wa.quantity")}: ${quantity}\n` +
+            `${t("cart.subtotal")}: ${formatMoney(subtotal)}\n`;
 
           if (variantsText) {
             productText +=
-              `\nVARIAÇÕES ESCOLHIDAS\n` +
+              `\n${t("wa.chosenVariations")}\n` +
               `${variantsText}\n`;
           } else {
             productText +=
-              `\nVariações: Nenhuma\n`;
+              `\n${t("wa.noVariations")}\n`;
           }
 
           return productText;
@@ -242,48 +261,48 @@ export default function NovaCheckoutPage() {
         );
 
       const message = `
-*NOVO PEDIDO - ${store.name}*
+*${t("wa.newOrder")} - ${store.name}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*DADOS DO CLIENTE*
+*${t("wa.customerData")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-Nome: ${customerName.trim()}
+${t("wa.name")}: ${customerName.trim()}
 
-Telefone: ${phone.trim()}
+${t("wa.phone")}: ${phone.trim()}
 
-Email: ${
-        email.trim() || "Não informado"
+${t("wa.email")}: ${
+        email.trim() || t("wa.notInformed")
       }
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*DADOS DE ENTREGA*
+*${t("wa.deliveryData")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-Cidade: ${city.trim()}
+${t("wa.city")}: ${city.trim()}
 
-Endereço 1:
+${t("checkout.address1")}:
 ${address.trim()}
 
-Endereço 2:
+${t("checkout.address2")}:
 ${
         avenueOrNeighborhood.trim() ||
-        "Não informado"
+        t("wa.notInformed")
       }
 
-Endereço 3:
+${t("checkout.address3")}:
 ${
         zoneOrReference.trim() ||
-        "Não informado"
+        t("wa.notInformed")
       }
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*PRODUTOS*
+*${t("wa.products")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -291,23 +310,19 @@ ${productsText}
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*RESUMO DO PEDIDO*
+*${t("wa.orderSummary")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-Produtos: ${total.toLocaleString(
-        "pt-MZ"
-      )} MT
+${t("checkout.products")}: ${formatMoney(total)}
 
-Entrega: Grátis
+${t("wa.deliveryFree")}
 
-*TOTAL: ${total.toLocaleString(
-        "pt-MZ"
-      )} MT*
+*${t("checkout.total")}: ${formatMoney(total)}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*MÉTODO DE PAGAMENTO*
+*${t("wa.paymentMethod")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -315,17 +330,17 @@ ${payment}
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*CONFIRMAÇÃO*
+*${t("wa.confirmation")}*
 
 ━━━━━━━━━━━━━━━━━━━━
 
-Olá!
+${t("header.hello")}
 
-Gostaria de confirmar este pedido.
+${t("wa.confirmText")}
 
-Por favor, confirme a disponibilidade dos produtos e envie as instruções para o pagamento.
+${t("wa.confirmRequest")}
 
-Obrigado pela atenção!
+${t("wa.thanks")}
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -351,9 +366,7 @@ Obrigado pela atenção!
         error
       );
 
-      alert(
-        "Não foi possível preparar o pedido. Tente novamente."
-      );
+      alert(t("checkout.errPrepare"));
     } finally {
       setLoading(false);
     }
@@ -368,12 +381,11 @@ Obrigado pela atenção!
       <main className="flex min-h-screen min-w-0 items-center justify-center bg-gray-50 p-6">
         <div className="w-full min-w-0 max-w-md text-center">
           <h1 className="break-words text-3xl font-bold">
-            Carrinho vazio
+            {t("checkout.empty")}
           </h1>
 
           <p className="mt-3 break-words text-gray-500">
-            Adicione produtos ao carrinho
-            antes de finalizar a compra.
+            {t("checkout.emptyHint")}
           </p>
 
           <Link
@@ -390,7 +402,7 @@ Obrigado pela atenção!
               hover:bg-orange-600
             "
           >
-            Voltar para loja
+            {t("checkout.backToStore")}
           </Link>
         </div>
       </main>
@@ -432,7 +444,7 @@ Obrigado pela atenção!
               md:text-4xl
             "
           >
-            Finalizar compra
+            {t("checkout.title")}
           </h1>
 
           <p
@@ -445,8 +457,7 @@ Obrigado pela atenção!
               text-gray-500
             "
           >
-            Preencha os seus dados e envie
-            o pedido pelo WhatsApp.
+            {t("checkout.subtitle")}
           </p>
         </div>
 
@@ -490,7 +501,7 @@ Obrigado pela atenção!
                 />
 
                 <span className="min-w-0 break-words">
-                  Dados de entrega
+                  {t("checkout.deliveryData")}
                 </span>
               </h2>
 
@@ -503,7 +514,7 @@ Obrigado pela atenção!
                       e.target.value
                     )
                   }
-                  placeholder="Nome completo *"
+                  placeholder={t("checkout.fullName")}
                   className="
                     min-w-0
                     max-w-full
@@ -522,7 +533,7 @@ Obrigado pela atenção!
                       e.target.value
                     )
                   }
-                  placeholder="Telefone *"
+                  placeholder={t("checkout.phone")}
                   type="tel"
                   className="
                     min-w-0
@@ -542,7 +553,7 @@ Obrigado pela atenção!
                       e.target.value
                     )
                   }
-                  placeholder="Email (opcional)"
+                  placeholder={t("checkout.email")}
                   type="email"
                   className="
                     min-w-0
@@ -562,7 +573,7 @@ Obrigado pela atenção!
                       e.target.value
                     )
                   }
-                  placeholder="Cidade *"
+                  placeholder={t("checkout.city")}
                   className="
                     min-w-0
                     max-w-full
@@ -583,7 +594,7 @@ Obrigado pela atenção!
 
                 <div className="min-w-0">
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Endereço 1
+                    {t("checkout.address1")}
                   </label>
 
                   <textarea
@@ -593,7 +604,7 @@ Obrigado pela atenção!
                         e.target.value
                       )
                     }
-                    placeholder="Endereço completo / Distrito *"
+                    placeholder={t("checkout.address1Placeholder")}
                     className="
                       block
                       h-24
@@ -611,8 +622,7 @@ Obrigado pela atenção!
                   />
 
                   <p className="mt-1 break-words text-xs text-gray-500">
-                    Informe o endereço completo
-                    e o distrito.
+                    {t("checkout.address1Hint")}
                   </p>
                 </div>
 
@@ -620,7 +630,7 @@ Obrigado pela atenção!
 
                 <div className="min-w-0">
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Endereço 2
+                    {t("checkout.address2")}
                   </label>
 
                   <input
@@ -632,7 +642,7 @@ Obrigado pela atenção!
                         e.target.value
                       )
                     }
-                    placeholder="Avenida ou Bairro"
+                    placeholder={t("checkout.address2Placeholder")}
                     className="
                       w-full
                       min-w-0
@@ -650,7 +660,7 @@ Obrigado pela atenção!
 
                 <div className="min-w-0">
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Endereço 3
+                    {t("checkout.address3")}
                   </label>
 
                   <input
@@ -660,7 +670,7 @@ Obrigado pela atenção!
                         e.target.value
                       )
                     }
-                    placeholder="Zona, Quarteirão, perto de X, Empresa X, Banca X..."
+                    placeholder={t("checkout.address3Placeholder")}
                     className="
                       w-full
                       min-w-0
@@ -708,7 +718,7 @@ Obrigado pela atenção!
                 />
 
                 <span className="min-w-0 break-words">
-                  Método de pagamento
+                  {t("checkout.paymentMethod")}
                 </span>
               </h2>
 
@@ -717,7 +727,7 @@ Obrigado pela atenção!
                 {[
                   "M-Pesa",
                   "e-Mola",
-                  "Cartão bancário",
+                  t("checkout.bankCard"),
                   "PayPal",
                 ].map((method) => (
                   <label
@@ -791,7 +801,7 @@ Obrigado pela atenção!
                 font-bold
               "
             >
-              Resumo do pedido
+              {t("checkout.orderSummary")}
             </h2>
 
             <div className="min-w-0 space-y-5">
@@ -874,12 +884,7 @@ Obrigado pela atenção!
                         </h3>
 
                         <p className="mt-1 text-sm text-gray-500">
-                          {Number(
-                            item.price
-                          ).toLocaleString(
-                            "pt-MZ"
-                          )}{" "}
-                          MT
+                          {formatMoney(Number(item.price))}
                         </p>
 
                         {/* VARIANTES */}
@@ -1004,10 +1009,7 @@ Obrigado pela atenção!
                             text-sm
                           "
                         >
-                          {subtotal.toLocaleString(
-                            "pt-MZ"
-                          )}{" "}
-                          MT
+                          {formatMoney(subtotal)}
                         </strong>
 
                         <button
@@ -1023,7 +1025,7 @@ Obrigado pela atenção!
                             text-red-500
                             hover:bg-red-50
                           "
-                          title="Eliminar produto"
+                          title={t("checkout.removeProduct")}
                         >
                           <Trash2 size={18} />
                         </button>
@@ -1042,7 +1044,7 @@ Obrigado pela atenção!
 
               <div className="flex min-w-0 items-center justify-between gap-4">
                 <span className="shrink-0">
-                  Produtos
+                  {t("checkout.products")}
                 </span>
 
                 <strong
@@ -1052,26 +1054,23 @@ Obrigado pela atenção!
                     text-right
                   "
                 >
-                  {total.toLocaleString(
-                    "pt-MZ"
-                  )}{" "}
-                  MT
+                  {formatMoney(total)}
                 </strong>
               </div>
 
               <div className="flex min-w-0 items-center justify-between gap-4">
                 <span className="shrink-0">
-                  Entrega
+                  {t("checkout.delivery")}
                 </span>
 
                 <strong className="shrink-0 text-green-600">
-                  Grátis
+                  {t("checkout.free")}
                 </strong>
               </div>
 
               <div className="flex min-w-0 items-center justify-between gap-4 text-xl font-bold">
                 <span className="shrink-0">
-                  Total
+                  {t("checkout.total")}
                 </span>
 
                 <span
@@ -1081,10 +1080,7 @@ Obrigado pela atenção!
                     text-right
                   "
                 >
-                  {total.toLocaleString(
-                    "pt-MZ"
-                  )}{" "}
-                  MT
+                  {formatMoney(total)}
                 </span>
               </div>
             </div>
@@ -1133,8 +1129,8 @@ Obrigado pela atenção!
                 "
               >
                 {loading
-                  ? "A preparar pedido..."
-                  : "Enviar o pedido/WhatsApp"}
+                  ? t("checkout.preparing")
+                  : t("checkout.sendOrder")}
               </span>
             </button>
 
@@ -1149,9 +1145,7 @@ Obrigado pela atenção!
                 text-gray-500
               "
             >
-              O WhatsApp será aberto com
-              todos os dados do pedido
-              preenchidos automaticamente.
+              {t("checkout.whatsappNote")}
             </p>
 
             {/* =================================================
@@ -1176,7 +1170,7 @@ Obrigado pela atenção!
                 />
 
                 <span className="min-w-0 break-words">
-                  Pagamento seguro
+                  {t("checkout.securePayment")}
                 </span>
               </p>
 
@@ -1187,7 +1181,7 @@ Obrigado pela atenção!
                 />
 
                 <span className="min-w-0 break-words">
-                  Entrega rastreada
+                  {t("checkout.trackedDelivery")}
                 </span>
               </p>
 
@@ -1198,7 +1192,7 @@ Obrigado pela atenção!
                 />
 
                 <span className="min-w-0 break-words">
-                  Garantia 100%
+                  {t("checkout.guarantee100")}
                 </span>
               </p>
             </div>

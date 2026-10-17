@@ -44,6 +44,13 @@ const HEADER_MODEL_HINTS: Record<HeaderModel, string> = {
   "1": "Header atual da loja.",
   "2": "Barra única minimalista.",
   "3": "Barra escura centrada.",
+  "4": "Anúncio promocional e pesquisa.",
+  "5": "Marca editorial com tons naturais.",
+  "6": "Cabeçalho compacto com categorias.",
+  "7": "Marca centrada com ações laterais.",
+  "8": "Cabeçalho verde com pesquisa.",
+  "9": "Pesquisa ampla em destaque.",
+  "10": "Barra com links de navegação.",
 };
 
 function HeaderMiniature({ model }: { model: HeaderModel }) {
@@ -83,6 +90,28 @@ function HeaderMiniature({ model }: { model: HeaderModel }) {
         </div>
       </div>
     );
+  }
+
+  if (model === "4") {
+    return <div className="overflow-hidden rounded-xl bg-white"><div className="h-2 bg-orange-500" /><div className="flex h-8 items-center justify-between px-2"><span className="h-1.5 w-12 rounded bg-slate-700" /><span className="h-4 w-20 rounded-full bg-slate-100" /></div></div>;
+  }
+  if (model === "5") {
+    return <div className="flex h-10 items-center justify-between rounded-xl border border-stone-200 bg-[#faf8f4] px-2"><span className="h-1 w-8 rounded bg-stone-300" /><span className="h-2 w-14 rounded bg-stone-700" /><span className="h-1 w-6 rounded bg-stone-300" /></div>;
+  }
+  if (model === "6") {
+    return <div className="rounded-xl border border-slate-200 bg-white px-2 py-1.5"><div className="flex h-4 items-center gap-2"><Menu size={9} /><span className="h-1.5 w-10 rounded bg-slate-700" /><span className="ml-auto h-3 w-12 rounded bg-slate-100" /></div><div className="mt-1 flex gap-2"><span className="h-1 w-7 rounded bg-slate-300" /><span className="h-1 w-7 rounded bg-slate-300" /><span className="h-1 w-7 rounded bg-slate-300" /></div></div>;
+  }
+  if (model === "7") {
+    return <div className="grid h-10 grid-cols-3 items-center rounded-xl border border-slate-200 bg-white px-2"><span className="h-1.5 w-5 rounded bg-slate-300" /><span className="mx-auto h-2 w-12 rounded bg-slate-800" /><span className="ml-auto h-1.5 w-5 rounded bg-slate-300" /></div>;
+  }
+  if (model === "8") {
+    return <div className="rounded-xl bg-emerald-800 p-2"><div className="flex justify-between"><span className="h-2 w-12 rounded bg-white/70" /><ShoppingCart size={9} className="text-white" /></div><span className="mt-1 flex h-3 items-center rounded-full bg-white/90"><Search size={7} className="ml-1 text-emerald-700" /></span></div>;
+  }
+  if (model === "9") {
+    return <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-2"><div className="flex justify-between"><span className="h-1.5 w-8 rounded bg-indigo-800" /><ShoppingCart size={9} /></div><span className="mt-1 flex h-4 items-center rounded-full bg-white"><Search size={8} className="ml-2 text-indigo-500" /></span></div>;
+  }
+  if (model === "10") {
+    return <div className="flex h-10 items-center justify-between rounded-xl border border-gray-200 bg-white px-2"><span className="h-2 w-9 rounded bg-slate-700" /><span className="h-1 w-5 rounded bg-slate-300" /><span className="h-1 w-5 rounded bg-slate-300" /><span className="h-3 w-8 rounded-full bg-slate-100" /></div>;
   }
 
   /* Modelo 1 — clássico: topbar + barra principal */
@@ -181,6 +210,13 @@ const FOOTER_MODEL_HINTS: Record<FooterModel, string> = {
   "1": "Footer atual da loja.",
   "2": "Fundo escuro com newsletter.",
   "3": "Uma linha minimalista.",
+  "4": "Ações de contacto em destaque.",
+  "5": "Identidade editorial natural.",
+  "6": "Duas colunas para loja e apoio.",
+  "7": "Composição centralizada.",
+  "8": "Benefícios sobre fundo verde.",
+  "9": "Faixa compacta com redes.",
+  "10": "Cartão de marca com contactos.",
 };
 
 function FooterMiniature({ model }: { model: FooterModel }) {
@@ -219,6 +255,14 @@ function FooterMiniature({ model }: { model: FooterModel }) {
       </div>
     );
   }
+
+  if (model === "4") return <div className="rounded-xl bg-amber-50 p-2"><div className="flex justify-between"><span className="h-2 w-12 rounded bg-amber-700" /><span className="h-2 w-5 rounded bg-amber-300" /></div><span className="mt-2 block h-1 w-full bg-amber-200" /></div>;
+  if (model === "5") return <div className="rounded-xl border border-stone-200 bg-[#faf8f4] p-2"><span className="block h-2 w-12 bg-stone-700" /><div className="mt-2 flex gap-2"><span className="h-1 w-8 bg-stone-300" /><span className="h-1 w-8 bg-stone-300" /></div></div>;
+  if (model === "6") return <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-2"><span className="h-2 w-8 bg-white/70" /><span className="h-2 w-8 bg-white/70" /><span className="h-1 w-10 bg-white/30" /><span className="h-1 w-10 bg-white/30" /></div>;
+  if (model === "7") return <div className="rounded-xl border border-rose-100 bg-white p-2 text-center"><span className="mx-auto block h-2 w-12 bg-slate-500" /><span className="mx-auto mt-1 block h-1 w-8 bg-rose-200" /></div>;
+  if (model === "8") return <div className="rounded-xl bg-emerald-800 p-2"><div className="flex justify-between"><span className="h-2 w-8 bg-white/70" /><span className="h-2 w-8 bg-white/70" /></div><span className="mt-2 block h-1 w-full bg-white/30" /></div>;
+  if (model === "9") return <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2"><span className="h-2 w-10 bg-slate-500" /><span className="flex gap-1"><Mail size={9} /><ShoppingCart size={9} /></span></div>;
+  if (model === "10") return <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-2"><span className="block h-2 w-12 bg-indigo-800" /><div className="mt-2 flex justify-between"><span className="h-1 w-8 bg-indigo-300" /><span className="h-1 w-8 bg-indigo-300" /></div></div>;
 
   /* Modelo 1 — clássico: colunas de links */
   return (
@@ -321,6 +365,13 @@ const CATEGORY_MODEL_HINTS: Record<
   "1": "Imagem com nome sobreposto.",
   "2": "Ícone com contagem de produtos.",
   "3": "Borda clara com seta lateral.",
+  "4": "Faixa horizontal com número e chamada.",
+  "5": "Mosaico colorido em destaque.",
+  "6": "Etiqueta com ícone de categoria.",
+  "7": "Cartão editorial com linha lateral.",
+  "8": "Cartão dividido com ação visual.",
+  "9": "Linha compacta com indicação.",
+  "10": "Destaque numerado.",
 };
 
 function CategoryMiniature({
@@ -355,6 +406,14 @@ function CategoryMiniature({
       </div>
     );
   }
+
+  if (model === "4") return <div className="flex h-12 items-center gap-2 rounded-xl bg-sky-50 px-2"><span className="text-sm font-black text-sky-300">01</span><span className="h-2 w-12 bg-sky-700" /><span className="ml-auto h-3 w-3 rounded-full bg-sky-300" /></div>;
+  if (model === "5") return <div className="flex h-12 flex-col justify-end rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-900 p-2"><span className="h-2 w-12 bg-white/80" /></div>;
+  if (model === "6") return <div className="flex h-12 items-center gap-2 rounded-full bg-amber-50 p-1"><span className="h-9 w-9 rounded-full bg-amber-300" /><span className="h-2 w-12 bg-amber-700" /></div>;
+  if (model === "7") return <div className="flex h-12 items-center border-l-4 border-rose-500 px-2"><span className="h-2 w-12 bg-slate-700" /><span className="ml-auto h-3 w-3 bg-rose-200" /></div>;
+  if (model === "8") return <div className="flex h-12 overflow-hidden rounded-xl border border-slate-200"><span className="flex-1 bg-white p-2"><i className="block h-2 w-12 bg-slate-600" /></span><span className="w-8 bg-teal-700" /></div>;
+  if (model === "9") return <div className="flex h-12 items-center gap-2 rounded-lg bg-slate-900 px-2"><span className="h-2 w-2 rounded-full bg-lime-400" /><span className="h-2 w-12 bg-white/80" /><span className="ml-auto h-2 w-3 bg-lime-200" /></div>;
+  if (model === "10") return <div className="h-12 rounded-xl border border-emerald-200 bg-white p-2"><span className="block h-2 w-5 bg-emerald-100" /><span className="mt-2 block h-2 w-12 bg-slate-700" /></div>;
 
   /* Modelo 1 — imagem com nome sobreposto */
   return (

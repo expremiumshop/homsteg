@@ -11,9 +11,7 @@
  */
 
 export const CATEGORY_CARD_MODELS = [
-  "1",
-  "2",
-  "3",
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
 ] as const;
 
 export type CategoryCardModel =
@@ -30,9 +28,7 @@ export type CategoryCardModel =
  * fica vazia.
  */
 export const CATEGORY_CARD_UNLOCKABLE_MODELS = [
-  "1",
-  "2",
-  "3",
+  ...CATEGORY_CARD_MODELS,
 ] as const;
 
 /**
@@ -48,6 +44,13 @@ export const CATEGORY_PURCHASE_TO_MODEL: Record<
   "1category": "1",
   "2category": "2",
   "3category": "3",
+  "4category": "4",
+  "5category": "5",
+  "6category": "6",
+  "7category": "7",
+  "8category": "8",
+  "9category": "9",
+  "10category": "10",
 };
 
 /**
@@ -61,6 +64,13 @@ export const CATEGORY_TO_MARKET_FEATURE: Record<
   "1": "1category",
   "2": "2category",
   "3": "3category",
+  "4": "4category",
+  "5": "5category",
+  "6": "6category",
+  "7": "7category",
+  "8": "8category",
+  "9": "9category",
+  "10": "10category",
 };
 
 export function isCategoryCardModel(
@@ -99,6 +109,20 @@ export function getCategoryCardModelLabel(
       return "Ícone";
     case "3":
       return "Borda";
+    case "4":
+      return "Faixa horizontal";
+    case "5":
+      return "Mosaico";
+    case "6":
+      return "Etiqueta colorida";
+    case "7":
+      return "Contorno editorial";
+    case "8":
+      return "Cartão dividido";
+    case "9":
+      return "Pílula compacta";
+    case "10":
+      return "Destaque numerado";
   }
 }
 
@@ -112,5 +136,19 @@ export function getCategoryCardModelDescription(
       return "Cartão compacto com ícone e contagem.";
     case "3":
       return "Cartão claro com borda e seta lateral.";
+    case "4":
+      return "Faixa horizontal com número e chamada.";
+    case "5":
+      return "Mosaico com bloco de cor e nome em destaque.";
+    case "6":
+      return "Etiqueta colorida com ícone de categoria.";
+    case "7":
+      return "Cartão editorial com tipografia e linha lateral.";
+    case "8":
+      return "Cartão dividido entre identificação e chamada.";
+    case "9":
+      return "Pílula compacta para listas de categorias.";
+    case "10":
+      return "Destaque numerado com acesso direto.";
   }
 }

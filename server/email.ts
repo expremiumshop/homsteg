@@ -31,6 +31,28 @@ function sleep(ms: number) {
   );
 }
 
+/*
+ * Mascara um endereço de email para efeitos de log
+ * (ex.: "ana.silva@exemplo.com" → "a***a@exemplo.com").
+ * Os logs nunca devem conter endereços completos.
+ */
+function maskEmail(email: string): string {
+  const separator = email.lastIndexOf("@");
+
+  if (separator <= 0) {
+    return "***";
+  }
+
+  const local = email.slice(0, separator);
+  const domain = email.slice(separator + 1);
+
+  if (local.length <= 2) {
+    return `***@${domain}`;
+  }
+
+  return `${local.slice(0, 1)}***${local.slice(-1)}@${domain}`;
+}
+
 function isTransientResendError(error: {
   statusCode?: number;
   message?: string;
@@ -70,27 +92,16 @@ export async function sendLoginOtpEmail(
   email: string,
   otp: string,
 ) {
+  /*
+   * Nunca registar o OTP nem o email completo:
+   * qualquer acesso aos logs (Vercel, suporte,
+   * exportações) permitiria assumir contas de
+   * qualquer utilizador que validasse o código.
+   * Regista-se apenas a máscara do destinatário.
+   */
   console.log(
-    "[HOMSTEG EMAIL] ========================================",
-  );
-
-  console.log(
-    "[HOMSTEG EMAIL] Iniciando envio do OTP",
-  );
-
-  console.log(
-    "[HOMSTEG EMAIL] FROM:",
-    fromEmail,
-  );
-
-  console.log(
-    "[HOMSTEG EMAIL] TO:",
-    email,
-  );
-
-  console.log(
-    "[HOMSTEG EMAIL] OTP:",
-    otp,
+    "[HOMSTEG EMAIL] A enviar OTP para",
+    maskEmail(email),
   );
 
   const html = `
@@ -309,7 +320,7 @@ Se não foste tu a tentar entrar, podes ignorar este email.
       "[HOMSTEG EMAIL] EMAIL ACEITO:",
       {
         id: result.data?.id,
-        to: email,
+        to: maskEmail(email),
       },
     );
 

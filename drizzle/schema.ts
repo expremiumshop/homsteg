@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -14,10 +15,7 @@ import {
    ENUMS
    ============================================================ */
 
-export const userRoleEnum = pgEnum("user_role", [
-  "user",
-  "admin",
-]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
 export const storeStatusEnum = pgEnum("store_status", [
   "draft",
@@ -71,9 +69,7 @@ export const users = pgTable("users", {
     length: 64,
   }),
 
-  role: userRoleEnum("role")
-    .default("user")
-    .notNull(),
+  role: userRoleEnum("role").default("user").notNull(),
 
   createdAt: timestamp("createdAt", {
     withTimezone: true,
@@ -101,240 +97,251 @@ export const users = pgTable("users", {
 export const stores = pgTable(
   "stores",
   {
-  id: varchar("id", {
-    length: 64,
-  }).primaryKey(),
+    id: varchar("id", {
+      length: 64,
+    }).primaryKey(),
 
-  name: varchar("name", {
-    length: 120,
-  }).notNull(),
+    name: varchar("name", {
+      length: 120,
+    }).notNull(),
 
-  slug: varchar("slug", {
-    length: 120,
-  })
-    .notNull()
-    .unique(),
+    slug: varchar("slug", {
+      length: 120,
+    })
+      .notNull()
+      .unique(),
 
-  category: varchar("category", {
-    length: 80,
-  })
-    .notNull()
-    .default("General"),
+    category: varchar("category", {
+      length: 80,
+    })
+      .notNull()
+      .default("General"),
 
-  /*
-   * Campo histórico mantido para compatibilidade com
-   * dados antigos. Sempre "free": a HOMSTEG é uma
-   * plataforma 100% gratuita, sem planos.
-   */
-  planKey: varchar("planKey", {
-    length: 32,
-  })
-    .notNull()
-    .default("free"),
+    /*
+     * Campo histórico mantido para compatibilidade com
+     * dados antigos. Sempre "free": a HOMSTEG é uma
+     * plataforma 100% gratuita, sem planos.
+     */
+    planKey: varchar("planKey", {
+      length: 32,
+    })
+      .notNull()
+      .default("free"),
 
-  /*
-   * Créditos da loja (coluna histórica "creditMzn").
-   *
-   * Os créditos são uma UNIDADE INTERNA da HOMSTEG
-   * (não são dinheiro nem moeda) e servem APENAS
-   * para comprar/desbloquear funcionalidades,
-   * modelos e componentes no Market.
-   *
-   * Toda loja começa automaticamente com 100.000
-   * créditos gratuitos. O Admin pode ajustar o
-   * saldo na secção "Créditos". Criar e usar a
-   * loja é sempre gratuito.
-   */
-  creditMzn: integer("creditMzn")
-    .notNull()
-    .default(100000),
+    /*
+     * Créditos da loja (coluna histórica "creditMzn").
+     *
+     * Os créditos são uma UNIDADE INTERNA da HOMSTEG
+     * (não são dinheiro nem moeda) e servem APENAS
+     * para comprar/desbloquear funcionalidades,
+     * modelos e componentes no Market.
+     *
+     * Toda loja começa automaticamente com 100.000
+     * créditos gratuitos. O Admin pode ajustar o
+     * saldo na secção "Créditos". Criar e usar a
+     * loja é sempre gratuito.
+     */
+    creditMzn: integer("creditMzn").notNull().default(100000),
 
-  /*
-   * Crédito de COMISSÃO da loja (em créditos, unidade
-   * interna da plataforma — nunca moeda). É um
-   * HISTÓRICO ACUMULADO: nasce a 0, só cresce a cada
-   * comissão recebida e nunca diminui. Cada comissão
-   * também é somada ao crédito atual (creditMzn).
-   */
-  commissionCredit: integer("commissionCredit")
-    .notNull()
-    .default(0),
+    /*
+     * Crédito de COMISSÃO da loja (em créditos, unidade
+     * interna da plataforma — nunca moeda). É um
+     * HISTÓRICO ACUMULADO: nasce a 0, só cresce a cada
+     * comissão recebida e nunca diminui. Cada comissão
+     * também é somada ao crédito atual (creditMzn).
+     */
+    commissionCredit: integer("commissionCredit").notNull().default(0),
 
-  /*
-   * Crédito de BÔNUS da loja (em créditos, unidade
-   * interna da plataforma — nunca moeda). Nasce a 0 e
-   * é atribuído por campanhas/bônus do Admin.
-   */
-  bonusCredit: integer("bonusCredit")
-    .notNull()
-    .default(0),
+    /*
+     * Crédito de BÔNUS da loja (em créditos, unidade
+     * interna da plataforma — nunca moeda). Nasce a 0 e
+     * é atribuído por campanhas/bônus do Admin.
+     */
+    bonusCredit: integer("bonusCredit").notNull().default(0),
 
-  /*
-   * Código exclusivo da loja (~8 caracteres). Pode ser
-   * partilhado pelo proprietário para convidar outras
-   * pessoas; um código pode ser utilizado por várias
-   * outras lojas. Único por loja (índice stores_store_code_unique).
-   */
-  storeCode: varchar("storeCode", {
-    length: 16,
-  }),
+    /*
+     * Código exclusivo da loja (~8 caracteres). Pode ser
+     * partilhado pelo proprietário para convidar outras
+     * pessoas; um código pode ser utilizado por várias
+     * outras lojas. Único por loja (índice stores_store_code_unique).
+     */
+    storeCode: varchar("storeCode", {
+      length: 16,
+    }),
 
-  status: storeStatusEnum("status")
-    .notNull()
-    .default("draft"),
+    status: storeStatusEnum("status").notNull().default("draft"),
 
-  currency: varchar("currency", {
-    length: 8,
-  })
-    .notNull()
-    .default("MZN"),
+    currency: varchar("currency", {
+      length: 8,
+    })
+      .notNull()
+      .default("MZN"),
 
-  whatsapp: varchar("whatsapp", {
-    length: 40,
-  }),
+    /*
+     * Idioma de exibição da loja pública, escolhido em
+     * Configurações → Idioma e moeda.
+     *
+     * "pt" = Português (predefinido, aplicado também às
+     *        lojas já existentes pelo DEFAULT da migração)
+     * "en" = English
+     */
+    language: varchar("language", {
+      length: 8,
+    })
+      .notNull()
+      .default("pt"),
 
-  /*
-   * Tema visual escolhido pela loja.
-   *
-   * null = ainda não escolheu nenhum tema.
-   *
-   * Exemplos:
-   * "nova"
-   * "luxe"
-   * "market"
-   * "urban"
-   * "essenza"
-   * "prime"
-   * "caliza"
-   * "chazuca"
-   */
-  themeKey: varchar("themeKey", {
-    length: 32,
-  }),
+    customDomain: varchar("customDomain", { length: 253 }),
+    customDomainVerificationToken: varchar("customDomainVerificationToken", {
+      length: 64,
+    }),
+    customDomainVerifiedAt: timestamp("customDomainVerifiedAt", {
+      withTimezone: true,
+    }),
 
-  /*
+    /* Domínio personalizado e prova TXT de propriedade. */
+    whatsapp: varchar("whatsapp", {
+      length: 40,
+    }),
+
+    /*
+     * Tema visual escolhido pela loja.
+     *
+     * null = ainda não escolheu nenhum tema.
+     *
+     * Exemplos:
+     * "nova"
+     * "luxe"
+     * "market"
+     * "urban"
+     * "essenza"
+     * "prime"
+     * "caliza"
+     * "chazuca"
+     */
+    themeKey: varchar("themeKey", {
+      length: 32,
+    }),
+
+    /*
    * Identidade visual da loja (não do tema).
    *
    * Guardam CHAVES R2 (não URLs assinadas) sob
 n   * stores/{storeId}/branding/.
    * null = usar o visual demo do tema.
    */
-  logoKey: varchar("logoKey", {
-    length: 255,
-  }),
+    logoKey: varchar("logoKey", {
+      length: 255,
+    }),
 
-  bannerKey: varchar("bannerKey", {
-    length: 255,
-  }),
+    bannerKey: varchar("bannerKey", {
+      length: 255,
+    }),
 
-  /*
-   * Banners adicionais da loja (para além do
-   * bannerKey legado). Guardam CHAVES R2 sob
-   * stores/{storeId}/branding/.
-   * Array vazio = nenhum banner extra.
-   */
-  bannerKeys: text("bannerKeys")
-    .array()
-    .notNull()
-    .default([]),
+    /*
+     * Banners adicionais da loja (para além do
+     * bannerKey legado). Guardam CHAVES R2 sob
+     * stores/{storeId}/branding/.
+     * Array vazio = nenhum banner extra.
+     */
+    bannerKeys: text("bannerKeys").array().notNull().default([]),
 
-  /*
-   * Modelo dos cartões de produto no tema Nova.
-   * null = modelo atual (1).
-   * Valores: "1".."8" (ver BrandingPage / ProductCard).
-   */
-  productCardModel: varchar("productCardModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo dos cartões de produto no tema Nova.
+     * null = modelo atual (1).
+     * Valores: "1".."8" (ver BrandingPage / ProductCard).
+     */
+    productCardModel: varchar("productCardModel", {
+      length: 8,
+    }),
 
-  /*
-   * Modelo de banner do carrossel (tema Nova).
-   * null = modelo atual (1).
-   * Valores: "1".."9" (ver bannerModels;
-   * "9" = Simples, imagem única do 10banner).
-   */
-  bannerModel: varchar("bannerModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo de banner do carrossel (tema Nova).
+     * null = modelo atual (1).
+     * Valores: "1".."9" (ver bannerModels;
+     * "9" = Simples, imagem única do 10banner).
+     */
+    bannerModel: varchar("bannerModel", {
+      length: 8,
+    }),
 
-  /*
-   * Modelo dos botões de navegação (tema Nova).
-   * null = modelo atual (1).
-   * Valores: "1".."5" (ver navButtonModels).
-   */
-  navButtonModel: varchar("navButtonModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo dos botões de navegação (tema Nova).
+     * null = modelo atual (1).
+     * Valores: "1".."5" (ver navButtonModels).
+     */
+    navButtonModel: varchar("navButtonModel", {
+      length: 8,
+    }),
 
-  /*
-   * Modelo do header/cabeçalho (tema Nova).
-   * null = modelo atual (1).
-   * Valores: "1".."3" (ver headerModels).
-   */
-  headerModel: varchar("headerModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo do header/cabeçalho (tema Nova).
+     * null = modelo atual (1).
+     * Valores: "1".."3" (ver headerModels).
+     */
+    headerModel: varchar("headerModel", {
+      length: 8,
+    }),
 
-  /*
-   * Modelo do footer/rodapé (tema Nova).
-   * null = modelo atual (1).
-   * Valores: "1".."3" (ver footerModels).
-   */
-  footerModel: varchar("footerModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo do footer/rodapé (tema Nova).
+     * null = modelo atual (1).
+     * Valores: "1".."3" (ver footerModels).
+     */
+    footerModel: varchar("footerModel", {
+      length: 8,
+    }),
 
-  /*
-   * Modelo dos cartões de categoria/Seções (tema Nova).
-   * null = modelo atual (1).
-   * Valores: "1".."3" (ver categoryCardModels).
-   */
-  categoryCardModel: varchar("categoryCardModel", {
-    length: 8,
-  }),
+    /*
+     * Modelo dos cartões de categoria/Seções (tema Nova).
+     * null = modelo atual (1).
+     * Valores: "1".."3" (ver categoryCardModels).
+     */
+    categoryCardModel: varchar("categoryCardModel", {
+      length: 8,
+    }),
 
-  /*
-   * Título/subtítulo por banner (tema Nova).
-   * Array paralelo a bannerKeys+bannerKey (após
-   * achatamento), por índice de slide.
-   */
-  bannerTexts: jsonb("bannerTexts")
-    .$type<{ title?: string; subtitle?: string }[]>()
-    .notNull()
-    .default([]),
+    /*
+     * Título/subtítulo por banner (tema Nova).
+     * Array paralelo a bannerKeys+bannerKey (após
+     * achatamento), por índice de slide.
+     */
+    bannerTexts: jsonb("bannerTexts")
+      .$type<{ title?: string; subtitle?: string }[]>()
+      .notNull()
+      .default([]),
 
-  /*
-   * Elementos opcionais por banner (tema Nova):
-   * mapa keyed por chave R2 do banner → botão, texto,
-   * animação e contagem decrescente independentes.
-   */
-  bannerFeatures: jsonb("bannerFeatures")
-    .$type<Record<string, unknown>>()
-    .notNull()
-    .default({}),
+    /*
+     * Elementos opcionais por banner (tema Nova):
+     * mapa keyed por chave R2 do banner → botão, texto,
+     * animação e contagem decrescente independentes.
+     */
+    bannerFeatures: jsonb("bannerFeatures")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
 
-  createdAt: timestamp("createdAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    createdAt: timestamp("createdAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
 
-  updatedAt: timestamp("updatedAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    updatedAt: timestamp("updatedAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => [
+  table => [
     /*
      * Código exclusivo da loja: único por loja
      * (migração 0023). Permite consultas rápidas
      * por código (convites/indicações).
      */
-    uniqueIndex("stores_store_code_unique").on(
-      table.storeCode,
-    ),
-  ],
+    uniqueIndex("stores_store_code_unique").on(table.storeCode),
+    uniqueIndex("stores_custom_domain_unique").on(table.customDomain),
+  ]
 );
 
 /* ============================================================
@@ -344,36 +351,30 @@ n   * stores/{storeId}/branding/.
 export const storeMembers = pgTable(
   "storeMembers",
   {
-  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
 
-  storeId: varchar("storeId", {
-    length: 64,
-  }).notNull(),
+    storeId: varchar("storeId", {
+      length: 64,
+    }).notNull(),
 
-  userId: integer("userId")
-    .notNull(),
+    userId: integer("userId").notNull(),
 
-  role: storeMemberRoleEnum("role")
-    .notNull()
-    .default("owner"),
+    role: storeMemberRoleEnum("role").notNull().default("owner"),
 
-  createdAt: timestamp("createdAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    createdAt: timestamp("createdAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => [
+  table => [
     /*
      * Índices de desempenho (migração 0022): verificação de
      * acesso (userId + storeId) e listagem de membros por loja.
      */
-    index("store_members_user_store_idx").on(
-      table.userId,
-      table.storeId,
-    ),
+    index("store_members_user_store_idx").on(table.userId, table.storeId),
     index("store_members_store_id_idx").on(table.storeId),
-  ],
+  ]
 );
 
 /* ============================================================
@@ -391,12 +392,9 @@ export const storeMembers = pgTable(
 export const storeApplications = pgTable("storeApplications", {
   id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
 
-  userId: integer("userId")
-    .notNull(),
+  userId: integer("userId").notNull(),
 
-  status: applicationStatusEnum("status")
-    .notNull()
-    .default("pending"),
+  status: applicationStatusEnum("status").notNull().default("pending"),
 
   businessTypes: text("businessTypes"),
 
@@ -485,23 +483,20 @@ export const storeApplications = pgTable("storeApplications", {
  * (nome, descrição, categoria, preço em créditos e
  * status), administráveis pelo Admin sem tocar em código.
  */
-export const marketFeatureStatusEnum = pgEnum(
-  "market_feature_status",
-  ["active", "inactive"],
-);
+export const marketFeatureStatusEnum = pgEnum("market_feature_status", [
+  "active",
+  "inactive",
+]);
 
-export const marketCategoryEnum = pgEnum(
-  "market_category",
-  [
-    "header",
-    "banner",
-    "category_card",
-    "product_card",
-    "nav_button",
-    "footer",
-    "stock",
-  ],
-);
+export const marketCategoryEnum = pgEnum("market_category", [
+  "header",
+  "banner",
+  "category_card",
+  "product_card",
+  "nav_button",
+  "footer",
+  "stock",
+]);
 
 export const marketFeatures = pgTable("market_features", {
   id: varchar("id", {
@@ -521,13 +516,9 @@ export const marketFeatures = pgTable("market_features", {
    * Preço da funcionalidade em créditos.
    * Fonte única de verdade: nunca hardcoded no cliente.
    */
-  priceCredits: integer("priceCredits")
-    .notNull()
-    .default(0),
+  priceCredits: integer("priceCredits").notNull().default(0),
 
-  status: marketFeatureStatusEnum("status")
-    .notNull()
-    .default("active"),
+  status: marketFeatureStatusEnum("status").notNull().default("active"),
 
   /*
    * Referência ao código correspondente
@@ -540,9 +531,7 @@ export const marketFeatures = pgTable("market_features", {
   }).notNull(),
 
   /* Ordenação manual dentro da categoria. */
-  sortOrder: integer("sortOrder")
-    .notNull()
-    .default(0),
+  sortOrder: integer("sortOrder").notNull().default(0),
 
   createdAt: timestamp("createdAt", {
     withTimezone: true,
@@ -586,9 +575,7 @@ export const storeMarketFeatures = pgTable(
     }).notNull(),
 
     /* Preço em créditos registado no momento da compra. */
-    priceCredits: integer("priceCredits")
-      .notNull()
-      .default(0),
+    priceCredits: integer("priceCredits").notNull().default(0),
 
     purchasedAt: timestamp("purchasedAt", {
       withTimezone: true,
@@ -596,13 +583,13 @@ export const storeMarketFeatures = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  table => [
     uniqueIndex("store_market_features_store_feature_idx").on(
       table.storeId,
-      table.featureKey,
+      table.featureKey
     ),
     index("store_market_features_store_id_idx").on(table.storeId),
-  ],
+  ]
 );
 
 /* ============================================================
@@ -617,115 +604,139 @@ export const storeMarketFeatures = pgTable(
 export const storeCategories = pgTable(
   "store_categories",
   {
-  id: varchar("id", {
-    length: 64,
-  }).primaryKey(),
+    id: varchar("id", {
+      length: 64,
+    }).primaryKey(),
 
-  storeId: varchar("storeId", {
-    length: 64,
-  }).notNull(),
+    storeId: varchar("storeId", {
+      length: 64,
+    }).notNull(),
 
-  name: varchar("name", {
-    length: 80,
-  }).notNull(),
+    name: varchar("name", {
+      length: 80,
+    }).notNull(),
 
-  createdAt: timestamp("createdAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    createdAt: timestamp("createdAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
 
-  updatedAt: timestamp("updatedAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    updatedAt: timestamp("updatedAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => [
+  table => [
     /* Índice de desempenho (migração 0022): categorias por loja. */
     index("store_categories_store_id_idx").on(table.storeId),
-  ],
+  ]
 );
 
 /* ============================================================
    PRODUCTS
    ============================================================ */
 
+/**
+ * Uma variante = uma combinação concreta de valores das
+ * opções do produto (ex.: Tamanho=M, Cor=Preto) com preço,
+ * stock e SKU próprios. Campos opcionais: quando vazios,
+ * a variante herda o valor do produto.
+ *
+ * `values` usa os MESMOS nomes de opção de `products.options`
+ * — o servidor valida a correspondência antes de persistir.
+ */
+export type ProductVariant = {
+  values: Record<string, string>;
+  priceMzn?: number | null;
+  stock?: number | null;
+  sku?: string | null;
+};
+
 export const products = pgTable(
   "products",
   {
-  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
 
-  storeId: varchar("storeId", {
-    length: 64,
-  }).notNull(),
+    storeId: varchar("storeId", {
+      length: 64,
+    }).notNull(),
 
-  name: varchar("name", {
-    length: 180,
-  }).notNull(),
+    name: varchar("name", {
+      length: 180,
+    }).notNull(),
 
-  slug: varchar("slug", {
-    length: 180,
-  }).notNull(),
+    slug: varchar("slug", {
+      length: 180,
+    }).notNull(),
 
-  description: text("description"),
+    description: text("description"),
 
-  priceMzn: integer("priceMzn")
-    .notNull(),
+    priceMzn: integer("priceMzn").notNull(),
 
-  compareAtPriceMzn: integer("compareAtPriceMzn"),
+    compareAtPriceMzn: integer("compareAtPriceMzn"),
 
-  sku: varchar("sku", {
-    length: 80,
-  }),
+    sku: varchar("sku", {
+      length: 80,
+    }),
 
-  stock: integer("stock")
-    .notNull()
-    .default(0),
+    stock: integer("stock").notNull().default(0),
 
-  /*
-   * Categoria do produto. null = Sem categoria.
-   * O valor tem de ser o nome de uma categoria da
-   * própria loja (validado no router).
-   */
-  category: varchar("category", {
-    length: 80,
-  }),
+    /*
+     * Categoria do produto. null = Sem categoria.
+     * O valor tem de ser o nome de uma categoria da
+     * própria loja (validado no router).
+     */
+    category: varchar("category", {
+      length: 80,
+    }),
 
-  status: productStatusEnum("status")
-    .notNull()
-    .default("draft"),
+    status: productStatusEnum("status").notNull().default("draft"),
 
-  imageUrl: text("imageUrl"),
+    /*
+     * Produto em destaque (Visibilidade). Marcado no painel
+     * e exposto no catálogo público. false = sem destaque.
+     */
+    featured: boolean("featured").notNull().default(false),
 
-  imageKeys: text("imageKeys")
-    .array()
-    .notNull()
-    .default([]),
+    imageUrl: text("imageUrl"),
 
-  options: jsonb("options")
-    .$type<
-      {
-        name: string;
-        values: string[];
-      }[]
-    >()
-    .notNull()
-    .default([]),
+    imageKeys: text("imageKeys").array().notNull().default([]),
 
-  createdAt: timestamp("createdAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    options: jsonb("options")
+      .$type<
+        {
+          name: string;
+          values: string[];
+        }[]
+      >()
+      .notNull()
+      .default([]),
 
-  updatedAt: timestamp("updatedAt", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    /*
+     * Preço/stock/SKU por combinação de opções (variantes).
+     * Linhas alinhadas com `options` — ver alignProductVariants
+     * em server/routers.ts.
+     */
+    variants: jsonb("variants")
+      .$type<ProductVariant[]>()
+      .notNull()
+      .default([]),
+
+    createdAt: timestamp("createdAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updatedAt", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => [
+  table => [
     /*
      * Índice de desempenho (migração 0022): quase todas as
      * consultas de produtos filtram por loja — listagens do
@@ -733,7 +744,7 @@ export const products = pgTable(
      * agregações do resumo.
      */
     index("products_store_id_idx").on(table.storeId),
-  ],
+  ]
 );
 
 /* ============================================================
@@ -774,13 +785,9 @@ export const storeCodeRedemptions = pgTable(
     }),
 
     /* Recompensas registadas no momento do uso (créditos). */
-    ownerRewardCredits: integer("ownerRewardCredits")
-      .notNull()
-      .default(0),
+    ownerRewardCredits: integer("ownerRewardCredits").notNull().default(0),
 
-    userRewardCredits: integer("userRewardCredits")
-      .notNull()
-      .default(0),
+    userRewardCredits: integer("userRewardCredits").notNull().default(0),
 
     createdAt: timestamp("createdAt", {
       withTimezone: true,
@@ -788,16 +795,12 @@ export const storeCodeRedemptions = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  table => [
     /* Uma loja usa no máximo um código — nunca duplicar. */
-    uniqueIndex("store_code_redemptions_store_unique").on(
-      table.storeId,
-    ),
+    uniqueIndex("store_code_redemptions_store_unique").on(table.storeId),
 
-    index("store_code_redemptions_owner_idx").on(
-      table.ownerStoreId,
-    ),
-  ],
+    index("store_code_redemptions_owner_idx").on(table.ownerStoreId),
+  ]
 );
 
 /* ============================================================
@@ -809,43 +812,32 @@ export type InsertUser = typeof users.$inferInsert;
 
 export type Store = typeof stores.$inferSelect;
 
-export type StoreApplication =
-  typeof storeApplications.$inferSelect;
+export type StoreApplication = typeof storeApplications.$inferSelect;
 
-export type InsertStoreApplication =
-  typeof storeApplications.$inferInsert;
+export type InsertStoreApplication = typeof storeApplications.$inferInsert;
 
 export type Product = typeof products.$inferSelect;
 
-export type InsertProduct =
-  typeof products.$inferInsert;
+export type InsertProduct = typeof products.$inferInsert;
 
-export type StoreCategory =
-  typeof storeCategories.$inferSelect;
+export type StoreCategory = typeof storeCategories.$inferSelect;
 
-export type InsertStoreCategory =
-  typeof storeCategories.$inferInsert;
+export type InsertStoreCategory = typeof storeCategories.$inferInsert;
 
-export type MarketFeature =
-  typeof marketFeatures.$inferSelect;
+export type MarketFeature = typeof marketFeatures.$inferSelect;
 
-export type InsertMarketFeature =
-  typeof marketFeatures.$inferInsert;
+export type InsertMarketFeature = typeof marketFeatures.$inferInsert;
 
-export type StoreMarketFeature =
-  typeof storeMarketFeatures.$inferSelect;
+export type StoreMarketFeature = typeof storeMarketFeatures.$inferSelect;
 
-export type InsertStoreMarketFeature =
-  typeof storeMarketFeatures.$inferInsert;
+export type InsertStoreMarketFeature = typeof storeMarketFeatures.$inferInsert;
 
-export type StoreCodeRedemption =
-  typeof storeCodeRedemptions.$inferSelect;
+export type StoreCodeRedemption = typeof storeCodeRedemptions.$inferSelect;
 
 export type InsertStoreCodeRedemption =
   typeof storeCodeRedemptions.$inferInsert;
 
-export type MarketCategory =
-  typeof marketCategoryEnum.enumValues[number];
+export type MarketCategory = (typeof marketCategoryEnum.enumValues)[number];
 
 export type MarketFeatureStatus =
-  typeof marketFeatureStatusEnum.enumValues[number];
+  (typeof marketFeatureStatusEnum.enumValues)[number];

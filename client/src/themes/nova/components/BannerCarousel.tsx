@@ -10,6 +10,8 @@ import {
   type BannerFeatureSet,
 } from "../bannerModels";
 
+import { useI18n } from "@/lib/i18n-context";
+
 export interface NovaBanner {
   id: string;
   image_url: string;
@@ -62,6 +64,12 @@ export default function BannerCarousel({
   banners,
   model,
 }: BannerCarouselProps) {
+  /*
+   * Idioma da loja para os textos de fallback dos banners
+   * (títulos, botões e alt das imagens).
+   */
+  const { t } = useI18n();
+
   /*
    * Sem banners reais (loja sem banner ou modo
    * demo sem dados), usa os banners demo —
@@ -212,11 +220,10 @@ export default function BannerCarousel({
           <div className="flex min-h-[88px] items-stretch border-t border-black/5 bg-emerald-950 text-white md:min-h-[112px]">
             <div className="flex flex-col justify-center gap-2 px-6 py-4 text-left md:px-10">
               <h2 className="max-w-lg text-lg font-black tracking-tight sm:text-2xl md:text-3xl">
-                {slide?.title || "Título da campanha"}
+                {slide?.title || t("banner.campaignTitle")}
               </h2>
 
-              <p className="max-w-md text-[11px] font-medium text-white/80 sm:text-sm">
-                {slide?.subtitle || "Subtítulo da campanha"}
+              <p className="max-w-md text-[11px] font-medium text-white/80 sm:text-sm">                  {slide?.subtitle || t("banner.campaignSubtitle")}
               </p>
             </div>
           </div>
@@ -272,11 +279,11 @@ export default function BannerCarousel({
                 {/* Área B — conteúdo sólido do mesmo slide */}
                 <div className="flex flex-col items-start justify-center gap-1.5 bg-emerald-950 px-4 py-4 text-left text-white md:px-6">
                   <span className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                    Destaque
-                  </span>
+                  {t("banner.featured")}
+                </span>
 
                   <p className="line-clamp-2 text-sm font-black sm:text-lg">
-                    {banner.title || "A tua campanha aqui"}
+                    {banner.title || t("banner.yourCampaign")}
                   </p>
 
                   <p className="line-clamp-2 text-[11px] text-white/80 sm:text-sm">
@@ -323,11 +330,11 @@ export default function BannerCarousel({
 
                 <div className="flex flex-col justify-center gap-2 bg-white px-5 py-4 text-left md:px-10">
                   <h2 className="line-clamp-2 text-base font-black tracking-tight text-slate-950 sm:text-xl md:text-2xl">
-                    {banner.title || "Título do banner"}
+                    {banner.title || t("banner.title")}
                   </h2>
 
                   <p className="line-clamp-2 text-[11px] font-medium text-slate-500 sm:text-sm">
-                    {banner.subtitle || "Subtítulo do banner"}
+                    {banner.subtitle || t("banner.subtitle")}
                   </p>
                 </div>
               </div>
@@ -411,11 +418,11 @@ export default function BannerCarousel({
             >
               <div className="flex min-h-[180px] flex-col justify-center gap-3 bg-gradient-to-r from-slate-950 via-emerald-900 to-emerald-700 p-8 text-white">
                 <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-lime-300">
-                  Destaque da semana
+                  {t("banner.weekHighlight")}
                 </span>
 
                 <h2 className="max-w-md text-2xl font-black leading-tight sm:text-3xl">
-                  {banner.title || "Grandes ofertas, todos os dias"}
+                  {banner.title || t("banner.bigOffers")}
                 </h2>
 
                 {banner.subtitle && (
@@ -429,11 +436,11 @@ export default function BannerCarousel({
                     href={banner.buttonHref}
                     className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-lime-300"
                   >
-                    Ver agora
+                    {t("banner.seeNow")}
                   </a>
                 ) : (
                   <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-950">
-                    Ver agora
+                    {t("banner.seeNow")}
                   </span>
                 )}
               </div>
@@ -468,11 +475,11 @@ export default function BannerCarousel({
               <div className="grid min-h-[180px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-white sm:grid-cols-2">
                 <div className="flex flex-col justify-center gap-3 p-8">
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600">
-                    Nova coleção
+                    {t("banner.newCollection")}
                   </span>
 
                   <h2 className="text-xl font-black leading-tight text-slate-950 sm:text-2xl">
-                    {banner.title || "Explore a nova coleção"}
+                    {banner.title || t("banner.exploreCollection")}
                   </h2>
 
                   {banner.subtitle && (
@@ -486,7 +493,7 @@ export default function BannerCarousel({
                       href={banner.buttonHref}
                       className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
                     >
-                      Descobrir
+                      {t("banner.discover")}
                     </a>
                   )}
                 </div>
@@ -529,7 +536,7 @@ export default function BannerCarousel({
           <div className="relative w-full aspect-[16/7] sm:aspect-[16/7] md:aspect-[16/6] lg:aspect-[16/5.5]">
             <img
               src={onlyBanner.image_url}
-              alt="Banner da loja"
+              alt={t("banner.alt")}
               className="block h-full w-full object-cover"
             />
           </div>
@@ -555,7 +562,7 @@ export default function BannerCarousel({
             <div className="flex w-full items-center justify-between gap-4 rounded-xl bg-lime-300 px-5 py-4 text-left">
               <div>
                 <p className="text-sm font-black uppercase tracking-wide text-slate-950">
-                  {banner.title || "Grande campanha da loja"}
+                  {banner.title || t("banner.bigCampaign")}
                 </p>
 
                 {banner.subtitle && (

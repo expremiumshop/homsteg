@@ -20,6 +20,7 @@ import type {
 import {
   MARKET_SECTION_LABELS,
   MARKET_SECTION_ORDER,
+  getMarketVariantName,
   getMarketVariants,
 } from "@/components/dashboard/market/registry";
 
@@ -339,16 +340,9 @@ export default function MarketFeaturesPanel() {
                         ) : (
                           /* Leitura: nome, descrição e preço */
                           <>
-                            <div className="flex items-center gap-2">
-                              <span className="shrink-0 rounded-full bg-[#f0f4ef] px-2 py-0.5 font-mono text-[8px] text-[#748074]">
-                                {variant.featureKey}
-                              </span>
-
-                              <p className="truncate text-[12px] font-bold text-[#141714]">
-                                {feature?.name ??
-                                  variant.featureKey}
-                              </p>
-                            </div>
+                            <p className="truncate text-[12px] font-bold text-[#141714]">
+                              {getMarketVariantName(variant, feature?.name)}
+                            </p>
 
                             <p className="line-clamp-2 text-[9px] text-[#98a398]">
                               {feature?.description ??

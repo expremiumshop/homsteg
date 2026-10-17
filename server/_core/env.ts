@@ -1,7 +1,8 @@
-console.log(
-  "[ENV] JWT_SECRET length:",
-  process.env.JWT_SECRET?.length ?? 0
-);
+/*
+ * Nota: não registar aqui nada sobre o conteúdo/tamanho
+ * dos segredos — este módulo é importado no arranque de
+ * cada instância e os logs de produção são partilhados.
+ */
 
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",

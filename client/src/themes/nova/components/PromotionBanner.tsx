@@ -1,3 +1,5 @@
+import { useI18n } from "@/lib/i18n-context";
+
 interface PromotionBannerProps {
     bannerUrl?: string | null;
   }
@@ -8,6 +10,8 @@ interface PromotionBannerProps {
   export function PromotionBanner({
     bannerUrl = demoBanner,
   }: PromotionBannerProps) {
+    const { t } = useI18n();
+
     const imageUrl = bannerUrl?.trim() || "";
   
     if (!imageUrl) {
@@ -29,7 +33,7 @@ interface PromotionBannerProps {
         >
           <img
             src={imageUrl}
-            alt="Banner da loja"
+            alt={t("banner.alt")}
             className="
               absolute
               inset-0

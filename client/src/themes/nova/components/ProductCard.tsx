@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface ProductCardProps {
   slug: string;
   name: string;
@@ -28,6 +30,13 @@ export function ProductCard({
   storeName = "NOVA STORE",
   storeSlug,
 }: ProductCardProps) {
+  /*
+   * Moeda da loja (Configurações → Idioma e moeda). O preço
+   * deixou de estar fixo em MZN: era o único ponto em que a
+   * moeda escolhida não chegava ao cartão de produto.
+   */
+  const { t, currency } = useI18n();
+
   const currentPrice = Number(price);
 
   const previousPrice =
@@ -55,7 +64,7 @@ export function ProductCard({
       "
     >
       {/* =====================================================
-          IMAGEM DO PRODUTO
+          {t("card.productImage")}
           ===================================================== */}
 
       <Link href={productHref}>
@@ -83,7 +92,7 @@ export function ProductCard({
             loading="lazy"
           />
 
-          {/* OFERTA */}
+          {/*              {t("card.offer")} */}
 
           <span
             className="
@@ -100,7 +109,7 @@ export function ProductCard({
               sm:text-[10px]
             "
           >
-            OFERTA
+                         {t("card.offer")}
           </span>
 
           {/* DESTAQUE */}
@@ -121,14 +130,13 @@ export function ProductCard({
                 sm:text-[10px]
               "
             >
-              Destaque
+              {t("card.featured")}
             </span>
           )}
         </div>
       </Link>
 
-      {/* =====================================================
-          INFORMAÇÕES DO PRODUTO
+      {/* =====================================================            {t("card.productInfo")}
           ===================================================== */}
 
       <div
@@ -191,8 +199,7 @@ export function ProductCard({
             {storeName}
           </span>
 
-          <span
-            title="Loja verificada"
+          <span              title={t("card.verifiedStore")}
             className="
               flex
               h-[13px]
@@ -213,7 +220,7 @@ export function ProductCard({
         </div>
 
         {/* =====================================================
-            PREÇO
+            {t("card.price")}
             ===================================================== */}
 
         <div className="mt-0 flex items-baseline gap-1 leading-[16px]">
@@ -225,7 +232,7 @@ export function ProductCard({
               sm:text-base
             "
           >
-            {currentPrice.toFixed(2)} MZN
+            {currentPrice.toFixed(2)} {currency}
           </span>
 
           {hasDiscount && (
@@ -237,7 +244,7 @@ export function ProductCard({
                 sm:text-[10px]
               "
             >
-              {previousPrice!.toFixed(2)} MZN
+              {previousPrice!.toFixed(2)} {currency}
             </span>
           )}
         </div>

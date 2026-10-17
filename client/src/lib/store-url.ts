@@ -13,6 +13,19 @@
  */
 export const STORE_BASE_DOMAIN = "homsteg.com";
 
+export function isCustomDomainHostname(hostname: string) {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    Boolean(normalized) &&
+    !isDevHostname(normalized) &&
+    normalized !== STORE_BASE_DOMAIN &&
+    normalized !== `www.${STORE_BASE_DOMAIN}` &&
+    !normalized.endsWith(`.${STORE_BASE_DOMAIN}`) &&
+    normalized !== "vercel.app" &&
+    !normalized.endsWith(".vercel.app")
+  );
+}
+
 function normalizeSlug(slug: string) {
   return slug
     .trim()
@@ -69,9 +82,7 @@ export function getStorePath(slug: string) {
  * Devolve null sempre que o hostname NÃO identifica uma loja,
  * para que o site principal continue a ser servido.
  */
-export function getStoreSlugFromHostname(
-  hostname: string,
-): string | null {
+export function getStoreSlugFromHostname(hostname: string): string | null {
   const normalized = hostname.trim().toLowerCase();
 
   if (!normalized) {
@@ -90,10 +101,7 @@ export function getStoreSlugFromHostname(
    * URLs do projeto na Vercel (produção e previews):
    * o primeiro label é o nome do projeto, não um slug.
    */
-  if (
-    normalized === "vercel.app" ||
-    normalized.endsWith(".vercel.app")
-  ) {
+  if (normalized === "vercel.app" || normalized.endsWith(".vercel.app")) {
     return null;
   }
 
@@ -113,7 +121,7 @@ export function getStoreSlugFromHostname(
    */
   const withoutBase = normalized.slice(
     0,
-    normalized.length - baseSuffix.length,
+    normalized.length - baseSuffix.length
   );
 
   if (!withoutBase) {

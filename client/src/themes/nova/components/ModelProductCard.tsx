@@ -6,6 +6,8 @@ import {
 
 import { Link } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 import {
   normalizeProductCardModel,
   type ProductCardModel,
@@ -59,6 +61,13 @@ export function ModelProductCard({
   storeSlug,
   whatsappNumber,
 }: ModelCardProps) {
+  /*
+   * Moeda da loja. Chamada ANTES do retorno antecipado do
+   * modelo 1, porque as regras dos hooks obrigam a que
+   * useI18n() corra em todos os renders deste componente.
+   */
+  const { t, currency } = useI18n();
+
   const cardModel: ProductCardModel =
     normalizeProductCardModel(model);
 
@@ -87,8 +96,8 @@ export function ModelProductCard({
   }
 
   const currentPrice = Number(price);
-  const formattedPrice = `${currentPrice.toFixed(2)} MZN`;
-  const formattedMarketPrice = `${currentPrice.toLocaleString("pt-MZ")} MT`;
+  const formattedPrice = `${currentPrice.toFixed(2)} ${currency}`;
+  const formattedMarketPrice = `${currentPrice.toLocaleString("pt-MZ")} ${currency}`;
 
   /* =========================================================
      MODELO 2 — IMAGEM (minimalista)
@@ -278,7 +287,7 @@ export function ModelProductCard({
           />
 
           <span className="absolute left-2 top-2 rounded-full bg-lime-400 px-2 py-0.5 text-[10px] font-bold text-[#111713]">
-            Novo
+            {t("card.new")}
           </span>
         </div>
 
@@ -312,7 +321,7 @@ export function ModelProductCard({
             <button
               type="button"
               onClick={openWhatsApp}
-              aria-label="Adicionar ao carrinho"
+              aria-label={t("card.addToCart")}
               className="
                 flex
                 h-8
@@ -440,6 +449,73 @@ export function ModelProductCard({
     );
   }
 
+  if (cardModel === "9") {
+    return (
+      <Link
+        href={productHref}
+        className="group block overflow-hidden rounded-xl border border-rose-100 bg-white shadow-sm"
+      >
+        <div className="relative aspect-[4/3] overflow-hidden bg-rose-50">
+          <img
+            src={image?.trim() || "/placeholder.svg"}
+            alt={name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          <span className="absolute left-2 top-2 rounded-full bg-rose-600 px-2 py-1 text-[10px] font-bold text-white">
+            {t("card.new")}
+          </span>
+        </div>
+        <div className="p-3">
+          <p className="text-[10px] uppercase tracking-wider text-rose-600">
+            {description || t("card.featured")}
+          </p>
+          <h3 className="mt-1 line-clamp-2 text-sm font-bold text-slate-900">
+            {name}
+          </h3>
+          <p className="mt-3 text-sm font-black text-rose-700">
+            {formattedMarketPrice}
+          </p>
+        </div>
+      </Link>
+    );
+  }
+
+  if (cardModel === "10") {
+    return (
+      <Link
+        href={productHref}
+        className="group block overflow-hidden rounded-2xl bg-[#f6f3ed]"
+      >
+        <div className="relative aspect-[4/3] overflow-hidden bg-[#e8e1d6]">
+          <img
+            src={image?.trim() || "/placeholder.svg"}
+            alt={name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[9px] font-semibold text-stone-700">
+            {t("card.featured")}
+          </span>
+        </div>
+        <div className="flex items-end justify-between gap-2 p-3">
+          <div className="min-w-0">
+            <p className="text-[9px] uppercase tracking-[0.18em] text-stone-500">
+              {storeName}
+            </p>
+            <h3 className="mt-1 truncate font-serif text-sm font-bold text-stone-900">
+              {name}
+            </h3>
+            <p className="mt-1 text-xs font-semibold text-stone-800">
+              {formattedPrice}
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-stone-600" />
+        </div>
+      </Link>
+    );
+  }
+
   /* =========================================================
      MODELO 5 — COMPLETO (nome + preço + botão Comprar)
      ========================================================= */
@@ -557,7 +633,7 @@ export function ModelProductCard({
           disabled={!whatsappNumber}
         >
           <MessageCircle size={14} />
-          Comprar
+          {t("card.buy")}
         </button>
       </div>
     </div>

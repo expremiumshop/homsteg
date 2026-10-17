@@ -10,6 +10,8 @@ import {
 import { useState } from "react";
 import { Link } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 import {
   normalizeFooterModel,
   type FooterModel,
@@ -21,6 +23,7 @@ interface FooterProps {
   instagramUrl?: string;
   email?: string;
   basePath?: string;
+  storeSlug?: string;
   year?: number;
   /**
    * Modelo do rodapé escolhido na Personalização da
@@ -44,15 +47,38 @@ export function Footer({
   instagramUrl = "#",
   email = "",
   basePath = "/themes/nova",
+  storeSlug,
   year = 2026,
   footerModel,
 }: FooterProps) {
+  /*
+   * Moeda da loja (Configurações → Idioma e moeda). Os textos
+   * fixos "Meticais (MZN)" e "Valores em MZN" passam a seguir
+   * a moeda escolhida, em vez de assumirem sempre MZN.
+   */
+  const { t, currency } = useI18n();
+
   const [expandedSection, setExpandedSection] =
     useState<string | null>(null);
 
   const model: FooterModel =
     normalizeFooterModel(footerModel);
+  const withStoreContext = (href: string) => {
+    if (!storeSlug) return href;
+    const [path, query = ""] = href.split("?");
+    const params = new URLSearchParams(query);
+    params.set("storeSlug", storeSlug);
+    return `${path}?${params.toString()}`;
+  };
 
+  /*
+   * URLs derivadas do WhatsApp/email da loja.
+   *
+   * Declaradas AQUI (antes de qualquer return): os modelos
+   * 4–10 usam-nas no return abaixo — antes eram declaradas
+   * depois desse return, o que causava ReferenceError
+   * (TDZ) no storefront para esses modelos.
+   */
   const cleanWhatsappNumber =
     whatsappNumber.replace(/\D/g, "");
 
@@ -64,24 +90,47 @@ export function Footer({
     ? `mailto:${email}`
     : "#";
 
+  if (
+    model === "4" ||
+    model === "5" ||
+    model === "6" ||
+    model === "7" ||
+    model === "8" ||
+    model === "9" ||
+    model === "10"
+  ) {
+    return (
+      <AddedFooter
+        model={model}
+        storeName={storeName}
+        basePath={basePath}
+        storeSlug={storeSlug}
+        whatsappUrl={whatsappUrl}
+        instagramUrl={instagramUrl}
+        emailUrl={emailUrl}
+        year={year}
+      />
+    );
+  }
+
   /*
    * MODELO 3 — MINIMAL: uma linha com marca, links
    * e copyright. Substitui o footer completo.
    */
   if (model === "3") {
     return (
-      <footer className="border-t border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-gray-500 sm:flex-row sm:px-6">
+      <footer className="@container border-t border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-gray-500 @min-[640px]:flex-row @min-[640px]:px-6">
           <span className="font-black text-slate-950">
             {storeName}
           </span>
 
           <div className="flex items-center gap-4">
             <Link
-              href={basePath}
+              href={withStoreContext(basePath)}
               className="transition hover:text-slate-950"
             >
-              Produtos
+              {t("footer.products")}
             </Link>
 
             <a
@@ -90,14 +139,14 @@ export function Footer({
               rel="noopener noreferrer"
               className="transition hover:text-slate-950"
             >
-              Contactos
+              {t("footer.contacts")}
             </a>
 
             <Link
-              href={`${basePath}/ajuda`}
+              href={withStoreContext(`${basePath}/ajuda`)}
               className="transition hover:text-slate-950"
             >
-              Ajuda
+              {t("footer.help")}
             </Link>
           </div>
 
@@ -115,22 +164,21 @@ export function Footer({
    */
   if (model === "2") {
     return (
-      <footer className="bg-slate-950 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+      <footer className="@container bg-slate-950 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 @min-[640px]:px-6">
+          <div className="grid grid-cols-1 gap-8 @min-[640px]:grid-cols-2">
             <div>
               <p className="text-sm font-black">
-                Receba as novidades
+                {t("footer.newsletterTitle")}
               </p>
 
               <p className="mt-1 text-xs leading-5 text-white/60">
-                Ofertas exclusivas diretamente no seu
-                email.
+                {t("footer.newsletterText")}
               </p>
 
               <div className="mt-3 flex max-w-sm items-center gap-2 rounded-full bg-white/10 p-1 pl-4">
                 <span className="flex-1 text-xs text-white/50">
-                  O seu email
+                  {t("footer.yourEmail")}
                 </span>
 
                 <span
@@ -142,28 +190,28 @@ export function Footer({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-start justify-start gap-8 sm:justify-end">
+            <div className="flex flex-wrap items-start justify-start gap-8 @min-[640px]:justify-end">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide">
-                  Loja
+                  {t("footer.store")}
                 </p>
 
                 <ul className="mt-2 space-y-1 text-xs text-white/60">
                   <li>
                     <Link
-                      href={basePath}
+                      href={withStoreContext(basePath)}
                       className="transition hover:text-white"
                     >
-                      Produtos
+                      {t("footer.products")}
                     </Link>
                   </li>
 
                   <li>
                     <Link
-                      href={`${basePath}/pesquisa?tipo=ofertas`}
+                      href={withStoreContext(`${basePath}/pesquisa?tipo=ofertas`)}
                       className="transition hover:text-white"
                     >
-                      Promoções
+                      {t("footer.promotions")}
                     </Link>
                   </li>
                 </ul>
@@ -171,34 +219,34 @@ export function Footer({
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide">
-                  Ajuda
+                  {t("footer.help")}
                 </p>
 
                 <ul className="mt-2 space-y-1 text-xs text-white/60">
                   <li>
                     <Link
-                      href={`${basePath}/contacto`}
+                      href={withStoreContext(`${basePath}/contacto`)}
                       className="transition hover:text-white"
                     >
-                      Contactos
+                      {t("footer.contacts")}
                     </Link>
                   </li>
 
                   <li>
                     <Link
-                      href={`${basePath}/entregas`}
+                      href={withStoreContext(`${basePath}/ajuda`)}
                       className="transition hover:text-white"
                     >
-                      Entregas
+                      {t("footer.deliveries")}
                     </Link>
                   </li>
 
                   <li>
                     <Link
-                      href={`${basePath}/devolucoes`}
+                      href={withStoreContext(`${basePath}/termos`)}
                       className="transition hover:text-white"
                     >
-                      Devoluções
+                      {t("footer.returns")}
                     </Link>
                   </li>
                 </ul>
@@ -207,8 +255,7 @@ export function Footer({
           </div>
 
           <div className="mt-6 border-t border-white/10 px-0 pt-3 text-center text-[11px] text-white/40">
-            © {year} {storeName}. Todos os direitos
-            reservados.
+            © {year} {storeName}. {t("footer.allRights")}
           </div>
         </div>
       </footer>
@@ -222,89 +269,89 @@ export function Footer({
 
   const sections: FooterSection[] = [
     {
-      title: "COMPRAR",
+      title: t("footer.shop"),
       items: [
         {
-          label: "Todas as categorias",
-          href: basePath,
+          label: t("footer.allCategories"),
+          href: withStoreContext(basePath),
         },
         {
-          label: "Eletrónica",
-          href: `${basePath}/categoria/eletronica`,
+          label: t("footer.electronics"),
+          href: withStoreContext(`${basePath}/pesquisa?categoria=eletronica`),
         },
         {
-          label: "Moda",
-          href: `${basePath}/categoria/moda`,
+          label: t("footer.fashion"),
+          href: withStoreContext(`${basePath}/pesquisa?categoria=moda`),
         },
         {
-          label: "Beleza",
-          href: `${basePath}/categoria/beleza`,
+          label: t("footer.beauty"),
+          href: withStoreContext(`${basePath}/pesquisa?categoria=beleza`),
         },
         {
-          label: "Brinquedos",
-          href: `${basePath}/categoria/brinquedos`,
+          label: t("footer.toys"),
+          href: withStoreContext(`${basePath}/pesquisa?categoria=brinquedos`),
         },
         {
-          label: "Novidades",
-          href: `${basePath}/pesquisa?tipo=novidades`,
+          label: t("footer.newArrivals"),
+          href: withStoreContext(`${basePath}/pesquisa?tipo=novidades`),
         },
         {
-          label: "Ofertas",
-          href: `${basePath}/pesquisa?tipo=ofertas`,
+          label: t("footer.deals"),
+          href: withStoreContext(`${basePath}/pesquisa?tipo=ofertas`),
         },
       ],
     },
     {
-      title: "ATENDIMENTO",
+      title: t("footer.service"),
       items: [
         {
-          label: "Central de ajuda",
-          href: `${basePath}/ajuda`,
+          label: t("footer.helpCenter"),
+          href: withStoreContext(`${basePath}/ajuda`),
         },
         {
-          label: "Contacte-nos",
-          href: `${basePath}/contacto`,
+          label: t("footer.contactUs"),
+          href: withStoreContext(`${basePath}/contacto`),
         },
         {
-          label: "Como comprar",
-          href: `${basePath}/como-comprar`,
+          label: t("footer.howToBuy"),
+          href: withStoreContext(`${basePath}/ajuda`),
         },
         {
-          label: "Entregas",
-          href: `${basePath}/entregas`,
+          label: t("footer.deliveries"),
+          href: withStoreContext(`${basePath}/ajuda`),
         },
         {
-          label: "Devoluções e reembolsos",
-          href: `${basePath}/devolucoes`,
+          label: t("footer.returnsRefunds"),
+          href: withStoreContext(`${basePath}/termos`),
         },
         {
-          label: "Perguntas frequentes",
-          href: `${basePath}/faq`,
+          label: t("footer.faq"),
+          href: withStoreContext(`${basePath}/ajuda`),
         },
       ],
     },
     {
-      title: "SOBRE NÓS",
+      title: t("footer.aboutUsTitle"),
       items: [
         {
-          label: "Sobre nós",
-          href: `${basePath}/sobre`,
+          label: t("footer.aboutUs"),
+          href: withStoreContext(`${basePath}/sobre`),
         },
         {
-          label: "Como funciona",
-          href: `${basePath}/como-funciona`,
+          label: t("footer.howItWorks"),
+          href: withStoreContext(`${basePath}/sobre`),
         },
         {
-          label: "Trabalhe connosco",
-          href: `${basePath}/carreiras`,
+          label: t("footer.workWithUs"),
+          href: withStoreContext(`${basePath}/sobre`),
         },
         {
-          label: "Política de privacidade",
-          href: `${basePath}/privacidade`,
+          label: t("footer.privacy"),
+          href: withStoreContext(`${basePath}/termos`),
         },
         {
-          label: "Termos e condições",
-          href: `${basePath}/termos`,
+          label: t("footer.terms"),
+          href: withStoreContext(`${basePath}/termos`),
         },
       ],
     },
@@ -317,14 +364,14 @@ export function Footer({
   }
 
   return (
-    <footer className="bg-blue-950 text-white">
+    <footer className="@container bg-blue-950 text-white">
       {/* =====================================================
           DESKTOP FOOTER
           ===================================================== */}
 
-      <div className="hidden border-t border-white/15 md:block">
+      <div className="hidden border-t border-white/15 @min-[768px]:block">
         <div className="mx-auto max-w-7xl px-6 py-12">
-          <div className="mb-12 grid gap-8 md:grid-cols-5">
+          <div className="mb-12 grid gap-8 @min-[768px]:grid-cols-5">
             {/* MARCA */}
 
             <div>
@@ -335,24 +382,21 @@ export function Footer({
               </div>
 
               <p className="text-sm leading-relaxed text-white/85">
-                Encontre produtos de qualidade, boas
-                ofertas e uma experiência de compra
-                simples e segura.
+                {t("footer.tagline")}
               </p>
 
               <div className="mt-5 space-y-2 text-sm text-white/80">
-                <p>🇲🇿 Loja online em Moçambique</p>
-                <p>🚚 Entregas em várias regiões</p>
-                <p>🔒 Compras seguras</p>
+                <p>🇲🇿 {t("footer.onlineStore")}</p>
+                <p>🚚 {t("footer.regions")}</p>
+                <p>🔒 {t("footer.securePurchases")}</p>
               </div>
             </div>
 
             {/* COMPRAR */}
 
-            <div>
-              <h4 className="mb-4 text-lg font-bold text-white">
-                COMPRAR
-              </h4>
+            <div>                <h4 className="mb-4 text-lg font-bold text-white">
+                  {t("footer.shop")}
+                </h4>
 
               <ul className="space-y-2">
                 {sections[0].items.map((item) => (
@@ -377,7 +421,7 @@ export function Footer({
 
             <div>
               <h4 className="mb-4 text-lg font-bold text-white">
-                ATENDIMENTO
+                {t("footer.service")}
               </h4>
 
               <ul className="space-y-2">
@@ -403,7 +447,7 @@ export function Footer({
 
             <div>
               <h4 className="mb-4 text-lg font-bold text-white">
-                SOBRE NÓS
+                {t("footer.aboutUsTitle")}
               </h4>
 
               <ul className="space-y-2">
@@ -429,12 +473,11 @@ export function Footer({
 
             <div>
               <h4 className="mb-4 text-lg font-bold text-white">
-                SIGA-NOS
+                {t("footer.followUs")}
               </h4>
 
               <p className="mb-4 text-sm leading-relaxed text-white/80">
-                Acompanhe a nossa loja nas redes sociais
-                e fique por dentro das novidades e ofertas.
+                {t("footer.followText")}
               </p>
 
               <div className="flex gap-3">
@@ -517,7 +560,7 @@ export function Footer({
 
                 <button
                   type="button"
-                  aria-label="Partilhar"
+                  aria-label={t("footer.share")}
                   onClick={() => {
                     if (
                       typeof navigator !== "undefined" &&
@@ -558,12 +601,11 @@ export function Footer({
                 items-center
                 justify-between
                 gap-5
-                md:flex-row
+                @min-[768px]:flex-row
               "
             >
               <p className="text-sm text-white/80">
-                © {year} {storeName}. Todos os direitos
-                reservados.
+                © {year} {storeName}. {t("footer.allRights")}
               </p>
 
               <div
@@ -572,11 +614,11 @@ export function Footer({
                   flex-col
                   items-center
                   gap-3
-                  md:flex-row
+                  @min-[768px]:flex-row
                 "
               >
                 <span className="text-xs text-white/75">
-                  Métodos de pagamento:
+                  {t("footer.paymentMethods")}
                 </span>
 
                 <div className="flex gap-2">
@@ -655,7 +697,7 @@ export function Footer({
             </div>
 
             <p className="mt-5 text-center text-xs text-white/70">
-              Preços apresentados em Meticais (MZN)
+              {t("footer.pricesIn", { currency })}
             </p>
           </div>
         </div>
@@ -665,7 +707,7 @@ export function Footer({
           MOBILE FOOTER
           ===================================================== */}
 
-      <div className="px-4 py-8 md:hidden">
+      <div className="px-4 py-8 @min-[768px]:hidden">
         {/* MARCA */}
 
         <div className="mb-6">
@@ -676,14 +718,13 @@ export function Footer({
           </div>
 
           <p className="text-xs leading-relaxed text-white/85">
-            Encontre produtos de qualidade, boas ofertas e
-            uma experiência de compra simples e segura.
+            {t("footer.tagline")}
           </p>
 
           <div className="mt-3 space-y-1 text-xs text-white/80">
-            <p>🇲🇿 Loja online em Moçambique</p>
-            <p>🚚 Entregas em várias regiões</p>
-            <p>🔒 Compras seguras</p>
+            <p>🇲🇿 {t("footer.onlineStore")}</p>
+            <p>🚚 {t("footer.regions")}</p>
+            <p>🔒 {t("footer.securePurchases")}</p>
           </div>
         </div>
 
@@ -761,7 +802,7 @@ export function Footer({
 
         <div className="border-t border-white/15 pt-6">
           <h4 className="mb-4 text-center text-sm font-semibold text-white">
-            MÉTODOS DE PAGAMENTO
+            {t("footer.paymentMethodsTitle")}
           </h4>
 
           <div className="flex flex-wrap justify-center gap-2">
@@ -778,7 +819,7 @@ export function Footer({
             </div>
 
             <div className="rounded bg-white/10 px-3 py-2 text-xs font-bold text-white">
-              🏦 Banco
+              🏦 {t("footer.bank")}
             </div>
           </div>
         </div>
@@ -787,7 +828,7 @@ export function Footer({
 
         <div className="mt-6 border-t border-white/15 pt-6">
           <p className="mb-4 text-center text-xs text-white/75">
-            SIGA A NOSSA LOJA
+            {t("footer.followStore")}
           </p>
 
           <div className="mb-5 flex justify-center gap-3">
@@ -870,7 +911,7 @@ export function Footer({
 
             <button
               type="button"
-              aria-label="Partilhar"
+              aria-label={t("footer.share")}
               onClick={() => {
                 if (
                   typeof navigator !== "undefined" &&
@@ -900,14 +941,125 @@ export function Footer({
           </div>
 
           <p className="text-center text-xs text-white/70">
-            © {year} {storeName}. Todos os direitos
-            reservados.
+            © {year} {storeName}. {t("footer.allRights")}
           </p>
 
           <p className="mt-2 text-center text-xs text-white/65">
-            Compras online em Moçambique • Valores em MZN
+            {t("footer.onlinePrices", { currency })}
           </p>
         </div>
+      </div>
+    </footer>
+  );
+}
+
+function AddedFooter({
+  model,
+  storeName,
+  basePath,
+  storeSlug,
+  whatsappUrl,
+  instagramUrl,
+  emailUrl,
+  year,
+}: {
+  model: Exclude<FooterModel, "1" | "2" | "3">;
+  storeName: string;
+  basePath: string;
+  storeSlug?: string;
+  whatsappUrl: string;
+  instagramUrl: string;
+  emailUrl: string;
+  year: number;
+}) {
+  const withStoreContext = (href: string) => {
+    if (!storeSlug) return href;
+    const [path, query = ""] = href.split("?");
+    const params = new URLSearchParams(query);
+    params.set("storeSlug", storeSlug);
+    return `${path}?${params.toString()}`;
+  };
+  const links = (
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+      <Link href={withStoreContext(basePath)}>Produtos</Link>
+      <Link href={withStoreContext(`${basePath}/ajuda`)}>Ajuda</Link>
+      <Link href={withStoreContext(`${basePath}/contacto`)}>Contacto</Link>
+    </div>
+  );
+  const contact = (
+    <div className="flex items-center gap-3">
+      <a href={instagramUrl} aria-label="Instagram"><Camera size={16} /></a>
+      <a href={emailUrl} aria-label="Email"><Mail size={16} /></a>
+      <a href={whatsappUrl} aria-label="WhatsApp"><MessageCircle size={16} /></a>
+    </div>
+  );
+
+  if (model === "4") {
+    return (
+      <footer className="bg-amber-50 px-5 py-5 text-amber-950">
+        <div className="mx-auto flex max-w-7xl items-center gap-4">
+          <Mail size={20} className="text-amber-700" />
+          <div className="flex-1"><strong className="block text-sm">Fala connosco</strong><span className="text-xs text-amber-800">Estamos aqui para ajudar.</span></div>
+          {contact}
+        </div>
+        <div className="mx-auto mt-4 flex max-w-7xl items-center justify-between border-t border-amber-200 pt-3 text-[10px] text-amber-700">{links}<span>© {year} {storeName}</span></div>
+      </footer>
+    );
+  }
+
+  if (model === "5") {
+    return (
+      <footer className="@container border-y border-stone-200 bg-[#faf8f4] px-6 py-8 text-stone-800">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between">
+          <div><strong className="font-serif text-xl">{storeName}</strong><p className="mt-1 text-xs text-stone-500">Objetos escolhidos com intenção.</p></div>
+          {links}{contact}
+        </div>
+        <p className="mx-auto mt-6 max-w-7xl border-t border-stone-200 pt-3 text-[10px] text-stone-500">© {year} {storeName}. Todos os direitos reservados.</p>
+      </footer>
+    );
+  }
+
+  if (model === "6") {
+    return (
+      <footer className="@container bg-slate-900 px-6 py-8 text-white">
+        <div className="mx-auto grid max-w-7xl gap-6 @min-[640px]:grid-cols-2">
+          <div><strong className="text-sm">A loja</strong><div className="mt-3">{links}</div></div>
+          <div><strong className="text-sm">Apoio ao cliente</strong><p className="mt-3 text-xs text-slate-300">Entregas, pagamentos e devoluções.</p><div className="mt-3">{contact}</div></div>
+        </div>
+        <p className="mx-auto mt-6 max-w-7xl border-t border-white/15 pt-3 text-[10px] text-slate-400">© {year} {storeName}</p>
+      </footer>
+    );
+  }
+
+  if (model === "7") {
+    return (
+      <footer className="border-t border-rose-100 bg-white px-5 py-8 text-center text-slate-800">
+        <div className="mx-auto max-w-3xl"><strong className="font-serif text-lg">Obrigado pela visita</strong><p className="mt-1 text-xs text-slate-500">Compra local, escolha com carinho.</p><div className="mt-4 flex justify-center">{links}</div><div className="mt-4 flex justify-center text-rose-600">{contact}</div><p className="mt-4 text-[10px] text-slate-400">© {year} {storeName}</p></div>
+      </footer>
+    );
+  }
+
+  if (model === "8") {
+    return (
+      <footer className="@container bg-emerald-800 px-6 py-7 text-white">
+        <div className="mx-auto max-w-7xl"><div className="grid gap-5 @min-[640px]:grid-cols-2"><div><strong className="text-sm">Entrega segura</strong><p className="mt-1 text-xs text-emerald-100">Enviamos para todo o país.</p></div><div><strong className="text-sm">Compra protegida</strong><p className="mt-1 text-xs text-emerald-100">A nossa equipa está disponível para ajudar.</p></div></div><div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/20 pt-4 text-emerald-100">{links}{contact}<span className="text-[10px]">© {year} {storeName}</span></div></div>
+      </footer>
+    );
+  }
+
+  if (model === "9") {
+    return (
+      <footer className="@container border-t border-slate-200 bg-white px-5 py-4 text-slate-600">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 @min-[640px]:flex-row"><div><strong className="text-xs text-slate-900">{storeName}</strong><p className="mt-1 text-[10px]">© {year} · Todos os direitos reservados</p></div>{links}{contact}</div>
+      </footer>
+    );
+  }
+
+  return (
+    <footer className="px-5 py-6">
+      <div className="mx-auto max-w-7xl rounded-2xl border border-indigo-100 bg-indigo-50 p-5 text-indigo-950">
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><strong className="text-lg font-black">{storeName}</strong><p className="mt-1 text-xs text-indigo-800">Bem-estar começa em casa.</p></div>{contact}</div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-indigo-200 pt-3">{links}<span className="text-[10px] text-indigo-700">© {year} {storeName}</span></div>
       </div>
     </footer>
   );

@@ -15,6 +15,7 @@ import {
     image_url?: string;
     variants?: Record<string, string>;
     storeSlug?: string;
+    variantId?: string;
   }
   
   interface AddToCartItem {
@@ -25,6 +26,7 @@ import {
     variants?: Record<string, string>;
     storeSlug?: string;
     quantity?: number;
+    variantId?: string;
   }
   
   interface CartContextType {
@@ -35,6 +37,7 @@ import {
     clearCart: () => void;
     total: number;
     totalItems: number;
+    updateVariant: (id: string, variantId: string, variants: Record<string, string>, price: number) => void;
   }
   
   const CartContext = createContext<CartContextType | undefined>(
@@ -118,7 +121,7 @@ import {
             };
           });
         }
-  
+
         return [
           ...cartForStore,
           {
@@ -129,6 +132,7 @@ import {
             image_url: item.image_url,
             variants: item.variants,
             storeSlug: item.storeSlug,
+            variantId: item.variantId,
           },
         ];
       });
@@ -162,6 +166,21 @@ import {
       });
     };
   
+    const updateVariant = (
+      id: string,
+      variantId: string,
+      variants: Record<string, string>,
+      price: number
+    ) => {
+      setCart((currentCart) =>
+        currentCart.map((item) =>
+          item.id === id
+            ? { ...item, variantId, variants, price: Number(price) }
+            : item
+        )
+      );
+    };
+
     const clearCart = () => {
       setCart([]);
     };
@@ -192,6 +211,7 @@ import {
       clearCart,
       total,
       totalItems,
+      updateVariant,
     };
   
     return (

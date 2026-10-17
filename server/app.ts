@@ -5,7 +5,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { auth } from "./auth.js";
 import { appRouter } from "./routers.js";
 import { createContext } from "./_core/context.js";
-import { registerStorageProxy } from "./_core/storageProxy.js";
+
 
 /**
  * Regista as rotas de API partilhadas pelo Express local e pela Vercel.
@@ -31,7 +31,23 @@ export function createApp() {
     }),
   );
 
-  registerStorageProxy(app);
+  /*
+   * O proxy legado "/manus-storage/*" (template Manus) foi
+   * DESATIVADO: era uma rota pública sem autenticação que
+   * assinava qualquer chave contra o Forge da Manus.
+   *
+   * Confirmação de que é legado e sem dependências atuais:
+   * - HOMSTEG guarda media exclusivamente no Cloudflare R2
+   *   (server/r2.ts, acessível por URLs assinadas próprias);
+   * - nenhum ficheiro do cliente ou servidor referencia
+   *   "/manus-storage";
+   * - BUILT_IN_FORGE_API_URL/BUILT_IN_FORGE_API_KEY não estão
+   *   configurados em nenhum ambiente, pelo que a rota
+   *   respondia sempre 500.
+   *
+   * server/_core/storageProxy.ts e server/storage.ts ficam
+   * no repositório sem qualquer registo ativo.
+   */
 
   app.use(
     "/api/trpc",

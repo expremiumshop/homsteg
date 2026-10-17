@@ -176,6 +176,34 @@
       "when": 1791841200000,
       "tag": "0024_store_code_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791927600000,
+      "tag": "0025_store_language",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792014000000,
+      "tag": "0026_store_custom_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792100400000,
+      "tag": "0027_product_featured",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792186800000,
+      "tag": "0028_product_variants",
+      "breakpoints": true
     }
   ]
 }

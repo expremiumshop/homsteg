@@ -1,6 +1,8 @@
 import { Timer, TicketPercent } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useI18n } from "@/lib/i18n-context";
+
 interface PromotionBarProps {
   product?: any;
 }
@@ -8,6 +10,8 @@ interface PromotionBarProps {
 export default function PromotionBar({
   product,
 }: PromotionBarProps) {
+  const { t } = useI18n();
+
   const [time, setTime] = useState({
     hours: 2,
     minutes: 15,
@@ -85,7 +89,7 @@ export default function PromotionBar({
               font-bold
             "
           >
-            Oferta especial por tempo limitado
+            {t("product.limitedOffer")}
           </h3>
 
           <p
@@ -94,7 +98,7 @@ export default function PromotionBar({
               opacity-90
             "
           >
-            Aproveite antes que termine
+            {t("product.enjoyBefore")}
           </p>
         </div>
       </div>
@@ -144,7 +148,7 @@ export default function PromotionBar({
           <TicketPercent size={21} />
 
           <div>
-            <p>Cupom</p>
+            <p>{t("product.couponShort")}</p>
 
             <p
               className="
@@ -152,7 +156,7 @@ export default function PromotionBar({
                 opacity-80
               "
             >
-              Economize nesta compra
+              {t("product.saveOnThis")}
             </p>
           </div>
         </div>

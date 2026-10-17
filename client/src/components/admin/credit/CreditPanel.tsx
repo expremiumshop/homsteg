@@ -251,9 +251,9 @@ export default function CreditPanel() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[560px]">
-            <div className="grid grid-cols-[1.4fr_1.2fr_1fr] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b]">
+        <div className="min-w-0">
+          <div className="w-full">
+            <div className="hidden grid-cols-[1.4fr_1.2fr_1fr] gap-4 border-b border-[#edf1eb] px-5 py-3 text-[9px] font-bold uppercase tracking-[.13em] text-[#9ba69b] lg:grid">
               <span>Loja</span>
               <span>Proprietário</span>
               <span>Créditos</span>
@@ -268,17 +268,26 @@ export default function CreditPanel() {
             {stores.map(({ store, ownerName }) => (
               <div
                 key={store.id}
-                className="grid grid-cols-[1.4fr_1.2fr_1fr] items-center gap-4 border-b border-[#edf1eb] px-5 py-3.5 text-[10px] last:border-0"
+                className="grid grid-cols-1 gap-2 border-b border-[#edf1eb] px-5 py-4 text-[10px] last:border-0 lg:grid-cols-[1.4fr_1.2fr_1fr] lg:items-center lg:gap-4 lg:py-3.5"
               >
                 <span className="font-semibold text-[#141714]">
+                  <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                    Loja
+                  </span>
                   {store.name}
                 </span>
 
                 <span className="text-[#748074]">
+                  <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                    Proprietário
+                  </span>
                   {ownerName}
                 </span>
 
                 <span className="font-bold text-[#141714]">
+                  <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#9ba69b] lg:hidden">
+                    Créditos
+                  </span>
                   {formatCreditAmount(store.creditMzn)}
                 </span>
               </div>

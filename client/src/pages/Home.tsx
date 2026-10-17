@@ -45,7 +45,7 @@ type Feature = {
 const benefits: string[] = [
   "Loja online completa",
   "Produtos, pedidos e clientes",
-  "Todos os temas disponíveis",
+  "Tema Nova personaliz�vel",
   "Gestão de stock",
   "Painel administrativo",
   "Banner, logo e identidade da loja",
@@ -70,9 +70,9 @@ const faqItems = [
       "Não. O HOMSTEG foi pensado para que possas criar e gerir a tua loja através do painel, sem precisares escrever código.",
   },
   {
-    question: "Posso mudar o tema da minha loja?",
+    question: "Como personalizo a minha loja?",
     answer:
-      "Sim. Todos os temas — incluindo Nova, Luxe, Urban, Prime e outros — estão disponíveis gratuitamente para todas as lojas.",
+      "A tua loja usa o Tema Nova. Podes ajustar a apar�ncia no Personalizar Loja e adicionar modelos e componentes no Market.",
   },
   {
     question: "Posso vender através do WhatsApp?",
@@ -91,9 +91,9 @@ const features: Feature[] = [
   },
   {
     icon: <Palette className="h-6 w-6" />,
-    title: "Temas profissionais",
+    title: "Tema Nova personaliz�vel",
     description:
-      "Escolhe entre Nova, Luxe, Urban e Prime e adapta a experiência à identidade do teu negócio.",
+      "Personaliza a experi�ncia da tua loja com as op��es do painel, do Market e de Personalizar Loja.",
     accent: "bg-[#e8eee9] text-[#34483d]",
   },
   {
@@ -874,7 +874,7 @@ export default function Home() {
       {/* HEADER */}
       <header className="fixed left-0 right-0 top-0 z-[100] px-3 pt-3 sm:px-5">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl bg-transparent px-4 shadow-[0_12px_40px_rgba(15,23,42,.08)] backdrop-blur-xl sm:px-6">
-          <a href="#" className="shrink-0">
+          <a href="/" className="shrink-0" aria-label="Página inicial HOMSTEG">
             <HomstegLogo size={36} />
           </a>
 
@@ -889,7 +889,7 @@ export default function Home() {
               href="#temas"
               className="text-sm font-medium text-slate-500 transition hover:text-slate-950"
             >
-              Temas
+              Tema Nova
             </a>
             <a
               href="#gratuito"
@@ -1048,7 +1048,7 @@ export default function Home() {
           <div className="mt-20 grid grid-cols-2 gap-3 border-t border-white/10 pt-8 sm:grid-cols-4">
             {[
               ["0", "mensalidades"],
-              ["8+", "temas disponíveis"],
+              ["1", "tema dispon�vel"],
               ["100%", "grátis para sempre"],
               ["1", "painel para gerir a loja"],
             ].map(([value, label]) => (
@@ -1277,10 +1277,10 @@ export default function Home() {
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">
               <span className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">
-                Temas HOMSTEG
+                Personaliza��o da loja
               </span>
               <h2 className="mt-4 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
-                Quatro estilos.
+                Tema Nova.
                 <span className="block text-white/35">Uma identidade tua.</span>
               </h2>
             </div>
@@ -1299,27 +1299,6 @@ export default function Home() {
                 gradient: "from-violet-500 to-indigo-700",
                 image:
                   "https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?auto=format&fit=crop&w=700&q=80",
-              },
-              {
-                name: "Luxe",
-                description: "Elegante e sofisticado",
-                gradient: "from-amber-300 to-orange-700",
-                image:
-                  "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=700&q=80",
-              },
-              {
-                name: "Urban",
-                description: "Forte e contemporâneo",
-                gradient: "from-cyan-400 to-blue-700",
-                image:
-                  "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=700&q=80",
-              },
-              {
-                name: "Prime",
-                description: "Premium e marcante",
-                gradient: "from-fuchsia-500 to-violet-800",
-                image:
-                  "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=700&q=80",
               },
             ].map((theme) => (
               <div
@@ -1594,7 +1573,7 @@ export default function Home() {
                 Plataforma
               </a>
               <a href="#temas" className="hover:text-white">
-                Temas
+                Tema Nova
               </a>
               <a href="#gratuito" className="hover:text-white">
                 Gratuito

@@ -1,16 +1,24 @@
-import { useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useMemo, useRef, useState } from "react";
 
 import {
+  ArrowRight,
   Image as ImageIcon,
   Loader2,
+  Monitor,
+  Smartphone,
   Store,
   Trash2,
   Upload,
+  UploadCloud,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
+import {
+  getPublicStoreUrl,
+  getStoreUrlLabel,
+} from "@/lib/store-url";
 
 import MarketQuickCard from "@/components/dashboard/market/MarketQuickCard";
 
@@ -24,8 +32,14 @@ import {
   BANNER_FEATURES_PURCHASE_KEY,
   isBannerModel,
 } from "@/themes/nova/bannerModels";
+import type {
+  BannerFeatureMap,
+  BannerText,
+} from "@/themes/nova/bannerModels";
+import type { NovaStorefrontOverrides } from "@/themes/nova/Storefront";
 
 import BannerElementsManager from "./BannerElementsManager";
+import type { StorePreviewDevice } from "./StorefrontPreview";
 import type { HeaderModel } from "@/themes/nova/headerModels";
 import { HEADER_PURCHASE_TO_MODEL } from "@/themes/nova/headerModels";
 import type { FooterModel } from "@/themes/nova/footerModels";
@@ -42,6 +56,13 @@ import {
   FooterModelSelector,
   CategoryCardModelSelector,
 } from "@/themes/nova/components/SectionModelPreview";
+
+/*
+ * A storefront real (tema Nova) é grande: carrega-se em chunk
+ * próprio, apenas quando a Personalizar Loja é aberta. Assim o
+ * resto do painel não paga o custo do storefront.
+ */
+const StorefrontPreview = lazy(() => import("./StorefrontPreview"));
 
 const MAX_LOGO_SIZE = 1 * 1024 * 1024;
 const MAX_BANNER_SIZE = 3 * 1024 * 1024;
@@ -188,10 +209,36 @@ function BrandingAssetCard({
   );
 }
 
+/**
+ * Cabeçalho de uma secção da Personalizar Loja.
+ * Mantém a linguagem visual das restantes secções do painel.
+ */
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-4">
+      <h3 className="text-sm font-bold text-[#111713]">
+        {title}
+      </h3>
+
+      <p className="mt-1 text-xs leading-5 text-gray-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
 export default function BrandingPage({
   storeId,
+  storeSlug,
 }: {
   storeId?: string;
+  storeSlug?: string;
 }) {
   const brandingQuery =
     trpc.stores.branding.get.useQuery(
@@ -268,8 +315,89 @@ export default function BrandingPage({
       },
     });
 
+  /*
+   * Elementos e textos dos banners: deixam de ser guardados
+   * diretamente pelo gestor de elementos e passam a ser
+   * aplicados no "Publicar alterações".
+   */
+  const setBannerFeaturesMut =
+    trpc.stores.branding.setBannerFeatures.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
+  const setBannerTextsMut =
+    trpc.stores.branding.setBannerTexts.useMutation({
+      onSuccess: async () => {
+        await utils.stores.branding.get.invalidate();
+      },
+    });
+
   const [uploadingAsset, setUploadingAsset] =
     useState<"logo" | "banner" | null>(null);
+
+  /*
+   * ==========================================================
+   * RASCUNHO (modelo de edição)
+   * ==========================================================
+   * As alterações não são aplicadas à loja à medida que o
+   * utilizador edita. Ficam em memória (`previewOverrides`,
+   * `pendingAssets`, `bannerDraft`) e só passam para a loja
+   * quando o utilizador prime "Publicar alterações".
+   *
+   * A pré-visualização lê sempre este rascunho por cima dos
+   * valores reais, para se ver o resultado antes de publicar.
+   */
+  const [previewDevice, setPreviewDevice] =
+    useState<StorePreviewDevice>("desktop");
+
+  /* Modelos escolhidos (alterações por publicar). */
+  const [previewOverrides, setPreviewOverrides] =
+    useState<NovaStorefrontOverrides>({});
+
+  /* Logo/banner já carregados para R2, ainda por aplicar. */
+  const [pendingAssets, setPendingAssets] = useState<{
+    logoKey?: string | null;
+    bannerKey?: string | null;
+  }>({});
+
+  /* Existe pelo menos uma alteração por publicar. */
+  const [hasPendingChanges, setHasPendingChanges] =
+    useState(false);
+
+  /*
+   * O utilizador editou elementos/textos de banners. Só nesse
+   * caso é que a publicação reescreve os elementos — evita
+   * enviar valores ainda em sincronização.
+   */
+  const [bannerDirty, setBannerDirty] = useState(false);
+
+  const [isPublishing, setIsPublishing] =
+    useState(false);
+
+  /*
+   * Elementos e textos dos banners em edição, reportados pelo
+   * BannerElementsManager. Só são guardados ao publicar.
+   */
+  const [bannerDraft, setBannerDraft] = useState<{
+    bannerFeatures: BannerFeatureMap;
+    bannerTexts: BannerText[];
+  } | null>(null);
+
+  const previewOverridesWithBanners =
+    useMemo<NovaStorefrontOverrides>(
+      () => ({
+        ...previewOverrides,
+        ...(bannerDraft
+          ? {
+              bannerFeatures: bannerDraft.bannerFeatures,
+              bannerTexts: bannerDraft.bannerTexts,
+            }
+          : {}),
+      }),
+      [previewOverrides, bannerDraft],
+    );
 
   /*
    * Upload do banner SIMPLES: 1 imagem por loja.
@@ -317,20 +445,40 @@ export default function BrandingPage({
         );
       }
 
-      await setBranding.mutateAsync({
-        storeId,
-        ...(asset === "logo"
-          ? { logoKey: upload.key }
-          : {
-              bannerKey: upload.key,
-              bannerKeys: [],
-            }),
-      } as never);
+      /*
+       * O ficheiro já está no R2, mas a loja só passa a
+       * apontar para ele ao publicar (rascunho).
+       */
+      const stagedUrl = upload.imageUrl ?? null;
+
+      if (asset === "logo") {
+        setPendingAssets((current) => ({
+          ...current,
+          logoKey: upload.key,
+        }));
+
+        setPreviewOverrides((current) => ({
+          ...current,
+          logoUrl: stagedUrl,
+        }));
+      } else {
+        setPendingAssets((current) => ({
+          ...current,
+          bannerKey: upload.key,
+        }));
+
+        setPreviewOverrides((current) => ({
+          ...current,
+          bannerUrls: stagedUrl ? [stagedUrl] : [],
+        }));
+      }
+
+      setHasPendingChanges(true);
 
       toast.success(
         asset === "logo"
-          ? "Logo atualizado com sucesso."
-          : "Banner atualizado com sucesso.",
+          ? "Logo pronto. Publica as alterações para o aplicar."
+          : "Banner pronto. Publica as alterações para o aplicar.",
       );
     } catch (error) {
       console.error(
@@ -348,28 +496,22 @@ export default function BrandingPage({
     }
   }
 
-  async function handleRemoveLogo() {
-    if (!storeId) {
-      return;
-    }
+  function handleRemoveLogo() {
+    setPendingAssets((current) => ({
+      ...current,
+      logoKey: null,
+    }));
 
-    try {
-      await setBranding.mutateAsync({
-        storeId,
-        logoKey: null,
-      } as never);
+    setPreviewOverrides((current) => ({
+      ...current,
+      logoUrl: null,
+    }));
 
-      toast.success("Logo removido.");
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao remover:",
-        error,
-      );
+    setHasPendingChanges(true);
 
-      toast.error(
-        "Não foi possível remover. Tenta novamente.",
-      );
-    }
+    toast.success(
+      "Logo removido. Publica as alterações para o aplicar.",
+    );
   }
 
   if (!storeId) {
@@ -381,6 +523,20 @@ export default function BrandingPage({
       </div>
     );
   }
+
+  /*
+   * URL público da loja atual — o mesmo helper
+   * (store-url.ts) usado pelo cabeçalho do painel
+   * e pela Visão geral. Desenvolvimento abre pela
+   * rota /store/:slug; produção pelo subdomínio.
+   */
+  const publicStoreUrl = storeSlug
+    ? getPublicStoreUrl(storeSlug)
+    : undefined;
+
+  const storeUrlLabel = storeSlug
+    ? getStoreUrlLabel(storeSlug)
+    : undefined;
 
   const logoKey = brandingQuery.data?.logoKey ?? null;
 
@@ -413,6 +569,33 @@ export default function BrandingPage({
 
     return null;
   })();
+
+  /*
+   * Valores mostrados nos cartões de logo/banner: refletem o
+   * rascunho quando há um asset por publicar, senão os valores
+   * reais da loja.
+   */
+  const displayLogoUrl =
+    pendingAssets.logoKey !== undefined
+      ? pendingAssets.logoKey === null
+        ? null
+        : (previewOverrides.logoUrl ?? null)
+      : (brandingQuery.data?.logoUrl ?? null);
+
+  const displayLogoKey =
+    pendingAssets.logoKey !== undefined
+      ? pendingAssets.logoKey
+      : logoKey;
+
+  const displayBanner =
+    pendingAssets.bannerKey !== undefined
+      ? pendingAssets.bannerKey === null
+        ? null
+        : {
+            key: pendingAssets.bannerKey,
+            url: previewOverrides.bannerUrls?.[0] ?? null,
+          }
+      : currentBanner;
 
   const selectedCardModel =
     brandingQuery.data?.productCardModel ?? null;
@@ -574,185 +757,311 @@ export default function BrandingPage({
       [unlockQuery.data],
     );
 
-  async function handleSelectCardModel(
-    model: ProductCardModel,
-  ) {
+  /*
+   * ==========================================================
+   * RASCUNHO → PUBLICAÇÃO
+   * ==========================================================
+   * Durante a edição nada é enviado para a loja: só o rascunho
+   * local é atualizado (e a pré-visualização).
+   * `handlePublish` aplica o rascunho à loja com as mutations
+   * já existentes — uma única ação para todos os itens.
+   */
+
+  function stageModels(patch: NovaStorefrontOverrides) {
+    setPreviewOverrides((current) => ({
+      ...current,
+      ...patch,
+    }));
+
+    setHasPendingChanges(true);
+  }
+
+  async function handlePublish() {
     if (!storeId) {
       return;
     }
 
-    try {
-      await setCardModel.mutateAsync({
-        storeId,
-        model,
-      });
+    setIsPublishing(true);
 
-      toast.success(
-        "Modelo dos cartões de produto atualizado.",
-      );
+    try {
+      /* 1. Logo / banner (chaves R2 já carregadas). */
+      if (pendingAssets.logoKey !== undefined) {
+        await setBranding.mutateAsync({
+          storeId,
+          logoKey: pendingAssets.logoKey,
+        } as never);
+      }
+
+      if (pendingAssets.bannerKey !== undefined) {
+        await setBranding.mutateAsync({
+          storeId,
+          bannerKey: pendingAssets.bannerKey,
+          bannerKeys: [],
+        } as never);
+      }
+
+      /* 2. Modelos de cada secção. */
+      if (previewOverrides.productCardModel != null) {
+        await setCardModel.mutateAsync({
+          storeId,
+          model: previewOverrides.productCardModel as ProductCardModel,
+        });
+      }
+
+      if (previewOverrides.navButtonModel != null) {
+        await setNavModel.mutateAsync({
+          storeId,
+          model: previewOverrides.navButtonModel as NavButtonModel,
+        });
+      }
+
+      if (previewOverrides.bannerModel != null) {
+        await setBannerModelMut.mutateAsync({
+          storeId,
+          model: previewOverrides.bannerModel as BannerModel,
+        });
+      }
+
+      if (previewOverrides.headerModel != null) {
+        await setHeaderModelMut.mutateAsync({
+          storeId,
+          model: previewOverrides.headerModel as HeaderModel,
+        });
+      }
+
+      if (previewOverrides.footerModel != null) {
+        await setFooterModelMut.mutateAsync({
+          storeId,
+          model: previewOverrides.footerModel as FooterModel,
+        });
+      }
+
+      if (previewOverrides.categoryCardModel != null) {
+        await setCategoryModelMut.mutateAsync({
+          storeId,
+          model: previewOverrides.categoryCardModel as CategoryCardModel,
+        });
+      }
+
+      /* 3. Elementos e textos dos banners. */
+      if (bannerDraft && bannerDirty) {
+        await setBannerFeaturesMut.mutateAsync({
+          storeId,
+          bannerFeatures: bannerDraft.bannerFeatures,
+        });
+
+        await setBannerTextsMut.mutateAsync({
+          storeId,
+          bannerTexts: bannerDraft.bannerTexts,
+        });
+      }
+
+      /*
+       * Publicado: limpa o rascunho. A pré-visualização volta a
+       * ler diretamente os valores guardados na loja.
+       */
+      setPreviewOverrides({});
+      setPendingAssets({});
+      setBannerDirty(false);
+      setHasPendingChanges(false);
+
+      toast.success("Alterações publicadas na loja.");
     } catch (error) {
       console.error(
-        "[Branding] Erro ao definir modelo de cartão:",
+        "[Branding] Erro ao publicar alterações:",
         error,
       );
 
       toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
+        "Não foi possível publicar as alterações. Tenta novamente.",
       );
+    } finally {
+      setIsPublishing(false);
     }
   }
 
-  async function handleSelectNavModel(
-    model: NavButtonModel,
-  ) {
-    if (!storeId) {
-      return;
-    }
-
-    try {
-      await setNavModel.mutateAsync({
-        storeId,
-        model,
-      });
-
-      toast.success(
-        "Modelo dos botões de navegação atualizado.",
-      );
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao definir modelo de navegação:",
-        error,
-      );
-
-      toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
-      );
-    }
+  function handleSelectCardModel(model: ProductCardModel) {
+    stageModels({ productCardModel: model });
   }
 
-  async function handleSelectBannerModel(
-    model: BannerModel,
-  ) {
-    if (!storeId) {
-      return;
-    }
-
-    try {
-      await setBannerModelMut.mutateAsync({
-        storeId,
-        model,
-      });
-
-      toast.success(
-        "Modelo do banner atualizado.",
-      );
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao definir modelo de banner:",
-        error,
-      );
-
-      toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
-      );
-    }
+  function handleSelectNavModel(model: NavButtonModel) {
+    stageModels({ navButtonModel: model });
   }
 
-  async function handleSelectHeaderModel(
-    model: HeaderModel,
-  ) {
-    if (!storeId) {
-      return;
-    }
-
-    try {
-      await setHeaderModelMut.mutateAsync({
-        storeId,
-        model,
-      });
-
-      toast.success(
-        "Modelo do cabeçalho atualizado.",
-      );
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao definir modelo de header:",
-        error,
-      );
-
-      toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
-      );
-    }
+  function handleSelectBannerModel(model: BannerModel) {
+    stageModels({ bannerModel: model });
   }
 
-  async function handleSelectFooterModel(
-    model: FooterModel,
-  ) {
-    if (!storeId) {
-      return;
-    }
-
-    try {
-      await setFooterModelMut.mutateAsync({
-        storeId,
-        model,
-      });
-
-      toast.success(
-        "Modelo do rodapé atualizado.",
-      );
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao definir modelo de footer:",
-        error,
-      );
-
-      toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
-      );
-    }
+  function handleSelectHeaderModel(model: HeaderModel) {
+    stageModels({ headerModel: model });
   }
 
-  async function handleSelectCategoryModel(
-    model: CategoryCardModel,
-  ) {
-    if (!storeId) {
-      return;
-    }
+  function handleSelectFooterModel(model: FooterModel) {
+    stageModels({ footerModel: model });
+  }
 
-    try {
-      await setCategoryModelMut.mutateAsync({
-        storeId,
-        model,
-      });
-
-      toast.success(
-        "Modelo das seções (categorias) atualizado.",
-      );
-    } catch (error) {
-      console.error(
-        "[Branding] Erro ao definir modelo de categorias:",
-        error,
-      );
-
-      toast.error(
-        "Não foi possível guardar o modelo. Tenta novamente.",
-      );
-    }
+  function handleSelectCategoryModel(model: CategoryCardModel) {
+    stageModels({ categoryCardModel: model });
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* ============ CABEÇALHO ============ */}
+
       <div>
         <h2 className="text-lg font-bold text-[#111713]">
           Personalizar loja
         </h2>
 
         <p className="mt-1 text-sm leading-6 text-gray-500">
-          O logo e o banner pertencem à tua loja e
-          aparecem no tema Nova. Podes substituir a
-          qualquer momento.
+          Vê a tua loja a mudar em tempo real, abre a loja
+          pública e publica as alterações quando estiver
+          pronto.
+        </p>
+      </div>
+
+      {/* ==========================================================
+          PARTE 1 — VER LOJA ONLINE
+          ========================================================== */}
+
+      {publicStoreUrl && (
+        <a
+          href={publicStoreUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="group flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111713] text-white">
+              <Store className="h-5 w-5" />
+            </span>
+
+            <div>
+              <h3 className="text-sm font-bold text-[#111713]">
+                Ver loja online
+              </h3>
+
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                Abre a loja pública atual numa nova aba
+                {storeUrlLabel
+                  ? ` (${storeUrlLabel}).`
+                  : "."}
+              </p>
+            </div>
+          </div>
+
+          <span className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-[#111713] transition group-hover:border-gray-300">
+            Ver loja online
+            <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+          </span>
+        </a>
+      )}
+
+      {/* ==========================================================
+          PARTE 2 — PRÉ-VISUALIZAÇÃO DA LOJA
+          ========================================================== */}
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SectionHeading
+            title="Pré-visualização da loja"
+            description={
+              hasPendingChanges
+                ? "A tua loja real (tema Nova), com as alterações desta página mesmo antes de serem guardadas. Os links estão desativados."
+                : "A tua loja real (tema Nova). Os links estão desativados."
+            }
+          />
+
+          {/* Publicar alterações + alternador de dispositivo */}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {hasPendingChanges && (
+              <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                Alterações por publicar
+              </span>
+            )}
+
+            <button
+              type="button"
+              disabled={!hasPendingChanges || isPublishing}
+              onClick={() => void handlePublish()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPublishing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UploadCloud className="h-4 w-4" />
+              )}
+              Publicar alterações
+            </button>
+
+            <div
+              className="flex shrink-0 items-center gap-0.5 rounded-xl border border-gray-200 p-0.5"
+              role="group"
+              aria-label="Dispositivo da pré-visualização"
+            >
+            <button
+              type="button"
+              aria-pressed={previewDevice === "desktop"}
+              onClick={() => setPreviewDevice("desktop")}
+              className={
+                previewDevice === "desktop"
+                  ? "flex items-center gap-2 rounded-lg bg-[#111713] px-3 py-1.5 text-xs font-bold text-white"
+                  : "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:text-[#111713]"
+              }
+            >
+              <Monitor className="h-4 w-4" />
+              Desktop
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={previewDevice === "mobile"}
+              onClick={() => setPreviewDevice("mobile")}
+              className={
+                previewDevice === "mobile"
+                  ? "flex items-center gap-2 rounded-lg bg-[#111713] px-3 py-1.5 text-xs font-bold text-white"
+                  : "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:text-[#111713]"
+              }
+            >
+              <Smartphone className="h-4 w-4" />
+              Mobile
+            </button>
+            </div>
+          </div>
+        </div>
+
+        <Suspense
+          fallback={
+            <div className="flex h-[645px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          }
+        >
+          <StorefrontPreview
+            storeId={storeId}
+            device={previewDevice}
+            overrides={previewOverridesWithBanners}
+          />
+        </Suspense>
+      </section>
+
+      {/* ==========================================================
+          PARTE 3 — ITENS DE PERSONALIZAÇÃO
+          ========================================================== */}
+
+      <div className="pt-2">
+        <h3 className="text-sm font-bold text-[#111713]">
+          Itens de personalização
+        </h3>
+
+        <p className="mt-1 text-xs leading-5 text-gray-500">
+          Organiza aqui os elementos que podes
+          personalizar: logotipo, banner, cartões de
+          produto, botões, navegação, seções, rodapé,
+          banners e restantes itens disponíveis no
+          Market. Cada alteração reflete-se de imediato
+          na pré-visualização acima.
         </p>
       </div>
 
@@ -762,21 +1071,19 @@ export default function BrandingPage({
         </div>
       ) : (
         <>
-          {/* ============ 0. MARKET ============ */}
+          {/* ============ 3.0 MARKET ============ */}
 
           <MarketQuickCard storeId={storeId} />
 
-          {/* ============ 1. LOGO + 2. BANNER ============ */}
+          {/* ============ 3.1 LOGO + 3.2 BANNER ============ */}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <BrandingAssetCard
               title="Logo da loja"
               description="Aparece no cabeçalho da loja. PNG, JPG, WEBP ou SVG até 1 MB."
               aspect="h-32"
-              previewUrl={
-                brandingQuery.data?.logoUrl ?? null
-              }
-              previewKey={logoKey}
+              previewUrl={displayLogoUrl}
+              previewKey={displayLogoKey}
               onPickFile={(file) =>
                 handleUpload("logo", file)
               }
@@ -789,6 +1096,7 @@ export default function BrandingPage({
             />
 
             {/*
+
               BANNER SIMPLES — apenas 1 banner por loja:
               sem imagem → "Adicionar banner" (1 imagem);
               com imagem → pré-visualização + "Substituir".
@@ -800,8 +1108,8 @@ export default function BrandingPage({
               title="Banner da loja"
               description="Aparece no topo da loja. PNG, JPG ou WEBP até 3 MB. Apenas 1 banner."
               aspect="h-36"
-              previewUrl={currentBanner?.url ?? null}
-              previewKey={currentBanner?.key ?? null}
+              previewUrl={displayBanner?.url ?? null}
+              previewKey={displayBanner?.key ?? null}
               onPickFile={(file) =>
                 handleUpload("banner", file)
               }
@@ -815,36 +1123,25 @@ export default function BrandingPage({
             />
           </div>
 
-          {/* ============ 3. PRODUCT CARDS ============ */}
+          {/* ============ 3.3 PRODUCT CARDS ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Cartões de produto
-              </h3>
-
-              {unlockedCardModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há cartões de produto
-                  desbloqueados. Compra modelos no Market
-                  para os usar aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe como os produtos aparecem na
-                  tua loja (tema Nova). A alteração é
-                  aplicada imediatamente.
-                </p>
-              )}
-            </div>
+            <SectionHeading
+              title="Cartões de produto"
+              description={
+                unlockedCardModels.length === 0
+                  ? "Ainda não há cartões de produto desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe como os produtos aparecem na tua loja (tema Nova). A alteração é aplicada imediatamente."
+              }
+            />
 
             {unlockedCardModels.length > 0 && (
               <ProductCardModelSelector
                 value={selectedCardModel}
                 onChange={handleSelectCardModel}
-                disabled={setCardModel.isPending}
+                disabled={isPublishing}
                 previewImage={
-                  brandingQuery.data?.bannerUrl ?? null
+                  brandingQuery.data?.bannerUrls?.[0] ?? null
                 }
                 unlockedModels={unlockedCardModels}
               />
@@ -863,34 +1160,23 @@ export default function BrandingPage({
             )}
           </div>
 
-          {/* ============ 4. BOTÕES DE NAVEGAÇÃO ============ */}
+          {/* ============ 3.4 BOTÕES DE NAVEGAÇÃO ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Botões de Navegação
-              </h3>
-
-              {unlockedNavModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há botões de navegação
-                  desbloqueados. Compra modelos no Market
-                  para os usar aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe como a barra de navegação aparece
-                  na tua loja (tema Nova, mobile). A
-                  alteração é aplicada imediatamente.
-                </p>
-              )}
-            </div>
+            <SectionHeading
+              title="Botões de Navegação"
+              description={
+                unlockedNavModels.length === 0
+                  ? "Ainda não há botões de navegação desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe como a barra de navegação aparece na tua loja (tema Nova, mobile). A alteração é aplicada imediatamente."
+              }
+            />
 
             {unlockedNavModels.length > 0 && (
               <NavButtonModelSelector
                 value={selectedNavModel}
                 onChange={handleSelectNavModel}
-                disabled={setNavModel.isPending}
+                disabled={isPublishing}
                 unlockedModels={unlockedNavModels}
               />
             )}
@@ -908,41 +1194,30 @@ export default function BrandingPage({
             )}
           </div>
 
-          {/* ============ 5. BANNERS (carrossel) ============ */}
+          {/* ============ 3.5 BANNERS (carrossel) ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Banners
-              </h3>
+            <SectionHeading
+              title="Banners"
+              description={
+                unlockedBannerModels.length === 0
+                  ? "Ainda não há modelos de banner desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe o modelo do carrossel de banners da tua loja (tema Nova). A alteração é aplicada imediatamente."
+              }
+            />
 
-              {hasBannerElements && (
-                <p className="mt-1 text-xs leading-5 text-emerald-700">
-                  Banner Personalizado ativo: configures os
-                  elementos de cada banner abaixo.
-                </p>
-              )}
-
-              {unlockedBannerModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há modelos de banner
-                  desbloqueados. Compra modelos no Market
-                  para os usar aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe o modelo do carrossel de banners
-                  da tua loja (tema Nova). A alteração é
-                  aplicada imediatamente.
-                </p>
-              )}
-            </div>
+            {hasBannerElements && (
+              <p className="-mt-2 mb-4 text-xs leading-5 text-emerald-700">
+                Banner Personalizado ativo: configures os
+                elementos de cada banner abaixo.
+              </p>
+            )}
 
             {unlockedBannerModels.length > 0 && (
               <BannerModelSelector
                 value={selectedBannerModel}
                 onChange={handleSelectBannerModel}
-                disabled={setBannerModelMut.isPending}
+                disabled={isPublishing}
                 unlockedModels={unlockedBannerModels}
               />
             )}
@@ -964,6 +1239,10 @@ export default function BrandingPage({
               texto, botão, animação, contagem e
               publicação por banner. Fiel à demo do
               Market (Banner Personalizado).
+
+              O rascunho local é reportado para a
+              pré-visualização: o utilizador vê o
+              resultado antes de "Guardar elementos".
             */}
             {hasBannerElements && (
               <div className="mt-5 border-t border-gray-100 pt-5">
@@ -973,6 +1252,12 @@ export default function BrandingPage({
 
                 <BannerElementsManager
                   storeId={storeId}
+                  draftMode
+                  onDraftChange={setBannerDraft}
+                  onDirty={() => {
+                    setBannerDirty(true);
+                    setHasPendingChanges(true);
+                  }}
                   banners={
                     [
                       brandingQuery.data?.bannerKey
@@ -1002,34 +1287,23 @@ export default function BrandingPage({
             )}
           </div>
 
-          {/* ============ 6. NAVEGAÇÃO (HEADER) ============ */}
+          {/* ============ 3.6 NAVEGAÇÃO (HEADER) ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Navegação (Header)
-              </h3>
-
-              {unlockedHeaderModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há cabeçalhos desbloqueados.
-                  Compra modelos no Market para os usar
-                  aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe o cabeçalho da tua loja (tema
-                  Nova). A alteração é aplicada
-                  imediatamente.
-                </p>
-              )}
-            </div>
+            <SectionHeading
+              title="Navegação (Header)"
+              description={
+                unlockedHeaderModels.length === 0
+                  ? "Ainda não há cabeçalhos desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe o cabeçalho da tua loja (tema Nova). A alteração é aplicada imediatamente."
+              }
+            />
 
             {unlockedHeaderModels.length > 0 && (
               <HeaderModelSelector
                 value={selectedHeaderModel}
                 onChange={handleSelectHeaderModel}
-                disabled={setHeaderModelMut.isPending}
+                disabled={isPublishing}
                 unlockedModels={unlockedHeaderModels}
               />
             )}
@@ -1047,34 +1321,23 @@ export default function BrandingPage({
             )}
           </div>
 
-          {/* ============ 7. SEÇÕES (CARTÕES DE CATEGORIA) ============ */}
+          {/* ============ 3.7 SEÇÕES (CARTÕES DE CATEGORIA) ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Seções
-              </h3>
-
-              {unlockedCategoryModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há cartões de categoria
-                  desbloqueados. Compra modelos no Market
-                  para os usar aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe como as categorias aparecem em
-                  destaque na tua loja (tema Nova). A
-                  alteração é aplicada imediatamente.
-                </p>
-              )}
-            </div>
+            <SectionHeading
+              title="Seções"
+              description={
+                unlockedCategoryModels.length === 0
+                  ? "Ainda não há cartões de categoria desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe como as categorias aparecem em destaque na tua loja (tema Nova). A alteração é aplicada imediatamente."
+              }
+            />
 
             {unlockedCategoryModels.length > 0 && (
               <CategoryCardModelSelector
                 value={selectedCategoryModel}
                 onChange={handleSelectCategoryModel}
-                disabled={setCategoryModelMut.isPending}
+                disabled={isPublishing}
                 unlockedModels={unlockedCategoryModels}
               />
             )}
@@ -1093,34 +1356,23 @@ export default function BrandingPage({
             )}
           </div>
 
-          {/* ============ 8. RODAPÉS ============ */}
+          {/* ============ 3.8 RODAPÉS ============ */}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold text-[#111713]">
-                Rodapés
-              </h3>
-
-              {unlockedFooterModels.length === 0 ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Ainda não há rodapés desbloqueados.
-                  Compra modelos no Market para os usar
-                  aqui.
-                </p>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Escolhe o rodapé da tua loja (tema
-                  Nova). A alteração é aplicada
-                  imediatamente.
-                </p>
-              )}
-            </div>
+            <SectionHeading
+              title="Rodapés"
+              description={
+                unlockedFooterModels.length === 0
+                  ? "Ainda não há rodapés desbloqueados. Compra modelos no Market para os usar aqui."
+                  : "Escolhe o rodapé da tua loja (tema Nova). A alteração é aplicada imediatamente."
+              }
+            />
 
             {unlockedFooterModels.length > 0 && (
               <FooterModelSelector
                 value={selectedFooterModel}
                 onChange={handleSelectFooterModel}
-                disabled={setFooterModelMut.isPending}
+                disabled={isPublishing}
                 unlockedModels={unlockedFooterModels}
               />
             )}

@@ -1,6 +1,9 @@
 import { Store } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
+import { I18nProvider } from "@/lib/i18n-context";
+import { translate } from "@/lib/i18n";
+import { normalizeCurrency } from "@/lib/i18n";
 
 import Header, {
   type NovaHeaderCategory,
@@ -16,6 +19,7 @@ import { BenefitsSection } from "./components/BenefitsSection";
 import { ModelBottomNavigation } from "./components/ModelBottomNavigation";
 import Footer from "./components/Footer";
 import { ModelCategorySection } from "./components/ModelCategorySection";
+import { useCart } from "@/contexts/CartContext";
 
 import {
   novaDemoProducts,
@@ -49,6 +53,13 @@ type StoreData = {
   slug: string;
   category?: string | null;
   currency?: string | null;
+
+  /*
+   * Idioma de exibição da loja ("pt" | "en"), vindo de
+   * stores.bySlug / stores.mine. Alimenta o i18n do tema
+   * (ver client/src/lib/i18n.ts).
+   */
+  language?: string | null;
   status?: string | null;
   whatsapp?: string | null;
   /*
@@ -95,6 +106,28 @@ type RealBanner = {
   buttonHref?: string;
 };
 
+/**
+ * Overrides de pré-visualização da "Personalizar Loja".
+ *
+ * Cada chave é opcional: `undefined` mantém o valor real da
+ * loja. `null`/`[]` são valores válidos (ex.: remover o logo
+ * ou mostrar zero banners). Permite que alterações ainda não
+ * publicadas/guardadas apareçam imediatamente na
+ * pré-visualização, antes de o servidor confirmar.
+ */
+export type NovaStorefrontOverrides = {
+  logoUrl?: string | null;
+  bannerUrls?: string[];
+  bannerTexts?: BannerText[];
+  bannerFeatures?: BannerFeatureMap;
+  productCardModel?: string | null;
+  navButtonModel?: string | null;
+  bannerModel?: string | null;
+  headerModel?: string | null;
+  footerModel?: string | null;
+  categoryCardModel?: string | null;
+};
+
 type NovaStorefrontProps = {
   mode?: "demo" | "store";
   storeId?: string;
@@ -104,7 +137,32 @@ type NovaStorefrontProps = {
    * por dispositivo (ver NovaHeaderProps).
    */
   headerVariant?: "auto" | "desktop" | "mobile";
+
+  /**
+   * Modo pré-visualização (Personalizar Loja): mostra também
+   * os banners ainda em Rascunho, para o utilizador verificar
+   * o resultado antes de publicar.
+   */
+  preview?: boolean;
+
+  /**
+   * Overrides de pré-visualização (ver NovaStorefrontOverrides).
+   * Aplicados por cima dos valores reais da loja.
+   */
+  overrides?: NovaStorefrontOverrides;
 };
+
+/*
+ * Resolve um valor de pré-visualização: o override tem
+ * prioridade sobre o valor real da loja. `undefined`
+ * significa "sem alteração".
+ */
+function resolvePreviewOverride<T>(
+  value: T,
+  override: T | undefined,
+): T {
+  return override === undefined ? value : override;
+}
 
 function getInitials(name: string) {
   return name
@@ -129,8 +187,11 @@ export default function NovaStorefront({
   storeId,
   storeSlug,
   headerVariant,
+  preview = false,
+  overrides,
 }: NovaStorefrontProps) {
   const isDemo = mode === "demo";
+  const { totalItems: cartCount } = useCart();
 
   /* =========================================================
      MODO DEMO
@@ -211,6 +272,40 @@ export default function NovaStorefront({
 
   const store = isDemo ? demoStore : realStore;
 
+  /*
+   * Modelos efetivos: valor real da loja ou override da
+   * pré-visualização (Personalizar Loja).
+   */
+  const productCardModel = resolvePreviewOverride(
+    store?.productCardModel,
+    overrides?.productCardModel,
+  );
+
+  const navButtonModel = resolvePreviewOverride(
+    store?.navButtonModel,
+    overrides?.navButtonModel,
+  );
+
+  const bannerModel = resolvePreviewOverride(
+    store?.bannerModel,
+    overrides?.bannerModel,
+  );
+
+  const headerModel = resolvePreviewOverride(
+    store?.headerModel,
+    overrides?.headerModel,
+  );
+
+  const footerModel = resolvePreviewOverride(
+    store?.footerModel,
+    overrides?.footerModel,
+  );
+
+  const categoryCardModel = resolvePreviewOverride(
+    store?.categoryCardModel,
+    overrides?.categoryCardModel,
+  );
+
   /* =========================================================
      BRANDING DA LOJA (logo + banner)
 
@@ -255,11 +350,16 @@ export default function NovaStorefront({
       }
     | undefined;
 
-  const logoUrl = isDemo
+  const baseLogoUrl = isDemo
     ? null
     : storeSlug
       ? (publicBranding?.logoUrl ?? null)
       : (brandingGetQuery.data?.logoUrl ?? null);
+
+  const logoUrl = resolvePreviewOverride(
+    baseLogoUrl,
+    overrides?.logoUrl,
+  );
 
   /*
    * Todos os banners reais da loja (legado + extra).
@@ -268,21 +368,31 @@ export default function NovaStorefront({
    * Os textos (título/subtítulo) são guardados por
    * índice de slide em bannerTexts.
    */
-  const realBannerUrls: string[] = isDemo
+  const baseBannerUrls: string[] = isDemo
     ? []
     : storeSlug
       ? (publicBranding?.bannerUrls ?? [])
       : (internalBranding?.bannerUrls ?? []);
 
-  const bannerTexts =
+  const realBannerUrls = resolvePreviewOverride(
+    baseBannerUrls,
+    overrides?.bannerUrls,
+  );
+
+  const baseBannerTexts =
     (store as { bannerTexts?: BannerText[] } | undefined)
       ?.bannerTexts ?? [];
+
+  const bannerTexts = resolvePreviewOverride(
+    baseBannerTexts,
+    overrides?.bannerTexts,
+  );
 
   /*
    * Chaves R2 na mesma ordem dos URLs:
    * [bannerKey (legado), ...bannerKeys].
    */
-  const realBannerKeys: string[] = isDemo
+  const baseBannerKeys: string[] = isDemo
     ? []
     : [
         ...((store as { bannerKey?: string | null } | undefined)
@@ -297,13 +407,31 @@ export default function NovaStorefront({
       ];
 
   /*
+   * Com overrides de banners, as chaves continuam alinhadas
+   * por índice com a lista de URLs de pré-visualização, para
+   * os elementos por banner (botão/texto/animação) resolverem
+   * corretamente.
+   */
+  const realBannerKeys =
+    overrides?.bannerUrls !== undefined
+      ? realBannerUrls.map(
+          (url, index) => baseBannerKeys[index] ?? url,
+        )
+      : baseBannerKeys;
+
+  /*
    * Elementos opcionais por banner, guardados por
    * chave R2 do banner (bannerFeatures).
    */
-  const bannerFeatureMap =
+  const baseBannerFeatureMap =
     (store as
       | { bannerFeatures?: BannerFeatureMap }
       | undefined)?.bannerFeatures ?? {};
+
+  const bannerFeatureMap = resolvePreviewOverride(
+    baseBannerFeatureMap,
+    overrides?.bannerFeatures,
+  );
 
   const realBanners: RealBanner[] = realBannerUrls.map(
     (url, index) => {
@@ -354,12 +482,14 @@ export default function NovaStorefront({
    * aparecem na loja. Ausência de estado guardado =
    * publicado (banners antigos mantêm-se visíveis).
    */
-  const publishedBanners = realBanners.filter(
-    (banner, index) =>
-      isBannerPublished(
-        bannerFeatureMap[realBannerKeys[index] ?? ""],
-      ),
-  );
+  const publishedBanners = preview
+    ? realBanners
+    : realBanners.filter(
+        (banner, index) =>
+          isBannerPublished(
+            bannerFeatureMap[realBannerKeys[index] ?? ""],
+          ),
+      );
 
   /* =========================================================
      PRODUTOS
@@ -423,7 +553,7 @@ export default function NovaStorefront({
      ========================================================= */
 
   const activeProducts = products.filter(
-    (product) => product.status !== "archived",
+    (product) => product.status === "active",
   );
 
   const novaProducts: NovaProduct[] =
@@ -501,8 +631,19 @@ export default function NovaStorefront({
      STORE FRONT
      ========================================================= */
 
+  /*
+   * O i18n do tema é injetado aqui, na fronteira da loja
+   * pública: o idioma e a moeda vêm da loja (Configurações →
+   * Idioma e moeda) e todas as componentes Nova abaixo usam
+   * useI18n() em vez de texto fixo. Em modo demo/loja sem
+   * idioma guardado o provider normaliza para pt/MZN.
+   */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <I18nProvider
+      language={store?.language}
+      currency={store?.currency}
+    >
+      <div className="min-h-screen bg-slate-50 text-slate-950">
       {/* =====================================================
           HEADER
           ===================================================== */}
@@ -514,14 +655,14 @@ export default function NovaStorefront({
         storeSlug={store?.slug}
         categories={headerCategories}
         categoriesLoading={isProductsLoading}
-        cartCount={0}
+        cartCount={cartCount}
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
-        currency={store?.currency || "MZN"}
-        country="Moçambique"
+        currency={normalizeCurrency(store?.currency)}
+        country={translate(store?.language, "store.country")}
         headerVariant={headerVariant}
         logoUrl={logoUrl}
-        headerModel={store?.headerModel}
+        headerModel={headerModel}
       />
 
       <main>
@@ -531,7 +672,7 @@ export default function NovaStorefront({
 
         <BannerCarousel
         banners={publishedBanners}
-        model={store?.bannerModel}
+        model={bannerModel}
       />
 
         {/* =====================================================
@@ -541,7 +682,7 @@ export default function NovaStorefront({
 
         <ModelCategorySection
           categories={headerCategories}
-          model={store?.categoryCardModel}
+          model={categoryCardModel}
           basePath="/themes/nova"
           storeSlug={store?.slug}
         />
@@ -565,7 +706,7 @@ export default function NovaStorefront({
                 ? publicStoreQuery.isError
                 : internalProductsQuery.isError
             )
-              ? "Não foi possível carregar os produtos."
+              ? translate(store?.language, "store.productsError")
               : null
           }
           storeName={
@@ -576,7 +717,7 @@ export default function NovaStorefront({
             storeSlug ??
             ""
           }
-          productCardModel={store?.productCardModel}
+          productCardModel={productCardModel}
           whatsappNumber={store?.whatsapp ?? ""}
         />
 
@@ -612,7 +753,7 @@ export default function NovaStorefront({
 
                 <div className="flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-                    Sobre a loja
+                    {translate(store?.language, "store.about")}
                   </p>
 
                   <h2 className="mt-1 text-xl font-bold text-slate-950">
@@ -621,18 +762,18 @@ export default function NovaStorefront({
 
                   <p className="mt-1 text-sm text-slate-500">
                     {store?.category ||
-                      "Comércio online"}{" "}
-                    · Moçambique
+                      translate(store?.language, "store.commerce")}{" "}
+                    · {translate(store?.language, "store.country")}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white px-4 py-3">
                   <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                    Moeda
+                    {translate(store?.language, "store.currency")}
                   </p>
 
                   <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {store?.currency || "MZN"}
+                    {normalizeCurrency(store?.currency)}
                   </p>
                 </div>
               </div>
@@ -651,7 +792,8 @@ export default function NovaStorefront({
         }
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
-        footerModel={store?.footerModel}
+        storeSlug={store?.slug}
+        footerModel={footerModel}
       />
 
       {/* =====================================================
@@ -659,12 +801,13 @@ export default function NovaStorefront({
           ===================================================== */}
 
       <ModelBottomNavigation
-        cartCount={0}
+        cartCount={cartCount}
         whatsappNumber={store?.whatsapp ?? ""}
         basePath="/themes/nova"
         storeSlug={storeSlug}
-        model={store?.navButtonModel}
+        model={navButtonModel}
       />
-    </div>
+      </div>
+    </I18nProvider>
   );
 }

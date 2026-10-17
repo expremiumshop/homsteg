@@ -7,6 +7,8 @@ import {
 
 import { Link, useLocation } from "wouter";
 
+import { useI18n } from "@/lib/i18n-context";
+
 import {
   normalizeNavButtonModel,
   type NavButtonModel,
@@ -90,6 +92,8 @@ function ModelNavVariants({
 }) {
   const [location] = useLocation();
 
+  const { t } = useI18n();
+
   /*
    * "Home" deve levar sempre à homepage da loja atual:
    * em loja real usa /store/:slug (rota interna); basePath
@@ -106,24 +110,33 @@ function ModelNavVariants({
   const cartPath = `${basePath}/carrinho${storeContext}`;
   const accountPath = `${basePath}/conta${storeContext}`;
 
+  /*
+   * `id` é estável e `name` é o rótulo já traduzido: o badge do
+   * carrinho e as keys do React usam `id`, para continuarem a
+   * funcionar com a loja em qualquer idioma.
+   */
   const navItems = [
     {
-      name: "Home",
+      id: "home",
+      name: t("nav.home"),
       icon: Home,
       href: homePath,
     },
     {
-      name: "Mensagens",
+      id: "messages",
+      name: t("nav.messages"),
       icon: MessageCircle,
       href: messagesPath,
     },
     {
-      name: "Carrinho",
+      id: "cart",
+      name: t("nav.cart"),
       icon: ShoppingCart,
       href: cartPath,
     },
     {
-      name: "Conta",
+      id: "account",
+      name: t("nav.account"),
       icon: User,
       href: accountPath,
     },
@@ -151,7 +164,15 @@ function ModelNavVariants({
         bg-white
         shadow-[0_4px_20px_rgba(0,0,0,0.12)]
       `
-      : `
+      : navModel === "6"
+        ? "flex w-full items-center overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-lg"
+        : navModel === "7"
+          ? "flex w-full items-center gap-1 rounded-2xl bg-slate-50 p-1"
+          : navModel === "8"
+            ? "flex w-full items-center overflow-hidden border-t-2 border-sky-500 bg-white shadow-sm"
+            : navModel === "10"
+              ? "flex w-full items-center overflow-hidden rounded-xl bg-emerald-800"
+              : `
         flex
         w-full
         items-center
@@ -182,7 +203,7 @@ function ModelNavVariants({
 
           return (
             <Link
-              key={item.name}
+              key={item.id}
               href={item.href}
               className={`
                 relative
@@ -201,9 +222,23 @@ function ModelNavVariants({
                 ${
                   navModel === "4" && active
                     ? "bg-primary text-white"
-                    : active
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    : navModel === "6"
+                      ? active
+                        ? "text-lime-300"
+                        : "text-slate-300"
+                      : navModel === "7"
+                        ? active
+                          ? "rounded-full bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-400"
+                        : navModel === "9" && active
+                          ? "rounded-xl bg-violet-600 text-white shadow-md"
+                          : navModel === "10"
+                            ? active
+                              ? "rounded-lg bg-emerald-700 text-white"
+                              : "text-emerald-100"
+                            : active
+                              ? "text-primary"
+                              : "text-muted-foreground"
                 }
               `}
             >
@@ -252,7 +287,7 @@ function ModelNavVariants({
                   <Icon size={23} />
                 )}
 
-                {item.name === "Carrinho" &&
+                {item.id === "cart" &&
                   cartCount > 0 && (
                     <span
                       className="
@@ -291,6 +326,16 @@ function ModelNavVariants({
                     ${
                       navModel === "4" && active
                         ? "text-white"
+                        : navModel === "6"
+                          ? active
+                            ? "text-lime-300"
+                            : "text-slate-300"
+                          : navModel === "9" && active
+                            ? "text-white"
+                            : navModel === "10"
+                              ? active
+                                ? "text-white"
+                                : "text-emerald-100"
                         : active
                           ? "text-primary"
                           : "text-muted-foreground"
@@ -315,6 +360,9 @@ function ModelNavVariants({
                 />
               )}
 
+              {navModel === "8" && active && (
+                <div className="absolute top-0 h-0.5 w-7 rounded-full bg-sky-500" />
+              )}
 
             </Link>
           );

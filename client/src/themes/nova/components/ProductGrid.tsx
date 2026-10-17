@@ -1,4 +1,5 @@
 import { ModelProductCard } from "./ModelProductCard";
+import { useI18n } from "@/lib/i18n-context";
 
 export interface NovaProduct {
   id: string | number;
@@ -19,6 +20,7 @@ interface ProductGridProps {
   error?: string | null;
   storeName?: string;
   storeSlug?: string;
+  title?: string;
 
   /** Modelo de cartão escolhido pela loja (1..8). */
   productCardModel?: string | null;
@@ -33,25 +35,28 @@ export function ProductGrid({
   error = null,
   storeName = "NOVA STORE",
   storeSlug,
+  title,
   productCardModel,
   whatsappNumber,
 }: ProductGridProps) {
+  const { t } = useI18n();
+
   return (
     <section className="w-full bg-background px-3 py-2 sm:px-4 md:py-3">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-3">
           <h2 className="mb-1 text-2xl font-bold text-foreground md:text-3xl">
-            Produtos em destaque
+            {title ?? t("grid.title")}
           </h2>
 
           <p className="text-sm text-muted-foreground">
-            Produtos selecionados especialmente para si
+            {t("grid.subtitle")}
           </p>
         </div>
 
         {loading && (
           <div className="rounded-2xl border border-dashed border-border bg-white p-10 text-center text-sm text-muted-foreground">
-            Carregando produtos...
+            {t("grid.loading")}
           </div>
         )}
 
@@ -63,9 +68,9 @@ export function ProductGrid({
 
         {!loading && !error && products.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-white p-10 text-center text-sm text-muted-foreground">
-            Ainda não há produtos na loja.
+            {t("grid.empty")}
             <br />
-            Adicione produtos no painel de administração.
+            {t("grid.emptyHint")}
           </div>
         )}
 

@@ -3,8 +3,11 @@ import {
     MapPin,
     Clock,
   } from "lucide-react";
-  
+
+  import { useI18n } from "@/lib/i18n-context";
+
   export default function ShippingCard() {
+    const { t } = useI18n();
     return (
       <div
         className="
@@ -36,7 +39,7 @@ import {
                 text-gray-900
               "
             >
-              Entrega
+              {t("product.shippingTitle")}
             </h3>
   
             <p
@@ -45,7 +48,7 @@ import {
                 text-gray-500
               "
             >
-              Entrega segura com rastreamento
+              {t("product.shippingSafe")}
             </p>
           </div>
         </div>
@@ -70,13 +73,12 @@ import {
           >
             <MapPin className="text-red-500" />
   
-            <div>
-              <p className="text-sm font-medium">
-                Destino
+            <div>              <p className="text-sm font-medium">
+                {t("product.destination")}
               </p>
-  
+
               <p className="text-xs text-gray-500">
-                Selecionar endereço
+                {t("product.selectAddress")}
               </p>
             </div>
           </div>
@@ -93,13 +95,12 @@ import {
           >
             <Clock className="text-green-600" />
   
-            <div>
-              <p className="text-sm font-medium">
-                Prazo estimado
+            <div>              <p className="text-sm font-medium">
+                {t("product.estimatedTime")}
               </p>
-  
+
               <p className="text-xs text-gray-500">
-                7 - 15 dias úteis
+                {t("product.businessDays")}
               </p>
             </div>
           </div>
@@ -112,7 +113,7 @@ import {
             text-green-600
           "
         >
-          ✓ Rastreamento disponível após envio
+          ✓ {t("product.trackingAfterShipping")}
         </div>
       </div>
     );

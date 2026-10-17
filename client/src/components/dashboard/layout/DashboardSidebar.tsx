@@ -10,6 +10,7 @@ import {
   useStorePlan,
 } from "@/components/dashboard/plan/useStorePlan";
 import { trpc } from "@/lib/trpc";
+import { usePanelI18n } from "@/lib/panel-i18n-context";
 
 export type DashboardNavItem = {
   id: string;
@@ -29,11 +30,13 @@ export default function DashboardSidebar({
   activeSection,
   children,
 }: DashboardSidebarProps) {
+  const { t } = usePanelI18n();
+
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[238px] flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-[68px] items-center border-b border-gray-100 px-5">
-        <Link href="/app" aria-label="HOMSTEG — painel" className="flex min-w-0 items-center">
+        <Link href="/app" aria-label="HOMSTEG" className="flex min-w-0 items-center">
           <HomstegLogo size={38} className="max-w-full" />
         </Link>
       </div>
@@ -70,7 +73,7 @@ export default function DashboardSidebar({
         {/* Atalhos */}
         <div className="mt-8">
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
-            Atalhos
+            {t("side.shortcuts")}
           </p>
 
           <div className="space-y-1">
@@ -79,7 +82,7 @@ export default function DashboardSidebar({
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-[#111713]"
             >
               <ShoppingCartIcon />
-              <span>Encomendas</span>
+              <span>{t("side.orders")}</span>
             </Link>
 
             <Link
@@ -87,7 +90,7 @@ export default function DashboardSidebar({
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-[#111713]"
             >
               <UsersIcon />
-              <span>Clientes</span>
+              <span>{t("side.customers")}</span>
             </Link>
 
             <Link
@@ -95,7 +98,7 @@ export default function DashboardSidebar({
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-[#111713]"
             >
               <AnalyticsIcon />
-              <span>Analytics</span>
+              <span>{t("side.analytics")}</span>
             </Link>
           </div>
         </div>
@@ -115,11 +118,11 @@ export default function DashboardSidebar({
 
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-[#111713]">
-              Minha conta
+              {t("side.account")}
             </p>
 
             <p className="truncate text-xs text-gray-500">
-              Proprietário da loja
+              {t("side.role")}
             </p>
           </div>
         </div>
@@ -189,6 +192,8 @@ function AnalyticsIcon() {
  * em sessionStorage, senão a primeira loja.
  */
 function SidebarCreditCard() {
+  const { t } = usePanelI18n();
+
   const storesQuery = trpc.stores.mine.useQuery();
 
   const activeStoreId = sessionStorage.getItem(
@@ -209,7 +214,7 @@ function SidebarCreditCard() {
     <div className="rounded-2xl bg-[#111713] p-4 text-white">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-semibold text-gray-300">
-          Créditos
+          {t("side.credits")}
         </span>
       </div>
 
@@ -218,7 +223,7 @@ function SidebarCreditCard() {
       </p>
 
       <p className="mt-1 text-xs leading-5 text-gray-400">
-        O saldo de créditos é gerido pelo Admin.
+        {t("side.creditNote")}
       </p>
     </div>
   );

@@ -301,7 +301,7 @@ export default function UsersPanel({
   return (
     <div className="w-full">
       {/* CABEÇALHO */}
-      <div className="grid grid-cols-[1.45fr_1.3fr_1fr_.7fr_.7fr_92px] items-center gap-4 bg-[#f8faf7] px-5 py-3">
+      <div className="hidden grid-cols-[1.45fr_1.3fr_1fr_.7fr_.7fr_92px] items-center gap-4 bg-[#f8faf7] px-5 py-3 lg:grid">
         <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#8b978b]">
           Utilizador
         </span>
@@ -348,7 +348,7 @@ export default function UsersPanel({
           >
             {/* LINHA PRINCIPAL */}
             <div
-              className={`grid grid-cols-[1.45fr_1.3fr_1fr_.7fr_.7fr_92px] items-center gap-4 px-5 py-4 transition-colors ${
+              className={`grid grid-cols-1 gap-2.5 px-5 py-4 transition-colors lg:grid-cols-[1.45fr_1.3fr_1fr_.7fr_.7fr_92px] lg:items-center lg:gap-4 ${
                 isSelected
                   ? "bg-[#f7faf5]"
                   : "hover:bg-[#fbfcfa]"
@@ -375,13 +375,23 @@ export default function UsersPanel({
               </div>
 
               {/* EMAIL */}
-              <div className="min-w-0 truncate text-[10px] text-[#788378]">
-                {entry.user.email ??
-                  "—"}
+              <div className="min-w-0 text-[10px] text-[#788378]">
+                <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#a0a9a0] lg:hidden">
+                  Contacto
+                </span>
+
+                <span className="block truncate">
+                  {entry.user.email ??
+                    "—"}
+                </span>
               </div>
 
               {/* LOJA */}
               <div className="min-w-0">
+                <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#a0a9a0] lg:hidden">
+                  Loja
+                </span>
+
                 {primaryStore ? (
                   <>
                     <div className="truncate text-[10px] font-semibold text-[#596759]">
@@ -404,6 +414,10 @@ export default function UsersPanel({
 
               {/* PEDIDO */}
               <div className="text-[10px] font-semibold text-[#697569]">
+                <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#a0a9a0] lg:hidden">
+                  Pedido
+                </span>
+
                 {entry.latestApplication
                   ? `#${entry.latestApplication.id}`
                   : "—"}
@@ -411,6 +425,10 @@ export default function UsersPanel({
 
               {/* ESTADO */}
               <div>
+                <span className="mb-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-[#a0a9a0] lg:hidden">
+                  Estado
+                </span>
+
                 <Status
                   text={
                     primaryStore
@@ -424,7 +442,7 @@ export default function UsersPanel({
               </div>
 
               {/* ACÇÕES */}
-              <div className="flex items-center justify-end gap-1">
+              <div className="flex items-center justify-end gap-1 border-t border-[#edf1eb] pt-3 lg:border-0 lg:pt-0">
                 <button
                   type="button"
                   onClick={() =>

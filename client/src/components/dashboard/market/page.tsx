@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   MousePointerClick,
   Package,
-  Palette,
   PanelBottom,
   Store,
   Warehouse,
@@ -21,7 +20,7 @@ import type {
   MarketFeature,
   MarketVariantProps,
 } from "./registry";
-import { getMarketVariants } from "./registry";
+import { getMarketVariantName, getMarketVariants } from "./registry";
 
 import {
   MARKET_DEMO_PRODUCTS,
@@ -57,23 +56,16 @@ type FeatureMap = Record<
 /*
  * Cartões da página principal, pela ordem pretendida:
  * Banners → Botões → Navegação → Cartões de Produto →
- * Seções → Temas (link para a página existente) →
+ * Seções →
  * Rodapés (outras categorias existentes).
  */
-type MarketHomeCard =
-  | {
-      type: "category";
-      kind: MarketSectionKind;
-      title: string;
-      description: string;
-      icon: typeof Compass;
-    }
-  | {
-      type: "themes";
-      title: string;
-      description: string;
-      icon: typeof Compass;
-    };
+type MarketHomeCard = {
+  type: "category";
+  kind: MarketSectionKind;
+  title: string;
+  description: string;
+  icon: typeof Compass;
+};
 
 const MARKET_HOME_CARDS: MarketHomeCard[] = [
   {
@@ -117,12 +109,6 @@ const MARKET_HOME_CARDS: MarketHomeCard[] = [
     icon: LayoutGrid,
   },
   {
-    type: "themes",
-    title: "Temas",
-    description: "Temas e design completo da loja.",
-    icon: Palette,
-  },
-  {
     type: "category",
     kind: "footer",
     title: "Rodapés",
@@ -138,9 +124,6 @@ const MARKET_HOME_CARDS: MarketHomeCard[] = [
     icon: Warehouse,
   },
 ];
-
-/* Rota existente do dashboard (Design e temas). */
-const THEMES_PATH = "/store/themes";
 
 export default function MarketPage({
   storeId,
@@ -232,19 +215,6 @@ export default function MarketPage({
       },
     });
 
-  /*
-   * Temas: navega para a página "Design e temas" que já
-   * existe no dashboard, pelo mesmo mecanismo usado pela
-   * sidebar (pushState + popstate). Nenhuma rota nova.
-   */
-  function openThemes() {
-    window.history.pushState({}, "", THEMES_PATH);
-
-    window.dispatchEvent(
-      new PopStateEvent("popstate"),
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       {/* Cabeçalho da página */}
@@ -295,44 +265,6 @@ export default function MarketPage({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MARKET_HOME_CARDS.map((card) => {
             const Icon = card.icon;
-
-            if (card.type === "themes") {
-              return (
-                <button
-                  key={card.title}
-                  type="button"
-                  onClick={openThemes}
-                  className="
-                    group flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left transition
-                    hover:border-gray-300 hover:shadow-sm
-                  "
-                >
-                  <span
-                    className="
-                      flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e9f2e5]
-                    "
-                  >
-                    <Icon className="h-5 w-5 text-[#465346]" />
-                  </span>
-
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-[#111713]">
-                        {card.title}
-                      </span>
-
-                      <span className="text-[11px] font-semibold text-emerald-600 opacity-0 transition group-hover:opacity-100">
-                        Abrir →
-                      </span>
-                    </span>
-
-                    <span className="mt-0.5 block text-xs leading-5 text-gray-500">
-                      {card.description}
-                    </span>
-                  </span>
-                </button>
-              );
-            }
 
             const count = getMarketVariants(
               card.kind,
@@ -570,13 +502,8 @@ export default function MarketPage({
 
                       {/* Nome da funcionalidade */}
                       <div className="flex items-center gap-2 border-t border-gray-100 px-3 pt-3">
-                        <span className="shrink-0 rounded-full bg-[#111713] px-2 py-0.5 text-[10px] font-bold text-white">
-                          {variant.featureKey}
-                        </span>
-
                         <p className="truncate text-sm font-bold text-[#111713]">
-                          {feature?.name ??
-                            variant.featureKey}
+                          {getMarketVariantName(variant, feature?.name)}
                         </p>
                       </div>
 

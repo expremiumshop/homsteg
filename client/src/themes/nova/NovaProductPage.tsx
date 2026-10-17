@@ -7,6 +7,9 @@ import { ArrowLeft, Store } from "lucide-react";
 import { Link, useLocation, useRoute, useSearch } from "wouter";
 
 import { trpc } from "@/lib/trpc";
+import { useI18n } from "@/lib/i18n-context";
+
+import StoreI18nBoundary from "./StoreI18nBoundary";
 
 import ProductGallery from "./product/ProductGallery";
 import ProductTop from "./product/ProductTop";
@@ -121,8 +124,28 @@ function normalizeProduct(
 }
 
 export default function NovaProductPage() {
+  const search = useSearch();
+
+  /*
+   * Esta rota (/themes/nova/produto/:slug) também fica fora
+   * da árvore do NovaStorefront: o StoreI18nBoundary resolve
+   * idioma/moeda da loja a partir do storeSlug da URL antes
+   * de a página renderizar qualquer texto.
+   */
+  const storeSlug = getStoreSlugFromSearch(search);
+
+  return (
+    <StoreI18nBoundary storeSlug={storeSlug}>
+      <NovaProductContent />
+    </StoreI18nBoundary>
+  );
+}
+
+function NovaProductContent() {
   const [, setLocation] = useLocation();
   const search = useSearch();
+
+  const { t } = useI18n();
 
   /*
    * ============================================================
@@ -198,7 +221,8 @@ export default function NovaProductPage() {
     return storeProducts.find(
       (product) =>
         String(product.slug) ===
-        String(productSlug),
+        String(productSlug) &&
+        product.status === "active",
     );
   }, [storeProducts, productSlug]);
 
@@ -219,7 +243,7 @@ export default function NovaProductPage() {
         (item) =>
           String(item.slug) !==
             String(productSlug) &&
-          item.status !== "archived",
+          item.status === "active",
       )
       .slice(0, 6)
       .map((item) => ({
@@ -259,7 +283,7 @@ export default function NovaProductPage() {
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-emerald-600" />
 
           <p className="text-sm text-gray-500">
-            A carregar o produto...
+            {t("product.loading")}
           </p>
         </div>
       </main>
@@ -284,12 +308,11 @@ export default function NovaProductPage() {
           </div>
 
           <h1 className="text-xl font-semibold text-gray-950">
-            Loja não encontrada
+            {t("store.notFound")}
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Não foi possível encontrar a
-            loja associada a este produto.
+            {t("product.storeNotFoundHint")}
           </p>
 
           <Link
@@ -310,7 +333,7 @@ export default function NovaProductPage() {
               hover:bg-emerald-700
             "
           >
-            Voltar
+            {t("product.back")}
           </Link>
         </div>
       </main>
@@ -331,12 +354,11 @@ export default function NovaProductPage() {
           </div>
 
           <h1 className="text-xl font-semibold text-gray-950">
-            Produto não encontrado
+            {t("product.notFound")}
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Este produto não existe nesta
-            loja ou já não está disponível.
+            {t("product.notFoundHint")}
           </p>
 
           <button
@@ -362,7 +384,7 @@ export default function NovaProductPage() {
               hover:bg-emerald-700
             "
           >
-            Voltar à loja
+            {t("product.backToStore")}
           </button>
         </div>
       </main>
@@ -403,7 +425,7 @@ export default function NovaProductPage() {
             "
           >
             <ArrowLeft size={18} />
-            Voltar à loja
+            {t("product.backToStore")}
           </Link>
         </div>
 

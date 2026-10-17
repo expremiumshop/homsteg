@@ -22,6 +22,7 @@ import {
   getStoreBrandingUrls,
   getStoreWithUsage,
   getStoresForUser,
+  getProduct,
   insertProduct,
   insertStoreCategory,
   listProducts,
@@ -37,6 +38,11 @@ import {
   updateStoreNavButtonModel,
   updateStoreSectionModel,
   updateStoreStatus,
+  updateStoreLocale,
+  saveStoreCustomDomain,
+  markStoreCustomDomainVerified,
+  getPublicStoreByCustomDomain,
+  getStoreCustomDomainSettings,
   updateStoreTheme,
   updateStoreWhatsApp,
   userHasStoreAccess,
@@ -57,13 +63,29 @@ import {
 
 import type { InsertProduct } from "../drizzle/schema.js";
 
-import { findMarketCatalogEntry } from "../shared/market-catalog.js";
+import {
+  MARKET_CATEGORIES,
+  findMarketCatalogEntry,
+  getMarketModelNumbers,
+} from "../shared/market-catalog.js";
+
+import type { MarketCatalogCategory } from "../shared/market-catalog.js";
 
 import { fromNodeHeaders } from "better-auth/node";
+import { randomBytes } from "node:crypto";
+import {
+  normalizeCustomDomain,
+  checkCustomDomainVerification,
+} from "./custom-domain.js";
 
 import { auth, activeSocialProviders, getBetterAuthUserById } from "./auth.js";
 
-import { createStoreDownloadUrl, createStoreUploadUrl } from "./r2.js";
+import {
+  createStoreDownloadUrl,
+  createStoreUploadUrl,
+  extractStoreObjectKey,
+  isPresignedObjectUrl,
+} from "./r2.js";
 
 /* ============================================================
    INPUTS
@@ -114,16 +136,24 @@ const brandingKeyInput = z
  * Chaves R2 de branding: stores/{storeId}/branding/ficheiro.ext
  * Validadas no formato e revalidadas contra a loja na mutation.
  */
-const themeInput = z.enum([
-  "nova",
-  "luxe",
-  "market",
-  "urban",
-  "essenza",
-  "prime",
-  "caliza",
-  "chazuca",
-]);
+const themeInput = z.literal("nova");
+
+/*
+ * Localização da loja (Configurações → Idioma e moeda).
+ *
+ * language e currency são gravados JUNTOS pela mesma
+ * mutation: a moeda formata os preços da loja e o idioma
+ * escolhe o catálogo de textos do storefront público
+ * (client/src/lib/i18n).
+ *
+ * São enums — e não texto livre — para que a base de dados
+ * nunca fique com uma localização que a loja não sabe
+ * renderizar. Valores antigos fora desta lista são
+ * normalizados no cliente ("pt"/"MZN").
+ */
+const storeLanguageInput = z.enum(["pt", "en"]);
+
+const storeCurrencyInput = z.enum(["MZN", "ZAR", "USD"]);
 
 /* ============================================================
    HELPERS
@@ -137,6 +167,215 @@ function requireStoreAccess(hasAccess: boolean) {
     });
   }
 }
+
+/*
+ * Domínio de modelos aceites por categoria, DERIVADO do
+ * catálogo estrutural (shared/market-catalog.ts) — fonte
+ * única de verdade partilhada com o Market e com o tema.
+ *
+ * Garante que todos os modelos vendidos no Market são
+ * aceites pela Personalizar Loja (antes o backend limitava
+ * header/footer/seções a 1–3 e a navegação a 1–5, deixando
+ * modelos comprados sem forma de serem aplicados).
+ */
+function marketModelEnum(
+  category: MarketCatalogCategory,
+) {
+  const models = getMarketModelNumbers(category);
+
+  if (models.length === 0) {
+    throw new Error(
+      `MARKET_MODEL_DOMAIN_EMPTY: categoria "${category}" sem modelos no catálogo.`
+    );
+  }
+
+  return z.enum(models as [string, ...string[]]).nullable();
+}
+
+/* ============================================================
+   PRODUTOS — CONTRATOS DE ENTRADA
+
+   Schemas exportados para serem validados diretamente nos
+   testes (sem base de dados). O router usa exatamente estes
+   contratos — a fonte de verdade é única.
+   ============================================================ */
+
+export const PRODUCT_VARIANTS_MAX = 200;
+
+/**
+ * Uma variante = uma combinação concreta de valores das
+ * opções do produto, com preço/stock/SKU próprios.
+ * Opcional: campo vazio/null herda o valor do produto.
+ */
+export const productVariantInput = z.object({
+  /* Mesmos nomes de opção de `options` (Record<opção, valor>). */
+  values: z
+    .record(
+      z.string().min(1).max(80),
+      z.string().min(1).max(120),
+    )
+    .refine(values => Object.keys(values).length > 0, {
+      message: "A variante precisa de pelo menos um valor de opção.",
+    }),
+
+  priceMzn: z.number().int().nonnegative().nullable().optional(),
+
+  stock: z.number().int().nonnegative().nullable().optional(),
+
+  sku: z.string().trim().max(80).nullable().optional(),
+});
+
+export type ProductVariantInput = z.infer<typeof productVariantInput>;
+
+/**
+ * As variantes só fazem sentido relativamente às opções do
+ * produto: cada linha tem de descrever uma combinação VÁLIDA
+ * de valores. Combinações órfãs (opção removida/renomeada ou
+ * valor alterado) são descartadas no servidor — a base de
+ * dados é a fonte de verdade do alinhamento.
+ */
+export function alignProductVariants(
+  options: { name: string; values: string[] }[],
+  variants: ProductVariantInput[],
+): ProductVariantInput[] {
+  const allowed = new Map<string, Set<string>>(
+    options
+      .map(option => ({
+        name: option.name.trim(),
+        values: option.values
+          .map(value => value.trim())
+          .filter(Boolean),
+      }))
+      .filter(option => option.name && option.values.length > 0)
+      .map(option => [option.name, new Set(option.values)]),
+  );
+
+  return variants.filter(variant => {
+    const entries = Object.entries(variant.values);
+
+    /* Tem de cobrir exatamente todas as opções do produto. */
+    if (entries.length !== allowed.size) {
+      return false;
+    }
+
+    return entries.every(([name, value]) =>
+      allowed.get(name.trim())?.has(value.trim()),
+    );
+  });
+}
+
+export const productCreateInput = z.object({
+  storeId: storeIdInput,
+
+  name: z.string().trim().min(2).max(180),
+
+  slug: z.string().trim().min(2).max(180),
+
+  description: z.string().max(5000).optional(),
+
+  priceMzn: z.number().int().nonnegative(),
+
+  compareAtPriceMzn: z.number().int().nonnegative().optional(),
+
+  stock: z.number().int().nonnegative().default(0),
+
+  /*
+   * Categoria do produto: deve ser uma das categorias
+   * reais da loja. Vazio/null = Sem categoria.
+   */
+  category: z.string().trim().max(80).optional(),
+
+  imageUrl: z.string().url().optional(),
+
+  imageKeys: z
+    .array(z.string().trim().min(1).max(1024))
+    .max(12)
+    .default([]),
+
+  options: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(80),
+
+        values: z
+          .array(z.string().trim().min(1).max(120))
+          .min(1)
+          .max(100),
+      })
+    )
+    .max(10)
+    .default([]),
+
+  /*
+   * Preço/stock/SKU por combinação de opções. Por omissão,
+   * nenhuma variante define valores próprios.
+   */
+  variants: z.array(productVariantInput).max(PRODUCT_VARIANTS_MAX).default([]),
+
+  /*
+   * Estado de publicação escolhido no formulário:
+   * "draft" = rascunho (não aparece na storefront);
+   * "active" = publicado imediatamente.
+   */
+  status: z.enum(["draft", "active"]).default("draft"),
+
+  /* Produto em destaque (Visibilidade). */
+  featured: z.boolean().default(false),
+});
+
+export const productUpdateInput = z.object({
+  storeId: storeIdInput,
+
+  productId: z.number().int().positive(),
+
+  name: z.string().trim().min(2).max(180).optional(),
+
+  description: z.string().trim().max(5000).nullable().optional(),
+
+  priceMzn: z.number().int().positive().optional(),
+
+  compareAtPriceMzn: z.number().int().positive().nullable().optional(),
+
+  stock: z.number().int().nonnegative().optional(),
+
+  category: z.string().trim().max(80).nullable().optional(),
+
+  imageUrl: z.string().url().nullable().optional(),
+
+  imageKeys: z
+    .array(z.string().trim().min(1).max(1024))
+    .max(12)
+    .optional(),
+
+  options: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(80),
+        values: z
+          .array(z.string().trim().min(1).max(120))
+          .min(1)
+          .max(100),
+      })
+    )
+    .max(10)
+    .optional(),
+
+  /*
+   * Preço/stock/SKU por combinação de opções (parcial tal
+   * como os restantes campos da edição).
+   */
+  variants: z.array(productVariantInput).max(PRODUCT_VARIANTS_MAX).optional(),
+
+  /*
+   * Estado de publicação: permite publicar ("active"),
+   * voltar a rascunho ("draft") ou arquivar
+   * ("archived") a partir do modal de edição.
+   */
+  status: z.enum(["draft", "active", "archived"]).optional(),
+
+  /* Produto em destaque (Visibilidade). */
+  featured: z.boolean().optional(),
+});
 
 /* ============================================================
    APP ROUTER
@@ -270,9 +509,7 @@ export const appRouter = router({
      * Google" e "Continuar com Apple". Leitura apenas —
      * não expõe credenciais, só disponibilidade.
      */
-    socialProviders: publicProcedure.query(
-      () => activeSocialProviders,
-    ),
+    socialProviders: publicProcedure.query(() => activeSocialProviders),
 
     /*
      * Repõe a credencial de palavra-passe da sessão atual
@@ -389,6 +626,14 @@ export const appRouter = router({
             slug: store.slug,
             category: store.category,
             currency: store.currency,
+
+            /*
+             * Idioma de exibição da loja pública
+             * ("pt" | "en"). Lido pelo i18n do storefront
+             * para escolher o catálogo de textos.
+             */
+            language: store.language,
+
             status: store.status,
             themeKey: store.themeKey,
             whatsapp: store.whatsapp ?? null,
@@ -624,9 +869,10 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z
-              .enum(["1", "2", "3", "4", "5", "6", "7", "8", "9"])
-              .nullable(),
+            /* Modelos de carrossel do Market (1banner–9banner).
+               O 10banner (Simples) não é modelo de carrossel: liga
+               o modo de imagem única — ver BANNER_MODELS no tema. */
+            model: marketModelEnum("banner"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -830,7 +1076,7 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).nullable(),
+            model: marketModelEnum("product_card"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -870,7 +1116,7 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z.enum(["1", "2", "3", "4", "5"]).nullable(),
+            model: marketModelEnum("nav_button"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -911,7 +1157,7 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z.enum(["1", "2", "3"]).nullable(),
+            model: marketModelEnum("header"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -947,7 +1193,7 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z.enum(["1", "2", "3"]).nullable(),
+            model: marketModelEnum("footer"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -983,7 +1229,7 @@ export const appRouter = router({
           z.object({
             storeId: storeIdInput,
 
-            model: z.enum(["1", "2", "3"]).nullable(),
+            model: marketModelEnum("category_card"),
           })
         )
         .mutation(async ({ ctx, input }) => {
@@ -1245,6 +1491,211 @@ export const appRouter = router({
     }),
 
     /* ========================================================
+       LOCALIZAÇÃO (idioma + moeda)
+       ======================================================== */
+
+    locale: router({
+      update: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            language: storeLanguageInput,
+            currency: storeCurrencyInput,
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
+
+          const store = await updateStoreLocale(input.storeId, {
+            language: input.language,
+            currency: input.currency,
+          });
+
+          if (!store) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+
+          return store;
+        }),
+    }),
+
+    domain: router({
+      get: protectedProcedure
+        .input(z.object({ storeId: storeIdInput }))
+        .query(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
+          const domain = await getStoreCustomDomainSettings(input.storeId);
+          if (!domain)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          if (!domain.customDomain)
+            return {
+              state: "not-configured" as const,
+              domain: null,
+              verifiedAt: null,
+              txtName: null,
+              txtValue: null,
+            };
+          const dns = domain.verificationToken
+            ? await checkCustomDomainVerification(
+                domain.customDomain,
+                domain.verificationToken
+              )
+            : { verified: false, error: true };
+          const verified = dns.verified;
+          if (verified && !domain.verifiedAt)
+            await markStoreCustomDomainVerified(input.storeId);
+          return {
+            state: verified
+              ? ("verified" as const)
+              : dns.error
+                ? ("error" as const)
+                : ("dns-pending" as const),
+            domain: domain.customDomain,
+            verifiedAt: verified ? (domain.verifiedAt ?? new Date()) : null,
+            txtName: `_homsteg-verification.${domain.customDomain}`,
+            txtValue: domain.verificationToken,
+          };
+        }),
+      save: protectedProcedure
+        .input(
+          z.object({
+            storeId: storeIdInput,
+            domain: z.string().trim().min(1).max(253),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
+          const normalized = normalizeCustomDomain(input.domain);
+          if (!normalized)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Domínio inválido. Introduz apenas o domínio, sem https://, caminhos ou espaços.",
+            });
+          const token = `homsteg-verify=${randomBytes(24).toString("hex")}`;
+          try {
+            await saveStoreCustomDomain(input.storeId, normalized, token);
+          } catch (error) {
+            if ((error as { code?: string })?.code === "23505")
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "Este domínio já está associado a outra loja.",
+              });
+            throw error;
+          }
+          return {
+            state: "dns-pending" as const,
+            domain: normalized,
+            txtName: `_homsteg-verification.${normalized}`,
+            txtValue: token,
+          };
+        }),
+      verify: protectedProcedure
+        .input(z.object({ storeId: storeIdInput }))
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
+          const domain = await getStoreCustomDomainSettings(input.storeId);
+          if (!domain?.customDomain || !domain.verificationToken)
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "Guarda um domínio antes de verificar o DNS.",
+            });
+          const dns = await checkCustomDomainVerification(
+            domain.customDomain,
+            domain.verificationToken
+          );
+          if (dns.error)
+            return {
+              state: "error" as const,
+              message:
+                "Não foi possível resolver o DNS deste domínio. Confirma o domínio e tenta novamente.",
+            };
+          if (!dns.verified) {
+            return {
+              state: "dns-pending" as const,
+              message:
+                "O registo TXT ainda não foi encontrado. Confirma os dados e tenta novamente após a propagação do DNS.",
+            };
+          }
+          const verified = await markStoreCustomDomainVerified(input.storeId);
+          return {
+            state: "verified" as const,
+            verifiedAt: verified?.customDomainVerifiedAt ?? new Date(),
+          };
+        }),
+      remove: protectedProcedure
+        .input(z.object({ storeId: storeIdInput }))
+        .mutation(async ({ ctx, input }) => {
+          requireStoreAccess(
+            await userHasStoreAccess(
+              ctx.user.id,
+              input.storeId,
+              ctx.user.role === "admin"
+            )
+          );
+          await saveStoreCustomDomain(input.storeId, null, null);
+          return { state: "not-configured" as const };
+        }),
+      byHostname: publicProcedure
+        .input(z.object({ domain: z.string().trim().max(253) }))
+        .query(async ({ input }) => {
+          const normalized = normalizeCustomDomain(input.domain);
+          if (!normalized)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          const store = await getPublicStoreByCustomDomain(normalized);
+          if (
+            !store ||
+            !store.customDomainVerificationToken ||
+            !(
+              await checkCustomDomainVerification(
+                normalized,
+                store.customDomainVerificationToken
+              )
+            ).verified
+          ) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Loja não encontrada.",
+            });
+          }
+          return { slug: store.slug };
+        }),
+    }),
+
+    /* ========================================================
        STORE APPLICATION
        ======================================================== */
 
@@ -1468,9 +1919,10 @@ export const appRouter = router({
 
   /* ==========================================================
      PRODUCTS
-     ========================================================== */
-
-  products: router({
+     ========================================================== */      products: router({
+        listPublic: publicProcedure.query(async () => {
+          return listPublicProducts("store-id-placeholder");
+        }),
     list: protectedProcedure
       .input(
         z.object({
@@ -1490,51 +1942,7 @@ export const appRouter = router({
       }),
 
     create: protectedProcedure
-      .input(
-        z.object({
-          storeId: storeIdInput,
-
-          name: z.string().trim().min(2).max(180),
-
-          slug: z.string().trim().min(2).max(180),
-
-          description: z.string().max(5000).optional(),
-
-          priceMzn: z.number().int().nonnegative(),
-
-          compareAtPriceMzn: z.number().int().nonnegative().optional(),
-
-          stock: z.number().int().nonnegative().default(0),
-
-          /*
-           * Categoria do produto: deve ser uma das
-           * categorias reais da loja. Vazio/null =
-           * Sem categoria.
-           */
-          category: z.string().trim().max(80).optional(),
-
-          imageUrl: z.string().url().optional(),
-
-          imageKeys: z
-            .array(z.string().trim().min(1).max(1024))
-            .max(12)
-            .default([]),
-
-          options: z
-            .array(
-              z.object({
-                name: z.string().trim().min(1).max(80),
-
-                values: z
-                  .array(z.string().trim().min(1).max(120))
-                  .min(1)
-                  .max(100),
-              })
-            )
-            .max(10)
-            .default([]),
-        })
-      )
+      .input(productCreateInput)
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
@@ -1601,6 +2009,31 @@ export const appRouter = router({
           category = match.name;
         }
 
+        /*
+         * A referência PERMANENTE da imagem é imageKeys (chave
+         * R2) — as URLs de acesso são geradas em cada leitura.
+         * Uma URL assinada expira em 7 dias, por isso nunca é
+         * persistida: quando chega presigned, converte-mo-la na
+         * chave correspondente, desde que pertença à pasta de
+         * imagens desta loja (isolamento por tenant).
+         */
+        const imageKeys = [...input.imageKeys];
+        let imageUrl = input.imageUrl ?? null;
+
+        if (imageUrl && isPresignedObjectUrl(imageUrl)) {
+          const objectKey = extractStoreObjectKey(imageUrl);
+
+          if (
+            objectKey &&
+            objectKey.startsWith(productImagePrefix) &&
+            !imageKeys.includes(objectKey)
+          ) {
+            imageKeys.push(objectKey);
+          }
+
+          imageUrl = null;
+        }
+
         return insertProduct({
           storeId: input.storeId,
           name: input.name,
@@ -1610,53 +2043,20 @@ export const appRouter = router({
           compareAtPriceMzn: input.compareAtPriceMzn,
           stock: input.stock,
           category,
-          imageUrl: input.imageUrl,
-          imageKeys: input.imageKeys,
+          imageUrl,
+          imageKeys,
           options: input.options,
-          status: "draft",
+          variants: alignProductVariants(
+            input.options,
+            input.variants
+          ),
+          status: input.status,
+          featured: input.featured,
         });
       }),
 
     update: protectedProcedure
-      .input(
-        z.object({
-          storeId: storeIdInput,
-
-          productId: z.number().int().positive(),
-
-          name: z.string().trim().min(2).max(180).optional(),
-
-          description: z.string().trim().max(5000).nullable().optional(),
-
-          priceMzn: z.number().int().positive().optional(),
-
-          compareAtPriceMzn: z.number().int().positive().nullable().optional(),
-
-          stock: z.number().int().nonnegative().optional(),
-
-          category: z.string().trim().max(80).nullable().optional(),
-
-          imageUrl: z.string().url().nullable().optional(),
-
-          imageKeys: z
-            .array(z.string().trim().min(1).max(1024))
-            .max(12)
-            .optional(),
-
-          options: z
-            .array(
-              z.object({
-                name: z.string().trim().min(1).max(80),
-                values: z
-                  .array(z.string().trim().min(1).max(120))
-                  .min(1)
-                  .max(100),
-              })
-            )
-            .max(10)
-            .optional(),
-        })
-      )
+      .input(productUpdateInput)
       .mutation(async ({ ctx, input }) => {
         requireStoreAccess(
           await userHasStoreAccess(
@@ -1676,9 +2076,39 @@ export const appRouter = router({
           updates.compareAtPriceMzn = input.compareAtPriceMzn;
         if (input.stock !== undefined) updates.stock = input.stock;
         if (input.category !== undefined) updates.category = input.category;
-        if (input.imageUrl !== undefined) updates.imageUrl = input.imageUrl;
+        if (input.imageUrl !== undefined) {
+          /*
+           * URL assinada expira em 7 dias: nunca fica guardada
+           * como referência permanente. A referência é
+           * imageKeys (chave R2), hidratada em cada leitura.
+           */
+          updates.imageUrl =
+            input.imageUrl && isPresignedObjectUrl(input.imageUrl)
+              ? null
+              : input.imageUrl;
+        }
         if (input.imageKeys !== undefined) updates.imageKeys = input.imageKeys;
         if (input.options !== undefined) updates.options = input.options;
+
+        if (input.variants !== undefined) {
+          /*
+           * As variantes são alinhadas com as opções EFETIVAS
+           * do produto: as enviadas nesta edição ou, numa
+           * edição parcial, as já guardadas na base de dados.
+           */
+          const effectiveOptions =
+            input.options ??
+            (await getProduct(input.storeId, input.productId))
+              ?.options ??
+            [];
+
+          updates.variants = alignProductVariants(
+            effectiveOptions,
+            input.variants
+          );
+        }
+        if (input.status !== undefined) updates.status = input.status;
+        if (input.featured !== undefined) updates.featured = input.featured;
 
         /*
          * Defesa extra (isolamento entre lojas): cada chave
@@ -1958,14 +2388,12 @@ export const appRouter = router({
               featureKey: z.string().trim().min(1).max(64),
               name: z.string().trim().min(1).max(120),
               description: z.string().trim().min(1).max(2000),
-              category: z.enum([
-                "header",
-                "banner",
-                "category_card",
-                "product_card",
-                "footer",
-                "stock",
-              ]),
+
+              /* Todas as categorias do catálogo estrutural —
+                 incluindo nav_button, que faltava nesta lista
+                 (o Admin não conseguia publicar botões de
+                 navegação sem tocar em código). */
+              category: z.enum(MARKET_CATEGORIES),
               priceCredits: z.number().int().min(0).max(1_000_000),
               status: z.enum(["active", "inactive"]).default("active"),
               sortOrder: z.number().int().min(0).max(999).default(0),

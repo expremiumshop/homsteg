@@ -11,7 +11,9 @@
  * dashboard (seletor) e o storefront (renderização).
  */
 
-export const HEADER_MODELS = ["1", "2", "3"] as const;
+export const HEADER_MODELS = [
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+] as const;
 
 export type HeaderModel = (typeof HEADER_MODELS)[number];
 
@@ -25,9 +27,7 @@ export type HeaderModel = (typeof HEADER_MODELS)[number];
  * fica vazia.
  */
 export const HEADER_UNLOCKABLE_MODELS = [
-  "1",
-  "2",
-  "3",
+  ...HEADER_MODELS,
 ] as const;
 
 /**
@@ -43,6 +43,13 @@ export const HEADER_PURCHASE_TO_MODEL: Record<
   "1header": "1",
   "2header": "2",
   "3header": "3",
+  "4header": "4",
+  "5header": "5",
+  "6header": "6",
+  "7header": "7",
+  "8header": "8",
+  "9header": "9",
+  "10header": "10",
 };
 
 /**
@@ -55,6 +62,13 @@ export const HEADER_TO_MARKET_FEATURE: Record<
   "1": "1header",
   "2": "2header",
   "3": "3header",
+  "4": "4header",
+  "5": "5header",
+  "6": "6header",
+  "7": "7header",
+  "8": "8header",
+  "9": "9header",
+  "10": "10header",
 };
 
 export function isHeaderModel(
@@ -88,6 +102,20 @@ export function getHeaderModelLabel(
       return "Minimal";
     case "3":
       return "Escuro";
+    case "4":
+      return "Faixa de anúncio";
+    case "5":
+      return "Editorial";
+    case "6":
+      return "Compacto com categorias";
+    case "7":
+      return "Marca centrada";
+    case "8":
+      return "Colorido";
+    case "9":
+      return "Pesquisa destacada";
+    case "10":
+      return "Com navegação superior";
   }
 }
 
@@ -101,5 +129,19 @@ export function getHeaderModelDescription(
       return "Barra única: logo à esquerda, pesquisa e ações à direita.";
     case "3":
       return "Barra escura com marca e pesquisa centradas.";
+    case "4":
+      return "Anúncio promocional acima da marca e pesquisa.";
+    case "5":
+      return "Marca editorial com serifas e pesquisa discreta.";
+    case "6":
+      return "Cabeçalho compacto com atalhos de categorias.";
+    case "7":
+      return "Marca centrada com ações laterais.";
+    case "8":
+      return "Cabeçalho colorido com pesquisa em destaque.";
+    case "9":
+      return "Pesquisa ampla como elemento principal.";
+    case "10":
+      return "Marca e links de navegação numa barra superior.";
   }
 }

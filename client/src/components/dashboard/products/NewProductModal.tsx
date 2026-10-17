@@ -19,6 +19,13 @@ import {
   Settings2,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import {
+  MAX_VARIANT_ROWS,
+  buildVariantPayload,
+  buildVariantRows,
+  validateVariantDetails,
+  type VariantDetail,
+} from "./variantMatrix";
 
 type ProductImage = {
   id: string;
@@ -174,6 +181,11 @@ export default function NewProductModal({
 
   const [options, setOptions] =
     useState<ProductOption[]>([]);
+
+  /* Preço/stock/SKU próprios por combinação de opções. */
+  const [variantDetails, setVariantDetails] = useState<
+    Record<string, VariantDetail>
+  >({});
 
   const [quickOption, setQuickOption] =
     useState("");
@@ -588,6 +600,16 @@ export default function NewProductModal({
             Boolean(option.name) && option.values.length > 0,
         );
 
+      const variantError = validateVariantDetails(
+        variantRows,
+        variantDetails,
+      );
+
+      if (variantError) {
+        setError(variantError);
+        return;
+      }
+
       /*
        * =================================================
        * 4. GERAR SLUG
@@ -631,9 +653,20 @@ export default function NewProductModal({
         category:
           category.trim() ||
           undefined,
-        imageUrl: uploadedImages[0]?.imageUrl,
+        /*
+         * A referência PERMANENTE da imagem é a chave R2
+         * (imageKeys). A imageUrl devolvida pelo presign expira
+         * em 7 dias, por isso nunca é guardada no produto — o
+         * servidor gera as URLs de acesso a partir das chaves.
+         */
         imageKeys: uploadedImages.map((upload) => upload.key),
         options: productOptions,
+        status,
+        featured,
+        variants: buildVariantPayload(
+          variantRows,
+          variantDetails,
+        ),
       });
 
       /*
@@ -679,6 +712,35 @@ export default function NewProductModal({
     QUICK_OPTIONS.find(
       (item) => item.id === quickOption,
     );
+
+  /*
+   * Combinações atuais das opções — a matriz de variantes
+   * (preço/stock/SKU) é gerada a partir delas.
+   */
+  const { rows: variantRows, truncated: variantRowsTruncated } =
+    buildVariantRows(options);
+
+  function updateVariantDetail(
+    signature: string,
+    field: keyof VariantDetail,
+    value: string,
+  ) {
+    setVariantDetails((current) => {
+      const detail = current[signature] ?? {
+        price: "",
+        stock: "",
+        sku: "",
+      };
+
+      return {
+        ...current,
+        [signature]: {
+          ...detail,
+          [field]: value,
+        },
+      };
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-[2px] sm:p-6">
@@ -1222,6 +1284,112 @@ export default function NewProductModal({
                       </div>
                     ),
                   )}
+                </div>
+              </div>
+
+              {/* PREÇO, STOCK E SKU POR VARIANTE */}
+              <div className="mt-8">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Preço, stock e SKU por variante
+                  </h3>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Vazio = usa o preço, o stock e o SKU do produto.
+                  </p>
+                </div>
+
+                {variantRows.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-center text-sm text-slate-400">
+                    Adiciona opções com valores para gerar as combinações.
+                  </div>
+                )}
+
+                {variantRowsTruncated && (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-700">
+                    Mais de {MAX_VARIANT_ROWS} combinações: apenas as
+                    primeiras {MAX_VARIANT_ROWS} são editáveis. Reduz os
+                    valores das opções.
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {variantRows.map((row) => {
+                    const detail = variantDetails[row.signature] ?? {
+                      price: "",
+                      stock: "",
+                      sku: "",
+                    };
+
+                    return (
+                      <div
+                        key={row.signature}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <p className="mb-3 text-sm font-semibold text-slate-800">
+                          {row.label}
+                        </p>
+
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <label className="text-xs font-medium text-slate-600">
+                            Preço (MZN)
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={detail.price}
+                              onChange={(event) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "price",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Usar preço do produto"
+                              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+
+                          <label className="text-xs font-medium text-slate-600">
+                            Stock
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={detail.stock}
+                              onChange={(event) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "stock",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Usar stock do produto"
+                              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+
+                          <label className="text-xs font-medium text-slate-600">
+                            SKU
+                            <input
+                              type="text"
+                              maxLength={80}
+                              value={detail.sku}
+                              onChange={(event) =>
+                                updateVariantDetail(
+                                  row.signature,
+                                  "sku",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Sem SKU próprio"
+                              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>

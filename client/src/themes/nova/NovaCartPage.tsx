@@ -3,8 +3,39 @@ import { Link, useSearch } from "wouter";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/lib/i18n-context";
 
+import StoreI18nBoundary from "./StoreI18nBoundary";
+
+/**
+ * Rota /themes/nova/carrinho — montada fora da árvore do
+ * NovaStorefront, por isso o i18n da loja é injetado aqui
+ * (StoreI18nBoundary) antes de qualquer texto ser renderizado.
+ */
 export default function NovaCartPage() {
+  const { cart } = useCart();
+
+  /*
+   * O storeSlug vem dos itens do carrinho (adicionados na
+   * loja) ou da URL (?storeSlug=...) — é ele que diz ao
+   * boundary qual o idioma/moeda desta loja.
+   */
+  const search = useSearch();
+  const searchStoreSlug = new URLSearchParams(search)
+    .get("storeSlug")
+    ?.trim();
+
+  const storeSlug =
+    cart[0]?.storeSlug ?? searchStoreSlug;
+
+  return (
+    <StoreI18nBoundary storeSlug={storeSlug}>
+      <NovaCartContent />
+    </StoreI18nBoundary>
+  );
+}
+
+function NovaCartContent() {
   const {
     cart,
     removeFromCart,
@@ -13,10 +44,10 @@ export default function NovaCartPage() {
     total,
   } = useCart();
 
+  const { t, formatMoney } = useI18n();
+
   /*
    * O cliente volta sempre para a loja real de onde veio.
-   * O storeSlug acompanha os itens do carrinho (adicionados
-   * na loja) e a URL (?storeSlug=...) como fallback.
    */
   const search = useSearch();
   const searchStoreSlug = new URLSearchParams(search)
@@ -79,7 +110,7 @@ export default function NovaCartPage() {
               [overflow-wrap:anywhere]
             "
           >
-            Seu carrinho está vazio
+            {t("cart.empty")}
           </h1>
 
           <p
@@ -92,7 +123,7 @@ export default function NovaCartPage() {
               [overflow-wrap:anywhere]
             "
           >
-            Adicione produtos para continuar.
+            {t("cart.emptyHint")}
           </p>
 
           <Link
@@ -110,7 +141,7 @@ export default function NovaCartPage() {
               hover:bg-orange-600
             "
           >
-            Continuar comprando
+            {t("cart.continueShopping")}
           </Link>
         </div>
       </main>
@@ -154,7 +185,7 @@ export default function NovaCartPage() {
               hover:text-orange-600
             "
           >
-            ← Voltar à loja
+            {t("cart.backToStore")}
           </Link>
 
           <h1
@@ -169,7 +200,7 @@ export default function NovaCartPage() {
               md:text-4xl
             "
           >
-            Carrinho de compras
+            {t("cart.title")}
           </h1>
         </div>
 
@@ -260,10 +291,7 @@ export default function NovaCartPage() {
                       text-orange-600
                     "
                   >
-                    {Number(item.price).toLocaleString(
-                      "pt-MZ"
-                    )}{" "}
-                    MZN
+                    {formatMoney(Number(item.price))}
                   </p>
 
                   {/* =================================================
@@ -337,7 +365,7 @@ export default function NovaCartPage() {
                         transition
                         hover:bg-gray-200
                       "
-                      aria-label="Diminuir quantidade"
+                      aria-label={t("cart.decrease")}
                     >
                       <Minus size={16} />
                     </button>
@@ -374,7 +402,7 @@ export default function NovaCartPage() {
                         transition
                         hover:bg-gray-200
                       "
-                      aria-label="Aumentar quantidade"
+                      aria-label={t("cart.increase")}
                     >
                       <Plus size={16} />
                     </button>
@@ -401,7 +429,7 @@ export default function NovaCartPage() {
                     "
                   >
                     <Trash2 size={15} />
-                    Remover
+                    {t("cart.remove")}
                   </button>
                 </div>
 
@@ -426,11 +454,10 @@ export default function NovaCartPage() {
                       sm:text-right
                     "
                   >
-                    {(
+                    {formatMoney(
                       Number(item.price) *
-                      Number(item.quantity)
-                    ).toLocaleString("pt-MZ")}{" "}
-                    MZN
+                        Number(item.quantity)
+                    )}
                   </strong>
                 </div>
               </div>
@@ -463,7 +490,7 @@ export default function NovaCartPage() {
               text-gray-900
             "
           >
-            Resumo
+            {t("cart.summary")}
           </h2>
 
           <div
@@ -477,7 +504,7 @@ export default function NovaCartPage() {
             "
           >
             <span className="shrink-0 text-gray-600">
-              Total:
+              {t("cart.total")}
             </span>
 
             <strong
@@ -489,7 +516,7 @@ export default function NovaCartPage() {
                 text-gray-900
               "
             >
-              {total.toLocaleString("pt-MZ")} MZN
+              {formatMoney(total)}
             </strong>
           </div>
 
@@ -513,7 +540,7 @@ export default function NovaCartPage() {
               hover:bg-orange-600
             "
           >
-            Finalizar compra
+            {t("cart.checkout")}
           </Link>
 
           {/* =================================================
@@ -533,7 +560,7 @@ export default function NovaCartPage() {
               hover:text-red-600
             "
           >
-            Limpar carrinho
+            {t("cart.clear")}
           </button>
         </div>
       </div>

@@ -116,32 +116,42 @@
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Receita total"
-            value="0 MZN"
-            description="Nenhuma venda registada"
+            value="—"
+            description="Dados de vendas indisponíveis"
             icon={BarChart3}
           />
   
           <StatCard
             title="Encomendas"
-            value="0"
-            description="Nenhuma encomenda"
+            value="—"
+            description="Dados de encomendas indisponíveis"
             icon={ShoppingCart}
           />
   
           <StatCard
             title="Clientes"
-            value="0"
-            description="Nenhum cliente"
+            value="—"
+            description="Dados de clientes indisponíveis"
             icon={Users}
           />
   
           <StatCard
             title="Produtos"
-            value={String(summary?.products.total ?? 0)}
+            value={
+              summaryQuery.isLoading
+                ? "…"
+                : summaryQuery.isError
+                  ? "—"
+                  : String(summary?.products.total ?? "—")
+            }
             description={
-              summary?.products.total
-                ? "Produtos registados"
-                : "Comece adicionando produtos"
+              summaryQuery.isLoading
+                ? "A carregar produtos"
+                : summaryQuery.isError
+                  ? "Dados indisponíveis"
+                  : summary?.products.total
+                    ? "Produtos registados"
+                    : "Nenhum produto registado"
             }
             icon={Box}
           />
@@ -177,12 +187,11 @@
                 </div>
   
                 <p className="mt-3 text-sm font-semibold text-slate-700">
-                  Ainda não existem vendas
+                  Dados de vendas indisponíveis
                 </p>
   
                 <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">
-                  Quando a sua loja começar a receber encomendas,
-                  os dados das vendas aparecerão aqui.
+                  O resumo atual não fornece métricas de vendas.
                 </p>
               </div>
             </div>
@@ -220,7 +229,7 @@
                 number="03"
                 title="Personalizar loja"
                 description="Escolha o visual da sua loja."
-                href="/store/themes"
+                href="/app/branding"
               />
   
               <QuickAction
@@ -238,18 +247,27 @@
           <EmptyPanel
             icon={Box}
             title="Produtos recentes"
-            description="Os produtos adicionados à sua loja aparecerão aqui."
+            description={
+              summaryQuery.isError
+                ? "Não foi possível carregar os produtos."
+                : summaryQuery.isLoading
+                  ? "A carregar produtos recentes."
+                  : "Os produtos adicionados à sua loja aparecerão aqui."
+            }
             action="Ver produtos"
             href="/app/products"
             items={recentProducts.map((product) => product.name)}
+            loading={summaryQuery.isLoading}
+            error={summaryQuery.isError}
           />
   
           <EmptyPanel
             icon={ShoppingCart}
             title="Encomendas recentes"
-            description="As encomendas dos seus clientes aparecerão aqui."
+            description="A lista de encomendas não está disponível neste resumo."
             action="Ver encomendas"
             href="/app/orders"
+            unavailable
           />
         </div>
       </div>
@@ -334,6 +352,9 @@
     action,
     href,
     items,
+    loading = false,
+    error = false,
+    unavailable = false,
   }: {
     icon: typeof Box;
     title: string;
@@ -341,6 +362,9 @@
     action: string;
     href: string;
     items?: string[];
+    loading?: boolean;
+    error?: boolean;
+    unavailable?: boolean;
   }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -362,9 +386,15 @@
   
         <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
           <span className="truncate text-xs text-slate-400">
-            {items?.length
-              ? items.join(" · ")
-              : "Ainda sem dados"}
+            {loading
+              ? "A carregar..."
+              : error
+                ? "Não foi possível carregar"
+                : items?.length
+                  ? items.join(" · ")
+                  : unavailable
+                    ? "Dados indisponíveis"
+                    : "Ainda sem produtos"}
           </span>
   
           <a
