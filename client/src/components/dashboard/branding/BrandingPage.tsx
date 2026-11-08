@@ -514,16 +514,6 @@ export default function BrandingPage({
     );
   }
 
-  if (!storeId) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-500">
-          Nenhuma loja selecionada.
-        </p>
-      </div>
-    );
-  }
-
   /*
    * URL público da loja atual — o mesmo helper
    * (store-url.ts) usado pelo cabeçalho do painel
@@ -902,6 +892,22 @@ export default function BrandingPage({
 
   function handleSelectCategoryModel(model: CategoryCardModel) {
     stageModels({ categoryCardModel: model });
+  }
+
+  /*
+   * O retorno antecipado fica DEPOIS de todos os hooks.
+   * Antes estava antes do unlockQuery e dos useMemo de
+   * modelos desbloqueados, pelo que o componente chamava
+   * menos hooks sem loja e mais hooks com loja — React #310.
+   */
+  if (!storeId) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <p className="text-sm text-gray-500">
+          Nenhuma loja selecionada.
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -153,7 +153,16 @@ export default function ProductsPage({
     },
   );
 
-  const products = (productsQuery.data ?? []) as Product[];
+  /*
+   * O fallback `[]` tem de ser estável entre renders. Sem o
+   * useMemo era criado um array novo sempre que a query ainda
+   * não tinha dados, o que fazia o useEffect abaixo correr em
+   * ciclo (setSelectedIds → render → novo array → efeito...).
+   */
+  const products = useMemo(
+    () => (productsQuery.data ?? []) as Product[],
+    [productsQuery.data],
+  );
 
   const [search, setSearch] = useState("");
 
@@ -170,12 +179,45 @@ export default function ProductsPage({
   );
 
   useEffect(() => {
-    setSelectedIds((current) =>
-      current.filter((id) =>
+    setSelectedIds((current) => {
+      const next = current.filter((id) =>
         products.some((product) => product.id === id),
-      ),
-    );
+      );
+
+      /*
+       * Devolver o mesmo array quando nada foi removido evita
+       * um render extra (e um possível ciclo se `products`
+       * mudar de identidade sem mudar de conteúdo).
+       */
+      return next.length === current.length ? current : next;
+    });
   }, [products]);
+
+  /*
+   * Este useMemo TEM de ficar acima dos retornos antecipados.
+   * Se ficasse depois de "if (!storeId)" / "isLoading" /
+   * "isError", o componente chamaria menos hooks no primeiro
+   * render (loading) e mais hooks no render seguinte (dados
+   * carregados) — React #310.
+   */
+  const filteredProducts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesSearch =
+        !term ||
+        product.name.toLowerCase().includes(term) ||
+        (product.category ?? "")
+          .toLowerCase()
+          .includes(term);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        product.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [products, search, statusFilter]);
 
   if (!storeId) {
     return (
@@ -201,25 +243,6 @@ export default function ProductsPage({
       </div>
     );
   }
-
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return products.filter((product) => {
-      const matchesSearch =
-        !term ||
-        product.name.toLowerCase().includes(term) ||
-        (product.category ?? "")
-          .toLowerCase()
-          .includes(term);
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        product.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [products, search, statusFilter]);
 
   const totalProducts = products.length;
 
