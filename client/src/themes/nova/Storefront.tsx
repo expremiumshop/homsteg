@@ -508,11 +508,18 @@ export default function NovaStorefront({
       },
     );
 
+  /*
+   * A consulta pública (stores.bySlug) devolve uma projeção
+   * reduzida do produto — sem `category` nem `status` —
+   * enquanto products.list devolve a linha completa.
+   * A conversão passa por `unknown` para o TypeScript aceitar
+   * a projeção; o comportamento em runtime não muda.
+   */
   const products: Product[] = isDemo
     ? demoProducts
     : storeSlug
       ? ((publicStoreQuery.data?.products ??
-          []) as Product[])
+          []) as unknown as Product[])
       : ((internalProductsQuery.data ??
           []) as Product[]);
 
