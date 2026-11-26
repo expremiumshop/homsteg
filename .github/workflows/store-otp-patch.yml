@@ -1,0 +1,95 @@
+name: store-otp-patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remover gate de OTP da criacao de loja
+        shell: python3 {0}
+        run: |
+          from pathlib import Path
+
+          path = Path("server/routers.ts")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+          out = []
+          i = 0
+          removed = 0
+
+          while i < len(lines):
+              if lines[i].strip() == "const authUser = await getBetterAuthUserById(ctx.user.openId);":
+                  if out and out[-1].strip() == "":
+                      out.pop()
+                  j = i
+                  while j < len(lines) and lines[j].strip() != "try {":
+                      j += 1
+                  while out and out[-1].strip() == "":
+                      out.pop()
+                  out.append("\n")
+                  i = j
+                  removed += 1
+                  continue
+              out.append(lines[i])
+              i += 1
+
+          assert removed == 1, "gate nao encontrado"
+
+          patched_lines = out
+          out = []
+          i = 0
+
+          while i < len(patched_lines):
+              line = patched_lines[i]
+              if (
+                  line.strip() == "/*"
+                  and i + 1 < len(patched_lines)
+                  and "Fluxo HOMSTEG" in patched_lines[i + 1]
+              ):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  out.append(indent + "/*\n")
+                  out.append(indent + " * Criação de loja SEM OTP: o utilizador autenticado\n")
+                  out.append(indent + " * cria a loja diretamente, sem código de verificação.\n")
+                  out.append(indent + " *\n")
+                  out.append(indent + " * A verificação por email mantém-se inalterada\n")
+                  out.append(indent + " * no registo e na recuperação de conta (Better Auth).\n")
+                  out.append(indent + " */\n")
+                  j = i
+                  while j < len(patched_lines) and patched_lines[j].strip() != "*/":
+                      j += 1
+                  i = j + 1
+                  continue
+              out.append(line)
+              i += 1
+
+          source = "".join(out)
+          source = source.replace(
+              "import { auth, activeSocialProviders, getBetterAuthUserById } from \"./auth.js\";",
+              "import { auth, activeSocialProviders } from \"./auth.js\";",
+              1,
+          )
+
+          assert "getBetterAuthUserById" not in source, "import ainda presente"
+
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit e remover workflow
+        run: |
+          if git diff --quiet; then
+            echo "sem alteracoes"
+            exit 0
+          fi
+          git rm -q .github/workflows/store-otp-patch.yml
+          git config user.name "homsteg"
+          git config user.email "homsteg-bot@users.noreply.github.com"
+          git commit -am "fix: criar loja sem código de verificação"
+          git push
