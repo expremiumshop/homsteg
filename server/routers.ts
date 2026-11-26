@@ -78,7 +78,7 @@ import {
   checkCustomDomainVerification,
 } from "./custom-domain.js";
 
-import { auth, activeSocialProviders, getBetterAuthUserById } from "./auth.js";
+import { auth, activeSocialProviders } from "./auth.js";
 
 import {
   createStoreDownloadUrl,
@@ -1747,23 +1747,12 @@ export const appRouter = router({
         )
         .mutation(async ({ ctx, input }) => {
           /*
-           * Fluxo HOMSTEG:
-           * a loja só é criada depois de o utilizador
-           * validar o OTP enviado por email.
+           * Criação de loja SEM OTP: o utilizador autenticado
+           * cria a loja diretamente, sem código de verificação.
            *
-           * O gate é verificado diretamente na tabela do
-           * Better Auth, fonte da verdade para emailVerified.
+           * A verificação por email mantém-se inalterada
+           * no registo e na recuperação de conta (Better Auth).
            */
-
-          const authUser = await getBetterAuthUserById(ctx.user.openId);
-
-          if (!authUser?.emailVerified) {
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message:
-                "Confirma o teu email com o código enviado antes de continuar.",
-            });
-          }
 
           try {
             /*
