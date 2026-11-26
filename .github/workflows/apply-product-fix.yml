@@ -1,0 +1,92 @@
+name: apply-product-fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply product fix patch
+        env:
+          PATCH_B64: |
+            H4sIAA3iB2sC/91aS28jSXK+81eEiTmQzariQyIlcUa9TUnsGXlajyWlto3BoDtZlSRzulhZWw89
+            h4BPhve6MHxdDGzA2MOefNur/sn8Av8ER2TWm1Tv9PT6YqKhqsrMiIyMjIj8IrJfB3IFnRnjdm/O
+            O/ZgNuN9e29/sDfYY7MDxuy9g8G825/xHTYfwJn0YMp96O5BpzNU/6DX6XRrr5HNEPidH/CViFfh
+            UvrwVenTsuXq1WLFhEtvL2snLOJDuFrGBvQGcC5vkBG+dPaGO/vDnQ60OvirTePZD9yOhvDd5ejq
+            +JvvYS7uhmAHggXgB9KJIwkhX4HDfe45PMAXOL6YTMGTEPuuZA61iBVbcC+snZ2ejc23PAiF9IbQ
+            tTq1Y+lF3IvMq3sfpYn4XdT2XSa8L8FesiDk0eH11WtzPx8XMC+c88Ace7Z0hLcYwv5MRLXaBcxl
+            sIrdp58CIWlOT97ITETu3Qh2w4BpUVBeCbNA3oYksQh4xFbIndd8FjCIVwyuJ2+QmIdi4XGHRh+7
+            MnbmLgs4THoWbsIKfOk+/TkSNstWPIvtDzyq8TDkcHl9hXqSYWjKQCyEB09/AjaTQcSQm8/dXAAO
+            qKtIuOIBuwJASWv117hPODGKPueRvawrJXuxh5PZS75A7TNSfHAjkMSCi1TZPgtDXOZCBqymJvFQ
+            Alq/40vhRdAII+xacEuPvyT92NEpKaVpwO9iDjfMFU6uqRrHVx7aAb8hneLiDVgx2gxcBoMVD1ck
+            EsNeYs3D9qN6njrrtq+5h22rVvufP/7nv8PX3OMB2p0DtyJawrF0+Cyez3F3zVEcLZHMMY/uh1kH
+            fOVhm+/ev7KTFm27pmnWwLKstsPC5UyywMnnOue3yarOpMNcKwrvAH8/wkEXWqWfaSo+pEUetAMZ
+            R2iZOB4+9tvCR/1q0EPfcHlIyvAW3DGgO+iA8JB9hOYeNlqo4F4PTdPlusFs1mqOwFWa5kJEwNq2
+            K9AK22Fgt3GZvvTwK/yla5x9FnlNoPfewcH+voNiW9ZB/+DAQdG6nc5gd5cU/pny1VBHnyvjq1dg
+            dveNAbTw7z7gp0AWQQSPNdyZ11JGfoBGHhr0OeVRhPEh7OHXGuYUZutubAuHmwFndlT/stZKydHP
+            WBhlw0LpoZ3SgBrkQwLfzka8arti1qYmHFWS4mz0j+/ejiano/Ord5OLf5gaWuq+FnvQMXaU4HN0
+            ZbICEOE09omcO8oLKRA2iFETGa9rUGu1X9Ra8AKOWMgHu+DHgUQvpvATcAzGGOtYxIZNilFzgbFB
+            BNKguGdjFKJQgy5M5DNX2jKkwLjTg2+P4Od//jfgNyJiEPAZbgJFFPRgZn9AioyTIujC2ZHigSGH
+            hz5zMTIDds3uIzR3L17B0188YUuYRqj+hUUqOsYx5MUWEbZrLRbee3a+avKUK6mX1KCPIbzGv03U
+            YQvARu+IEvaH4PFbuMZt3R8FAbtv0AAAdsvQZYjSYtR8hLGBB42mQd1N2rmMj72MvQ9T8cCRV+du
+            H0+1pBv9EGbCY8E99tTrSSseI5BMQgO0XyDll7pNf3+lpbNc7i2iZamrdZjPqITRa4J0Kuzfoqdk
+            RqCoptaperNWSOYL4xkraEH/1LzGRgu0ckEKvc3sPX1rKvnXevl4FsaBBzP0iIaWmLqpk9AFmbnD
+            5yx2o3wzK67aUH6QHALKFaWHp2fIE1c46KPvtnq9A+3Cn8RV7+h3PAhkYGDkjsb09j3uTxzyaYRH
+            S6NeJ8/Jhq7IDRZcDT7T71uG18yUIDkfr/VxekgdoHzfSk9OPAqRUA+4DlwLWZ3FyAuFbmhVak6b
+            Jyyya22w2xxW5Qj5cvTcyWBkBxm7NHAm4lV5kOb7u6TyVn9/x+h+quprifVgMEoN6QUcfupPa1PR
+            Ioa6HJ+cThTSOhnD9eWbi9EJjC7gaHT87fj8JLNYNXZ8/vZ0NIHRFE7PRl+Pz6dwOZqMEPccv7m4
+            Pnn9ZjQZIzT5LNmy+QozX2SRkOCbQpGE3gglptAqBWEFqo+BLER7yCknU5hLFohLWMt6RioClwq3
+            yiKSfR69ompycpwfY7bPHZy/BFGHCmUSgw1oWyDXIBfyaTWqNZEXHY0byLW8vBSRF7AsHTzIhpIK
+            R6JZEIQNNETeolwCn09/WkF+3IGX4lBaBq6AAPWkR+LI1J+t3DTa6WvRTZPTl84bfbTgpq1EiKeL
+            6zYyWpwAc5x0rLVifkMfbA2hN/fwJUZ75WuDgdHrQ2vQ7Ri93U+Oc/lPB7P0t9ahCrasIJO8FMGs
+            FQUBPiIpkbVZZJ2E6CEgGhI3GA+TiF0aREfsOWZHQ50PWOrI9bChMs7WCZrO4wpDI2woDV3jiszn
+            FjFBfIGfPFuMsqGG7kzcCWOuAZWlrDhmD7iSOjpGvSLZkuP2BuEQMVy9mG7WN+SEdYV0Jp374qiP
+            L0TMofF35XVY8kN2/kMSrO/LDdmRqxe85Tgob2GrnI88t4mVYR/ZxsrIj29kZTBhT43ihgVIliG7
+            6nAo6bLS2ay0rJtfFhvWYDO0BUiMQR38Tah4S7TEmKQQo+pvlLcT4P1rQq/F4kRWEUiCeiXP/+bq
+            6hK+eKzsKuLkKA7X1vuNRbw/f/oPjExSYAgNw6c/33AXFjFmNgpfJ1PVv3is7MK6TjKxYMUeuKdq
+            EXKI027qr7B4yi0j5tlczvVqN0cD/KZIYSVgaNtA9B1CVRifQrSAJcdESdarA9fvjY9Hp5I/JHat
+            BSgMXDczLgrdULwcHHQpQdrb2TW6nV8ZLuuXydmiTxJ1HIUx5UHSqpenTNal0j4E1TYNKljrX+HU
+            yji1Uq6ILq/Eiss4ajSSYyA/NDT8/Y3VyNW1NmCv00mAWbff6xjdHuaH/cEevfz64yKdT9gfDh+X
+            zHNcPmU3fL05yhEhm+FJfbiFA5SBpiXCS+5RtQ1+/LHqUmkQyo+cbPQ2O9sS3/LxG6O3yG27iA8o
+            lB3Wlybayq05j10XAhlj0uOYdy7MFiZf8YC5jjnodMC/MweqsmiGmNhidDNXCH0QAam226WIOEZl
+            5oVCKXgpb3gwLPDAfcqUNbTjIJSB6cnIRGQgbwlepX3SZ7aI7nHSelXsl5vrePwUFf9iBX+aeik+
+            1EdpgMLUs75tDIaGr5MQlqC3+sa+fNWexVEkvZeJQe/0jT2y5/0ePv9G5pz40f9PW15F5g48Z9AK
+            diYPM3RxNWYPrRKNVJvvx01cE5ArbDNz3dvvJC0Fiv2/ieGXKpybtdbZZltSi7QHe/Net2NZO7zX
+            P7A75VrkJpUuMG62k0Hud+lYadGjV64bZvU9FkdLI0VR0hbMxY3F5AO5ZGU/q02jrB/CusrKMy5o
+            G7NYuI5CXxfqxuRbfq+OHG18quNE3nopgK10ZdUE1YFbEKAgW7iheaVpne5QJK3UFAsUhaqn1Q56
+            mcztX5EaF7Nk0ubBDp3VB32jOygrs1YooiAKPfX8OEIo/4CAiSpejaaFzxU+VsJr7OCD3TUGu/pE
+            Tsqcp8n9DE9jzVDVHw2EZpTjSXDFikyeyp35hY8qMxaz9SSxLOTZyHSmS6iNn3//r11jZw/Z0jx/
+            P704V9jzBX55UaBS6nQWrnIAahnTZVoYQgNd5eyI8njEjm95YHNX0TZ2jT5xRF0kuXUzLX5qpVxO
+            Lk6uj6/eqQLGO6oTH/3T1XiK+ukiebeDaaJ+qELkNpqj0XQ82FWkb8bnX199g7S9TdriJkzdeJFt
+            A1lQthXqQ29HUpfr7Koa9UF3YOz3C0Fbs2O+P1FOhZy0d5WDtUK0qQUnES+HO6RgHULbaSXjBVxX
+            MXi+65j4Cfx7OX5zAdPx5O3pycUkLYbkDCqlOKS/ke4N31ID4YV6xZw9ZBwKhZRtCYAqk28vlmQs
+            qIATPv23OtMwslIxA9KrQKBoEmwrqajZWMYkqVzQxZvv6+tFwuoFqmq9BWQiVcaDpi1egs5VrrO9
+            KNPwuLfMFpYrtOo2hrJnQYWuiK1mVHjxKMNhKD+3qUoVgisXYXNzc0a/i0WxSnMj2A9so1bTSFf1
+            87/8AdrMF+pWJWNCrZNe09DlIFI1U6D86b9ICie/4VVSJbfQ6SW0lcuSXFEuENKhjvMaUnqJ8vzd
+            pZExiZira0oMHQA3ILMuI7UdEUpXZ29Kba7EBfPCLuu71UT25FocQ3sI6jqnVMBVebjwEHdhn0CE
+            JsJsOW39sgk/hsQlwujPqdnmThxkyZ4lKAwUkpwHS6qTolxTyOoJxRieOW+1mLA9snd1ZO/1+80K
+            Zam48GBxL141vitDq7rSSvsHny/qxtYu33uu55bP/Ge6FmJe7vm+KhuejKo89PQXRxZv0/KTw4CN
+            ezcr243NgshDWZA88pabtcaqjai/vxL8i/WSdUafveiyEZX/kxLlI9jRnQHKDJBAJ6mtPFlHdw00
+            GhlV8+H0vi1GR/2Ghc8NApqBbh4CS1RLUGpaK9xansqoAulygidQZw6qpVR/KGgovd8r1g/T20J9
+            Eahvz/Sc+ZYYUNcbWS9zoMJd8T5PidCpFu6y0tLV5PJYl5cqBRr6TwqYLB2NTt5Nxr+9Hk+vqsaY
+            FGCGlHUlZ56+VKD/YxE9/YQR4kEwq0xWKoStPyr4y+dQxv/tYo5ZoY6GdEAwwUPE9vTTncCASQju
+            Fy9K7+cHTreyW1D1M+HqefuaSxdBPEqZRtiyIHkwe/8F5uT3fiQtTJMcubq+Pj1pNNfmF4+aeTpy
+            /b7keSVTKhZxC3KXhf5AaL5VLTOrjTSejZZahkLT80JoDaaALKulb09FGihNmTyp2z0qOXM262zD
+            kgKeetR05PyMjALTuVrP2t2xOrXa/wJlPEX0DicAAA==
+        run: |
+          printf '%s' "$PATCH_B64" | tr -d ' \n' | base64 -d | gunzip > /tmp/fix.patch
+          git apply --whitespace=nowarn /tmp/fix.patch
+          rm -f .github/workflows/apply-product-fix.yml
+          git config user.name "homsteg"
+          git config user.email "homsteg-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: criar produto sem depender de CORS no upload de imagens"
+          git push origin HEAD:main
