@@ -18,6 +18,8 @@ import {
   Footprints,
   Settings2,
 } from "lucide-react";
+import { toast } from "sonner";
+
 import { trpc } from "@/lib/trpc";
 import {
   MAX_VARIANT_ROWS,
@@ -158,6 +160,38 @@ function isSupportedImageType(
   );
 }
 
+/*
+ * Base64 puro (sem prefixo data:) do ficheiro, processado em
+ * blocos de 32 KB — evita rebentar a stack em ficheiros de 1 MB
+ * ao espalhar os bytes num único String.fromCharCode.
+ */
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(
+    await file.arrayBuffer(),
+  );
+
+  const chunkSize = 0x8000;
+
+  let binary = "";
+
+  for (
+    let index = 0;
+    index < bytes.length;
+    index += chunkSize
+  ) {
+    binary += String.fromCharCode(
+      ...Array.from(
+        bytes.subarray(
+          index,
+          index + chunkSize,
+        ),
+      ),
+    );
+  }
+
+  return btoa(binary);
+}
+
 export default function NewProductModal({
   storeId,
   onClose,
@@ -195,8 +229,8 @@ export default function NewProductModal({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const storageUpload =
-    trpc.storage.createUploadUrl.useMutation();
+  const uploadProductImage =
+    trpc.storage.uploadProductImage.useMutation();
 
   const createProduct =
     trpc.products.create.useMutation();
@@ -549,8 +583,18 @@ export default function NewProductModal({
 
       /*
        * =================================================
-       * 2. PEDIR URL DE UPLOAD AO BACKEND
+       * 2. ENVIAR AS IMAGENS PARA O CLOUDFLARE R2
        * =================================================
+       *
+       * O ficheiro é enviado para o nosso servidor
+       * (storage.uploadProductImage) e é o servidor que o
+       * escreve no R2.
+       *
+       * O PUT direto do browser para uma URL presigned do R2
+       * é um pedido cross-origin: sem uma política CORS no
+       * bucket o browser aborta-o com "Failed to fetch" e o
+       * produto nunca chega a ser criado. Passar pelo servidor
+       * mantém o ficheiro na mesma origem e o R2 como storage.
        */
       const uploadedImages = await Promise.all(
         orderedImages.map(async (image) => {
@@ -566,25 +610,24 @@ export default function NewProductModal({
             );
           }
 
-          const upload = await storageUpload.mutateAsync({
-            storeId: activeStoreId,
-            fileName: image.file.name,
-            contentType: image.file.type,
-          });
-
-          const uploadResponse = await fetch(upload.uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": image.file.type },
-            body: image.file,
-          });
-
-          if (!uploadResponse.ok) {
+          try {
+            return await uploadProductImage.mutateAsync({
+              storeId: activeStoreId,
+              fileName: image.file.name,
+              contentType: image.file.type,
+              dataBase64: await fileToBase64(
+                image.file,
+              ),
+            });
+          } catch (uploadError) {
             throw new Error(
-              `Falha no upload da imagem para o Cloudflare R2. HTTP ${uploadResponse.status}.`,
+              `Não foi possível guardar a imagem "${image.file.name}" no armazenamento: ${
+                uploadError instanceof Error
+                  ? uploadError.message
+                  : "erro desconhecido"
+              }`,
             );
           }
-
-          return upload;
         }),
       );
 
@@ -688,6 +731,10 @@ export default function NewProductModal({
        * =================================================
        */
       setMessage(
+        "Produto criado com sucesso.",
+      );
+
+      toast.success(
         "Produto criado com sucesso.",
       );
 
@@ -1520,12 +1567,12 @@ export default function NewProductModal({
                 onClick={handleSave}
                 disabled={
                   createProduct.isPending ||
-                  storageUpload.isPending
+                  uploadProductImage.isPending
                 }
                 className="h-10 w-full rounded-xl bg-emerald-600 px-6 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {createProduct.isPending ||
-                storageUpload.isPending
+                uploadProductImage.isPending
                   ? "A guardar..."
                   : "Guardar produto"}
               </button>
@@ -1535,7 +1582,7 @@ export default function NewProductModal({
                 onClick={onClose}
                 disabled={
                   createProduct.isPending ||
-                  storageUpload.isPending
+                  uploadProductImage.isPending
                 }
                 className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-6 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >

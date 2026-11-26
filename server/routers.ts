@@ -81,10 +81,12 @@ import {
 import { auth, activeSocialProviders } from "./auth.js";
 
 import {
+  buildStoreObjectKey,
   createStoreDownloadUrl,
   createStoreUploadUrl,
   extractStoreObjectKey,
   isPresignedObjectUrl,
+  uploadStoreObject,
 } from "./r2.js";
 
 /* ============================================================
@@ -92,6 +94,16 @@ import {
    ============================================================ */
 
 const storeIdInput = z.string().trim().min(3).max(64);
+
+/*
+ * Imagem de produto: 1 MB, o mesmo limite do formulário.
+ * O ficheiro chega ao servidor em base64 (≈1,37 MB de JSON),
+ * dentro do limite de body do Express (50 MB) e da Vercel
+ * (4,5 MB por pedido).
+ */
+const PRODUCT_IMAGE_MAX_BYTES = 1 * 1024 * 1024;
+
+const PRODUCT_IMAGE_BASE64_MAX_LENGTH = 2 * 1024 * 1024;
 
 const storeSlugInput = z
   .string()
@@ -1903,6 +1915,85 @@ export const appRouter = router({
           uploadUrl: upload.uploadUrl,
           imageUrl,
         };
+      }),
+
+    /*
+     * Upload da imagem de produto feito PELO SERVIDOR.
+     *
+     * createUploadUrl devolve uma URL presigned e o browser faz
+     * PUT direto para o Cloudflare R2 — um pedido cross-origin
+     * que só funciona se o bucket tiver uma política CORS para a
+     * origem da app. Sem essa política o browser aborta o pedido
+     * e o formulário falha com "Failed to fetch" (nenhum pedido
+     * chega ao servidor, por isso também não aparece nos logs).
+     *
+     * Aqui o ficheiro viaja na mesma origem (browser → /api/trpc
+     * → R2), pelo que a criação do produto não depende de CORS.
+     * A chave gerada mantém o prefixo stores/{storeId}/products/,
+     * tal como a rota presigned, para o isolamento por loja e a
+     * validação de imageKeys em products.create continuarem iguais.
+     */
+    uploadProductImage: protectedProcedure
+      .input(
+        z.object({
+          storeId: storeIdInput,
+
+          fileName: z.string().trim().min(1).max(255),
+
+          contentType: z.enum([
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+          ]),
+
+          /* Conteúdo do ficheiro em base64, sem prefixo data:. */
+          dataBase64: z
+            .string()
+            .min(1)
+            .max(PRODUCT_IMAGE_BASE64_MAX_LENGTH),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireStoreAccess(
+          await userHasStoreAccess(
+            ctx.user.id,
+            input.storeId,
+            ctx.user.role === "admin"
+          )
+        );
+
+        const bytes = Buffer.from(input.dataBase64, "base64");
+
+        if (bytes.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A imagem enviada está vazia.",
+          });
+        }
+
+        if (bytes.length > PRODUCT_IMAGE_MAX_BYTES) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Cada imagem pode ter no máximo 1 MB.",
+          });
+        }
+
+        const key = buildStoreObjectKey({
+          storeId: input.storeId,
+          folder: "products",
+          fileName: `${crypto.randomUUID()}-${input.fileName}`,
+        });
+
+        await uploadStoreObject({
+          key,
+          body: bytes,
+          contentType: input.contentType,
+        });
+
+        const imageUrl = await createStoreDownloadUrl(key);
+
+        return { key, imageUrl };
       }),
   }),
 
