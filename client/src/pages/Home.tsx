@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import HomstegLogo from "@/components/HomstegLogo";
+import { markStoreCreationIntent } from "@/lib/store-creation-intent";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -753,7 +754,11 @@ export default function Home() {
   );
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const goCreate = () => navigate("/criar-conta");
+  const goCreate = () => {
+    markStoreCreationIntent();
+
+    navigate("/criar-conta");
+  };
   const goLogin = () => navigate("/login");
 
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);

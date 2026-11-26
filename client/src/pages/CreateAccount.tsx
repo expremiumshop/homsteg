@@ -22,6 +22,11 @@ import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 
 import {
+  clearStoreCreationIntent,
+  hasStoreCreationIntent,
+} from "@/lib/store-creation-intent";
+
+import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
@@ -422,6 +427,42 @@ export default function CreateAccount() {
            */
           setAccountExisted(true);
 
+          /*
+           * Percurso "Criar loja": quem já tem conta entra com a
+           * palavra-passe indicada e segue direto para a loja,
+           * sem código de verificação.
+           */
+          if (hasStoreCreationIntent()) {
+            const signInResult =
+              await authClient.signIn.email({
+                email: cleanEmail,
+                password,
+                rememberMe: true,
+              });
+
+            clearStoreCreationIntent();
+
+            if (!signInResult.error) {
+              toast.success(
+                "Sessão iniciada. Vamos criar a tua loja.",
+              );
+
+              window.location.assign(
+                "/criar-loja/negocio",
+              );
+
+              return;
+            }
+
+            toast.error(
+              "Este email já tem conta. Inicia sessão para continuares a criar a loja.",
+            );
+
+            setLocation("/login");
+
+            return;
+          }
+
           const sent =
             await sendOtp(cleanEmail);
 
@@ -443,6 +484,25 @@ export default function CreateAccount() {
       }
 
       setAccountExisted(false);
+
+      /*
+       * Percurso "Criar loja": a conta fica criada e a sessão
+       * ativa (requireEmailVerification: false), sem ecrã de
+       * código. O registo normal continua a pedir OTP.
+       */
+      if (hasStoreCreationIntent()) {
+        clearStoreCreationIntent();
+
+        toast.success(
+          "Conta criada! Vamos criar a tua loja.",
+        );
+
+        window.location.assign(
+          "/criar-loja/negocio",
+        );
+
+        return;
+      }
 
       const sent =
         await sendOtp(cleanEmail);

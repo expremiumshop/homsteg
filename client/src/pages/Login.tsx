@@ -20,6 +20,8 @@ import { authClient } from "@/lib/auth-client";
 
 import { trpc } from "@/lib/trpc";
 
+import { clearStoreCreationIntent } from "@/lib/store-creation-intent";
+
 export default function Login() {
   const [, setLocation] = useLocation();
 
@@ -335,9 +337,15 @@ export default function Login() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setLocation("/criar-conta")
-                  }
+                  onClick={() => {
+                    /*
+                     * O registo normal continua a pedir o
+                     * código enviado por email.
+                     */
+                    clearStoreCreationIntent();
+
+                    setLocation("/criar-conta");
+                  }}
                   className="mt-3 flex h-[52px] w-full items-center justify-center rounded-2xl border border-slate-200 bg-white text-[14px] font-bold text-black transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
                   disabled={isLoading}
                 >

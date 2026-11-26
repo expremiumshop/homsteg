@@ -19,6 +19,8 @@ import { trpc } from "@/lib/trpc";
 
 import { getStoreUrlLabel } from "@/lib/store-url";
 
+import { markStoreCreationIntent } from "@/lib/store-creation-intent";
+
 type StoreData = {
   fullName: string;
   storeName: string;
@@ -93,6 +95,8 @@ export default function CreateStoreReview() {
     }
 
     if (!meQuery.data) {
+      markStoreCreationIntent();
+
       navigate("/criar-conta");
       return;
     }
